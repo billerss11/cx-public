@@ -1,0 +1,822 @@
+body {
+    font-family: var(--font-family-sans);
+    background:
+        radial-gradient(900px 520px at 10% -10%, var(--color-accent-primary-soft), transparent 60%),
+        radial-gradient(700px 420px at 90% -10%, var(--color-accent-secondary-soft), transparent 56%),
+        linear-gradient(180deg, var(--color-surface-subtle) 0%, var(--color-surface-base) 100%);
+    color: var(--ink);
+}
+
+/* App-owned utility classes replacing former Bootstrap utility reliance. */
+.d-flex {
+    display: flex !important;
+}
+
+.d-none {
+    display: none !important;
+}
+
+.flex-wrap {
+    flex-wrap: wrap !important;
+}
+
+.flex-column {
+    flex-direction: column !important;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+.justify-content-between {
+    justify-content: space-between !important;
+}
+
+.flex-grow-1 {
+    flex: 1 1 auto !important;
+}
+
+.w-100 {
+    width: 100% !important;
+}
+
+.gap-1 {
+    gap: 0.25rem !important;
+}
+
+.gap-2 {
+    gap: 0.5rem !important;
+}
+
+.gap-3 {
+    gap: 1rem !important;
+}
+
+.mt-2 {
+    margin-top: 0.5rem !important;
+}
+
+.mt-3 {
+    margin-top: 1rem !important;
+}
+
+.mt-4 {
+    margin-top: 1.5rem !important;
+}
+
+.mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.mb-1 {
+    margin-bottom: 0.25rem !important;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem !important;
+}
+
+.mb-3 {
+    margin-bottom: 1rem !important;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+.ms-2 {
+    margin-left: 0.5rem !important;
+}
+
+.me-1 {
+    margin-right: 0.25rem !important;
+}
+
+.small {
+    font-size: 0.875em;
+}
+
+.container-fluid {
+    padding: 12px 12px 14px;
+}
+
+.section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-top: 22px;
+    margin-bottom: 12px;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.cross-section-panel {
+    flex: 0 0 320px;
+    background: linear-gradient(180deg, var(--color-surface-elevated), var(--color-surface-subtle));
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+.cross-section-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+}
+
+.cross-section-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.cross-section-slider-column {
+    width: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    user-select: none;
+}
+
+.cross-section-slider-track {
+    width: 58px;
+    height: 380px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cross-section-canvas-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.cross-section-depth-input-wrap {
+    width: 150px;
+}
+
+.cross-section-depth-input-wrap .form-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+    text-align: center;
+    width: 100%;
+}
+
+.cross-section-depth-input-wrap .p-inputnumber {
+    width: 100%;
+}
+
+.handsontable-container {
+    margin-top: 15px;
+    margin-bottom: 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+    padding: 6px;
+    position: relative;
+    z-index: 0;
+}
+
+.handsontable .htCore td,
+.handsontable .htCore th,
+.handsontable .htCore {
+    user-select: none;
+}
+
+.handsontable .handsontableInput,
+.handsontable .handsontableInputHolder,
+.handsontable input,
+.handsontable textarea {
+    user-select: text;
+}
+
+.handsontable th.table-row-highlight {
+    background-color: color-mix(in srgb, var(--p-primary-500) 12%, transparent) !important;
+    border-left: 4px solid var(--p-primary-500);
+}
+
+.handsontable td.required-cell {
+    background-color: var(--color-table-required-bg);
+}
+
+.handsontable .htCore td.trajectory-computed-cell {
+    background-color: var(--color-table-computed-bg);
+}
+
+.handsontable .htCore td.topology-breakout-warning-cell {
+    background-color: color-mix(in srgb, var(--color-state-warning) 14%, transparent) !important;
+}
+
+:root.app-dark .handsontable-container {
+    background: var(--color-surface-elevated);
+    border-color: var(--line);
+}
+
+:root.app-dark .handsontable .htCore th {
+    background: color-mix(in srgb, var(--color-surface-muted) 92%, var(--color-surface-base)) !important;
+    color: var(--ink) !important;
+    border-color: var(--line) !important;
+}
+
+:root.app-dark .handsontable .htCore td {
+    background: color-mix(in srgb, var(--color-surface-elevated) 96%, var(--color-surface-base)) !important;
+    color: var(--ink) !important;
+    border-color: var(--line) !important;
+}
+
+:root.app-dark .handsontable .htCore tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--color-surface-muted) 76%, var(--color-surface-base)) !important;
+}
+
+.handsontable .htCore td {
+    font-weight: 400;
+}
+
+.handsontable .htCore td,
+.handsontable .htCore th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Keep Handsontable menus above floating PrimeVue dialogs. */
+.handsontable.htContextMenu:not(.htGhostTable),
+.handsontable.htDropdownMenu:not(.htGhostTable),
+.handsontable.htFiltersConditionsMenu:not(.htGhostTable) {
+    z-index: 1200;
+}
+
+.depth-axis path,
+.depth-axis line {
+    stroke: var(--color-depth-axis-line);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.depth-axis text {
+    fill: var(--color-depth-axis-text);
+    font-size: 11px;
+}
+
+.app-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid transparent;
+    padding: 10px 12px;
+    color: var(--color-alert-base-text);
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.app-alert.is-leaving {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.app-alert__message {
+    flex: 1 1 auto;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.app-alert__close {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.95rem;
+    line-height: 1;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.app-alert__close:hover {
+    background: var(--color-alert-close-hover);
+}
+
+.app-alert.is-success {
+    background: var(--color-alert-success-bg);
+    border-color: var(--color-alert-success-border);
+    color: var(--color-alert-success-text);
+}
+
+.app-alert.is-info {
+    background: var(--color-alert-info-bg);
+    border-color: var(--color-alert-info-border);
+    color: var(--color-alert-info-text);
+}
+
+.app-alert.is-warning {
+    background: var(--color-alert-warning-bg);
+    border-color: var(--color-alert-warning-border);
+    color: var(--color-alert-warning-text);
+}
+
+.app-alert.is-danger {
+    background: var(--color-alert-danger-bg);
+    border-color: var(--color-alert-danger-border);
+    color: var(--color-alert-danger-text);
+}
+
+:root.app-dark .app-alert {
+    color: var(--color-alert-dark-text);
+    border-color: var(--line);
+    box-shadow: var(--shadow-alert-dark);
+}
+
+:root.app-dark .app-alert__close:hover {
+    background: var(--color-alert-dark-close-hover);
+}
+
+#alertContainer {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1050;
+    max-width: min(420px, 92vw);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.88rem;
+    line-height: 1.35;
+    margin-bottom: 8px;
+    color: var(--muted);
+}
+
+.range-control-disabled {
+    opacity: 0.55;
+}
+
+.color-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid var(--color-swatch-border);
+    flex: 0 0 auto;
+}
+
+hr {
+    margin: 14px 0;
+    color: var(--line);
+}
+
+.info-box {
+    background-color: color-mix(in srgb, var(--p-primary-500) 12%, transparent);
+    border-left: 4px solid var(--p-primary-500);
+    padding: 12px 14px;
+    margin: 10px 0;
+    font-size: 0.87rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-info-box-text);
+}
+
+.table-row-highlight {
+    border-left: 5px solid var(--p-primary-700);
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-accent-primary) 22%, transparent),
+        color-mix(in srgb, var(--color-accent-primary) 8%, transparent)
+    ) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-primary) 25%, transparent);
+}
+
+.plot-highlight {
+    filter:
+        drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent-primary) 82%, transparent))
+        drop-shadow(0 0 20px color-mix(in srgb, var(--color-accent-primary) 55%, transparent));
+}
+
+.plot-highlight .casing-wall {
+    stroke-width: 3px !important;
+    stroke: var(--p-primary-700) !important;
+}
+
+.horizontal-line-group .horizontal-line-path,
+.annotation-box-group .annotation-fill {
+    transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+.plot-highlight .horizontal-line-path {
+    stroke-width: 4.5px !important;
+    stroke: var(--p-primary-700) !important;
+}
+
+.plot-highlight .line-label-bg {
+    stroke-width: 2.5px !important;
+    stroke: var(--p-primary-700) !important;
+}
+
+.plot-highlight .annotation-fill {
+    stroke-width: 3.5px !important;
+    stroke: var(--p-primary-700) !important;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent-primary) 58%, transparent));
+}
+
+.plot-highlight .casing-layer__wall,
+.plot-highlight .casing-layer__open-hole-wall,
+.plot-highlight .horizontal-line-layer__path,
+.plot-highlight .annotation-layer__fill,
+.plot-highlight .fluid-layer__segment,
+.plot-highlight .plug-layer__segment,
+.plot-highlight .marker-layer__triangle,
+.plot-highlight .marker-layer__leak,
+.plot-highlight .casing-label-layer__box,
+.plot-highlight .fluid-label-layer__box,
+.plot-highlight .directional-overlay-layer__line-path,
+.plot-highlight .directional-overlay-layer__annotation-fill,
+.plot-highlight .directional-overlay-layer__casing-label-bg,
+.plot-highlight .directional-overlay-layer__fluid-label-bg,
+.plot-highlight .directional-overlay-layer__depth-box {
+    stroke: var(--p-primary-700) !important;
+}
+
+.plot-highlight .casing-layer__wall,
+.plot-highlight .casing-layer__open-hole-wall,
+.plot-highlight .horizontal-line-layer__path,
+.plot-highlight .directional-overlay-layer__line-path,
+.plot-highlight .marker-layer__leak {
+    stroke-width: 3px !important;
+}
+
+.plot-highlight .casing-label-layer__box,
+.plot-highlight .fluid-label-layer__box,
+.plot-highlight .directional-overlay-layer__casing-label-bg,
+.plot-highlight .directional-overlay-layer__fluid-label-bg,
+.plot-highlight .directional-overlay-layer__depth-box {
+    stroke-width: 2px !important;
+}
+
+.plot-highlight .casing-label-layer__arrow-line,
+.plot-highlight .fluid-label-layer__arrow-line,
+.plot-highlight .directional-overlay-layer__casing-arrow-line,
+.plot-highlight .directional-overlay-layer__fluid-arrow-line,
+.plot-highlight .directional-overlay-layer__depth-line {
+    stroke: var(--p-primary-700) !important;
+}
+
+.plot-highlight .casing-label-layer__arrow-head,
+.plot-highlight .fluid-label-layer__arrow-head,
+.plot-highlight .directional-overlay-layer__casing-arrow-head,
+.plot-highlight .directional-overlay-layer__fluid-arrow-head,
+.plot-highlight .directional-overlay-layer__depth-arrow {
+    fill: var(--p-primary-700) !important;
+}
+
+.plot-highlight.directional-band-layer__band,
+.plot-highlight.directional-decoration-layer__marker-perf,
+.plot-highlight.directional-decoration-layer__marker-leak {
+    filter:
+        drop-shadow(0 0 12px color-mix(in srgb, var(--color-accent-primary) 85%, transparent))
+        drop-shadow(0 0 22px color-mix(in srgb, var(--color-accent-primary) 60%, transparent));
+}
+
+.casing-hitbox {
+    cursor: pointer;
+    fill: transparent;
+}
+
+h2, h4, h5 {
+    font-family: var(--font-family-display);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.sidebar h4 {
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.app-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+}
+
+.app-credit {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.4;
+    margin-top: 18px;
+}
+
+.text-muted {
+    color: var(--muted) !important;
+}
+
+.top-bar {
+    background:
+        linear-gradient(
+            120deg,
+            color-mix(in srgb, var(--color-accent-primary) 10%, transparent),
+            color-mix(in srgb, var(--color-accent-primary-strong) 8%, transparent)
+        ),
+        var(--color-surface-elevated);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 9px var(--spacing-md);
+    box-shadow: var(--shadow-soft);
+}
+
+.top-bar h2 {
+    font-weight: 700;
+}
+
+.side-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.side-accordion .side-accordion-panel {
+    border: none;
+    background: transparent;
+}
+
+.side-accordion .side-accordion-panel .p-accordionpanel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+}
+
+.side-accordion .side-accordion-panel .p-accordionheader {
+    background: var(--color-surface-subtle);
+    color: var(--ink);
+    font-family: var(--font-family-display);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.side-accordion .side-accordion-panel .p-accordionpanel-active > .p-accordionheader {
+    background: linear-gradient(
+        120deg,
+        color-mix(in srgb, var(--color-accent-primary) 12%, transparent),
+        color-mix(in srgb, var(--color-accent-primary-strong) 8%, transparent)
+    );
+    color: var(--ink);
+}
+
+.side-accordion .side-accordion-panel .p-accordionheader:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+.side-accordion .side-accordion-panel .p-accordionheader-toggle-icon {
+    color: var(--muted);
+}
+
+.side-accordion .side-accordion-panel .p-accordioncontent-content {
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+}
+
+.control-group {
+    margin-bottom: 12px;
+}
+
+
+.control-group hr {
+    margin-top: 8px;
+    margin-bottom: 12px;
+    color: var(--color-control-rule);
+}
+
+.slider-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.control-group .p-slider.p-slider-horizontal {
+    --control-slider-handle-size: 1.4rem;
+    margin-top: 10px;
+    height: 0.72rem;
+    border-radius: 999px;
+    position: relative;
+}
+
+.control-group .p-slider.p-slider-horizontal::before {
+    content: "";
+    position: absolute;
+    inset-block: -10px;
+    inset-inline: 0;
+}
+
+.control-group .p-slider.p-slider-horizontal .p-slider-range {
+    border-radius: 999px;
+}
+
+.control-group .p-slider.p-slider-horizontal .p-slider-handle {
+    width: var(--control-slider-handle-size);
+    height: var(--control-slider-handle-size);
+    margin-block-start: calc(var(--control-slider-handle-size) * -0.5);
+}
+
+.plot-actions {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-accent-primary) 10%, transparent),
+        var(--color-surface-subtle)
+    );
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+.resizing {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
+.resizing-y {
+    cursor: row-resize !important;
+    user-select: none;
+}
+
+.resizing-both {
+    cursor: nwse-resize !important;
+    user-select: none;
+}
+
+.brand-card,
+.language-card {
+    padding: var(--spacing-md);
+    border: 1px solid var(--line);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+}
+
+.brand-subtitle,
+.topbar-subtitle {
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.workflow-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    background: var(--color-surface-elevated);
+    font-size: 0.95rem;
+}
+
+.workflow-eyebrow {
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    color: var(--p-primary-500);
+    margin: 0 0 6px;
+}
+
+.workflow-title {
+    font-size: 1.02rem;
+    font-weight: 650;
+    line-height: 1.35;
+    margin: 0;
+}
+
+.workflow-groups .p-accordionheader {
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+}
+
+.control-group {
+    font-size: 0.89rem;
+}
+
+.control-group .section-title {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 0.84rem;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--color-text-primary) 78%, var(--color-accent-primary));
+}
+
+.control-helper,
+.input-hint {
+    display: block;
+    color: var(--muted);
+    font-size: 0.79rem;
+    line-height: 1.4;
+}
+
+.input-hint {
+    margin-top: 4px;
+    margin-bottom: 8px;
+}
+
+.stack-buttons {
+    display: grid;
+    gap: 8px;
+}
+
+.export-button-group > * {
+    min-width: 90px;
+}
+
+.workflow-groups .p-accordionpanel {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.workflow-groups .p-accordionheader {
+    background: var(--color-surface-muted);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.workflow-groups .p-accordionpanel-active > .p-accordionheader {
+    background: linear-gradient(
+        120deg,
+        color-mix(in srgb, var(--color-accent-primary) 12%, transparent),
+        var(--color-surface-muted)
+    );
+}
+
+.workflow-groups .p-accordioncontent-content {
+    padding: 10px;
+}
+
+#vsAzimuthControls {
+    width: 100%;
+    max-width: 100%;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(116px, 132px);
+    gap: 8px;
+    align-items: center;
+    overflow: hidden;
+}
+
+#vsAzimuthControls > .flex-grow-1 {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+#vsAzimuthControls .vs-azimuth-input {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 4px;
+    align-items: center;
+}
+
+#vsAzimuthControls .vs-azimuth-input .p-inputnumber {
+    width: 100%;
+    min-width: 0;
+}
+
+#vsAzimuthControls .vs-azimuth-input .text-muted {
+    white-space: nowrap;
+}
+
+@media (max-width: 991px) {
+    .cross-section-panel {
+        width: 100%;
+        flex-basis: auto;
+    }
+}
+
+@media (max-width: 1500px) {
+    #vsAzimuthControls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #vsAzimuthControls .vs-azimuth-input {
+        width: min(220px, 100%);
+        justify-self: start;
+    }
+}
+

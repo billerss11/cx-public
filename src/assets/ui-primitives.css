@@ -1,0 +1,97 @@
+:where(.p-button) {
+    min-height: var(--control-height-sm);
+    border-radius: var(--control-radius);
+    padding-block: var(--control-padding-y);
+    padding-inline: var(--control-padding-x);
+    gap: var(--control-gap);
+    font-size: var(--control-font-size);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+:where(.p-button.p-button-sm) {
+    min-height: var(--control-height-sm);
+}
+
+:where(.p-button.p-button-icon-only) {
+    min-width: 2rem;
+    padding-inline: 0.52rem;
+}
+
+:where(.p-button):focus-visible {
+    box-shadow: var(--control-focus-ring);
+}
+
+:where(.p-button .p-button-label) {
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+:where(.p-inputtext),
+:where(.p-inputnumber .p-inputnumber-input),
+:where(.p-select) {
+    min-height: var(--control-height-md);
+    border-radius: var(--control-radius);
+    border-color: var(--control-border-color);
+    font-size: var(--control-font-size);
+    line-height: 1.2;
+}
+
+:where(.p-inputtext),
+:where(.p-inputnumber .p-inputnumber-input) {
+    padding-block: var(--control-padding-y);
+    padding-inline: var(--control-padding-x);
+}
+
+:where(.p-select .p-select-label) {
+    display: flex;
+    align-items: center;
+    min-height: calc(var(--control-height-md) - 2px);
+    padding-block: var(--control-padding-y);
+    padding-inline: var(--control-padding-x);
+    line-height: 1.2;
+}
+
+:where(.p-select .p-select-dropdown) {
+    width: 2rem;
+}
+
+:where(.p-inputtext:not(.p-disabled):hover),
+:where(.p-inputnumber:not(.p-disabled):hover .p-inputnumber-input),
+:where(.p-select:not(.p-disabled):hover) {
+    border-color: var(--control-border-color-hover);
+}
+
+:where(.p-inputtext.p-focus),
+:where(.p-inputnumber.p-focus .p-inputnumber-input),
+:where(.p-select.p-focus) {
+    box-shadow: var(--control-focus-ring);
+}
+
+:where(.p-select-overlay),
+:where(.p-menu) {
+    border: 1px solid var(--overlay-border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--overlay-shadow);
+    background: var(--color-surface-elevated);
+}
+
+:where(.p-select-overlay .p-select-option),
+:where(.p-menu .p-menu-item-link) {
+    min-height: 30px;
+    border-radius: calc(var(--control-radius) - 2px);
+    padding-block: 0.36rem;
+    padding-inline: 0.58rem;
+    line-height: 1.2;
+}
+
+:where(.p-menu .p-menu-item-link) {
+    display: flex;
+    align-items: center;
+    gap: 0.44rem;
+}
+
+:where(.p-select-overlay .p-select-option),
+:where(.p-menu .p-menu-item-text) {
+    font-size: 0.84rem;
+}
