@@ -27,7 +27,7 @@ function handleDeleteRow() {
 <template>
   <div class="table-pane-content">
     <div class="info-box" data-i18n-html="ui.info.topology_sources">
-      <strong>Topology sources:</strong> define explicit source rows for analysis runs.
+      <strong>Inflow points:</strong> define explicit inflow rows for analysis runs.
     </div>
     <div class="d-flex flex-column gap-1 mb-2">
       <div class="d-flex align-items-center gap-2">
@@ -36,11 +36,11 @@ function handleDeleteRow() {
           v-model="openHoleSourceEnabled"
         />
         <label for="topologyOpenHoleSourceToggle" data-i18n="ui.topology.open_hole_source_toggle">
-          Treat open hole as source (basic mode)
+          Treat open hole as inflow point (basic mode)
         </label>
       </div>
       <small class="text-muted" data-i18n="ui.topology.open_hole_source_toggle_help">
-        Adds source seeds on open-hole intervals when explicit topology source rows are absent/unresolved.
+        Adds inflow seeds on open-hole intervals when explicit inflow rows are absent/unresolved.
       </small>
     </div>
     <div class="handsontable-container">

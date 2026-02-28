@@ -1,20 +1,54 @@
 <script setup>
 import { computed, defineAsyncComponent } from 'vue';
-import { useSelectedVisualContext } from '@/composables/useSelectedVisualContext.js';
+import { useWorkspaceEditorMode } from '@/composables/useWorkspaceEditorMode.js';
 import { useWorkspaceStore } from '@/stores/workspaceStore.js';
 
 const VisualPropertyInspector = defineAsyncComponent(() => import('@/components/controls/VisualPropertyInspector.vue'));
+const AdvancedEntityEditor = defineAsyncComponent(() => import('@/components/controls/AdvancedEntityEditor.vue'));
 const GlobalSettingsDockPanel = defineAsyncComponent(() => import('@/components/workspace/GlobalSettingsDockPanel.vue'));
 
 const workspaceStore = useWorkspaceStore();
-const { hasSelectedVisualContext } = useSelectedVisualContext();
+const {
+  activePanelKind,
+  setEditorMode,
+  showEditorModeSwitch,
+  isCommonMode,
+  isAdvancedMode
+} = useWorkspaceEditorMode();
 
-const activePanelComponent = computed(() => (
-  hasSelectedVisualContext.value ? VisualPropertyInspector : GlobalSettingsDockPanel
-));
+const activePanelComponent = computed(() => {
+  if (activePanelKind.value === 'global') return GlobalSettingsDockPanel;
+  if (activePanelKind.value === 'common-visual') return VisualPropertyInspector;
+  return AdvancedEntityEditor;
+});
+
+const activePanelProps = computed(() => {
+  if (activePanelKind.value === 'advanced') {
+    return { mode: 'advanced' };
+  }
+  if (activePanelKind.value === 'common-advanced') {
+    return { mode: 'common' };
+  }
+  return {};
+});
+
+const titleText = computed(() => {
+  if (activePanelKind.value === 'global') return 'Global Settings';
+  if (activePanelKind.value === 'common-visual') return 'Visual Property Inspector';
+  if (isAdvancedMode.value) return 'Advanced Entity Editor';
+  return 'Entity Editor';
+});
 
 function closeDock() {
   workspaceStore.toggleRightDock(false);
+}
+
+function switchToCommonMode() {
+  setEditorMode('common');
+}
+
+function switchToAdvancedMode() {
+  setEditorMode('advanced');
 }
 </script>
 
@@ -22,9 +56,28 @@ function closeDock() {
   <section class="right-context-dock" role="complementary">
     <header class="right-context-dock__header">
       <h3 class="right-context-dock__title">
-        <span v-if="hasSelectedVisualContext" data-i18n="ui.visual_inspector.title">Visual Property Inspector</span>
-        <span v-else data-i18n="ui.settings.eyebrow">Global Settings</span>
+        {{ titleText }}
       </h3>
+      <div v-if="showEditorModeSwitch" class="right-context-dock__mode-switch">
+        <Button
+          type="button"
+          size="small"
+          :severity="isCommonMode ? 'info' : 'secondary'"
+          :outlined="!isCommonMode"
+          label="Common"
+          data-testid="right-dock-mode-common"
+          @click="switchToCommonMode"
+        />
+        <Button
+          type="button"
+          size="small"
+          :severity="isAdvancedMode ? 'info' : 'secondary'"
+          :outlined="!isAdvancedMode"
+          label="Advanced"
+          data-testid="right-dock-mode-advanced"
+          @click="switchToAdvancedMode"
+        />
+      </div>
       <Button
         type="button"
         text
@@ -38,7 +91,7 @@ function closeDock() {
     </header>
 
     <div class="right-context-dock__content">
-      <component :is="activePanelComponent" />
+      <component :is="activePanelComponent" v-bind="activePanelProps" />
     </div>
   </section>
 </template>
@@ -71,6 +124,12 @@ function closeDock() {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink);
+}
+
+.right-context-dock__mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .right-context-dock__content {

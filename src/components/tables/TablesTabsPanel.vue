@@ -132,10 +132,10 @@ onBeforeUnmount(() => {
             <span id="markers-tab" data-i18n="ui.tabs.markers">Markers</span>
           </Tab>
           <Tab value="topologySources">
-            <span id="topology-sources-tab" data-i18n="ui.tabs.topology_sources">Topology Sources</span>
+            <span id="topology-sources-tab" data-i18n="ui.tabs.topology_sources">Inflow Points</span>
           </Tab>
           <Tab value="topologyBreakouts">
-            <span id="topology-breakouts-tab" data-i18n="ui.tabs.topology_breakouts">Topology Breakouts</span>
+            <span id="topology-breakouts-tab" data-i18n="ui.tabs.topology_breakouts">Crossflow Paths</span>
           </Tab>
           <Tab value="boxes">
             <span id="boxes-tab" data-i18n="ui.tabs.boxes">Boxes</span>

@@ -77,6 +77,7 @@ const shapes = computed(() => {
           type: 'ring',
           innerRadius: innerRadius * scale,
           outerRadius: outerRadius * scale,
+          fill: isOrphaned ? 'none' : 'black',
           color: isOrphaned ? ORPHAN_COLOR : color,
           strokeDasharray: isOrphaned ? ORPHAN_DASH_STYLE : null,
           entity,
@@ -154,7 +155,7 @@ const shapes = computed(() => {
       :key="shape.id"
       :d="`M ${shape.outerRadius} 0 A ${shape.outerRadius} ${shape.outerRadius} 0 1 1 ${-shape.outerRadius} 0 A ${shape.outerRadius} ${shape.outerRadius} 0 1 1 ${shape.outerRadius} 0 M ${shape.innerRadius} 0 A ${shape.innerRadius} ${shape.innerRadius} 0 1 0 ${-shape.innerRadius} 0 A ${shape.innerRadius} ${shape.innerRadius} 0 1 0 ${shape.innerRadius} 0 Z`"
       class="cross-section-equipment-layer__shape"
-      fill="none"
+      :fill="shape.fill || 'none'"
       fill-rule="evenodd"
       :stroke="shape.color"
       :stroke-dasharray="shape.strokeDasharray || null"

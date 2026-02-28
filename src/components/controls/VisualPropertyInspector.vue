@@ -49,6 +49,8 @@ const projectDataStore = useProjectDataStore();
 const { selectedVisualContext, hasSelectedVisualContext } = useSelectedVisualContext();
 const languageTick = ref(0);
 const formState = reactive({});
+const SLIDER_COMMIT_DELAY_MS = 24;
+const sliderCommitTimers = new Map();
 let unsubscribeLanguageChange = null;
 
 const inspectorFields = computed(() => {
@@ -478,13 +480,66 @@ function getSliderValue(fieldDefinition) {
   return (sliderConfig.min + sliderConfig.max) / 2;
 }
 
-function updateNumberFieldBySlider(fieldDefinition, value) {
-  const sliderConfig = getSliderConfig(fieldDefinition);
-  if (!sliderConfig) return;
+function readSliderEventValue(eventOrValue) {
+  return eventOrValue?.value ?? eventOrValue;
+}
 
-  const numericValue = normalizeNumberValue(value);
-  if (!Number.isFinite(numericValue)) return;
-  patchSelectedField(fieldDefinition, clampNumber(numericValue, sliderConfig.min, sliderConfig.max));
+function resolveSliderCommitValue(fieldDefinition, eventOrValue) {
+  const sliderConfig = getSliderConfig(fieldDefinition);
+  if (!sliderConfig) return null;
+
+  const numericValue = normalizeNumberValue(readSliderEventValue(eventOrValue));
+  if (!Number.isFinite(numericValue)) return null;
+  return clampNumber(numericValue, sliderConfig.min, sliderConfig.max);
+}
+
+function clearSliderFieldCommit(fieldDefinition) {
+  const fieldKey = String(fieldDefinition?.field ?? '').trim();
+  if (!fieldKey) return;
+  const existingTimer = sliderCommitTimers.get(fieldKey);
+  if (!existingTimer) return;
+  clearTimeout(existingTimer);
+  sliderCommitTimers.delete(fieldKey);
+}
+
+function clearSliderCommitTimers() {
+  sliderCommitTimers.forEach((timerId) => {
+    clearTimeout(timerId);
+  });
+  sliderCommitTimers.clear();
+}
+
+function queueSliderFieldCommit(fieldDefinition, value) {
+  const fieldKey = String(fieldDefinition?.field ?? '').trim();
+  if (!fieldKey) return;
+  clearSliderFieldCommit(fieldDefinition);
+  const timerId = setTimeout(() => {
+    sliderCommitTimers.delete(fieldKey);
+    patchSelectedField(fieldDefinition, value);
+  }, SLIDER_COMMIT_DELAY_MS);
+  sliderCommitTimers.set(fieldKey, timerId);
+}
+
+function flushSliderFieldCommit(fieldDefinition, value) {
+  clearSliderFieldCommit(fieldDefinition);
+  patchSelectedField(fieldDefinition, value);
+}
+
+function updateNumberFieldBySlider(fieldDefinition, eventOrValue) {
+  const nextValue = resolveSliderCommitValue(fieldDefinition, eventOrValue);
+  if (!Number.isFinite(nextValue)) return;
+  formState[fieldDefinition.field] = nextValue;
+  queueSliderFieldCommit(fieldDefinition, nextValue);
+}
+
+function commitNumberFieldBySlider(fieldDefinition, eventOrValue) {
+  const nextValue = resolveSliderCommitValue(fieldDefinition, eventOrValue);
+  if (Number.isFinite(nextValue)) {
+    formState[fieldDefinition.field] = nextValue;
+    flushSliderFieldCommit(fieldDefinition, nextValue);
+    return;
+  }
+  flushSliderFieldCommit(fieldDefinition, getFieldValue(fieldDefinition));
 }
 
 function patchSelectedField(fieldDefinition, value) {
@@ -560,12 +615,14 @@ function updateNumberFieldDraft(fieldDefinition, value) {
 }
 
 function commitNumberField(fieldDefinition) {
+  clearSliderFieldCommit(fieldDefinition);
   patchSelectedField(fieldDefinition, getFieldValue(fieldDefinition));
 }
 
 watch(
   [selectedVisualContext, inspectorFields],
   ([context]) => {
+    clearSliderCommitTimers();
     syncFormStateFromContext(context);
   },
   { immediate: true }
@@ -578,6 +635,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  clearSliderCommitTimers();
   unsubscribeLanguageChange?.();
   unsubscribeLanguageChange = null;
 });
@@ -736,6 +794,7 @@ onBeforeUnmount(() => {
                     :step="getSliderConfig(fieldDefinition)?.step"
                     class="visual-property-inspector__number-slider"
                     @update:model-value="updateNumberFieldBySlider(fieldDefinition, $event)"
+                    @slideend="commitNumberFieldBySlider(fieldDefinition, $event)"
                   />
                 </div>
 

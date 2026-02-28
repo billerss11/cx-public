@@ -163,10 +163,6 @@ const topologyGraphLayers = Object.freeze({
   'lane-headers': 'base'
 });
 
-const TOPOLOGY_GRAPH_EDGE_TOOLTIP_WIDTH = 280;
-const TOPOLOGY_GRAPH_EDGE_TOOLTIP_PADDING_X = 10;
-const TOPOLOGY_GRAPH_EDGE_TOOLTIP_PADDING_Y = 8;
-const TOPOLOGY_GRAPH_EDGE_TOOLTIP_LINE_HEIGHT = 14;
 const TOPOLOGY_GRAPH_EDGE_TOOLTIP_WRAP_LIMIT = 52;
 
 const topologyGraphConfigs = defineConfigs({
@@ -188,28 +184,22 @@ const topologyGraphConfigs = defineConfigs({
     draggable: false,
     selectable: true,
     normal: {
-      type: 'rect',
-      width: (node) => (node?.kind === 'SURFACE' ? 88 : 64),
-      height: 22,
-      borderRadius: 4,
+      type: 'circle',
+      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
       color: (node) => String(node?.tone ?? '#1f2937'),
       strokeColor: '#0f172a',
       strokeWidth: 1
     },
     hover: {
-      type: 'rect',
-      width: (node) => (node?.kind === 'SURFACE' ? 88 : 64),
-      height: 22,
-      borderRadius: 4,
+      type: 'circle',
+      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
       color: '#3b82f6',
       strokeColor: '#1d4ed8',
       strokeWidth: 1.4
     },
     selected: {
-      type: 'rect',
-      width: (node) => (node?.kind === 'SURFACE' ? 88 : 64),
-      height: 22,
-      borderRadius: 4,
+      type: 'circle',
+      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
       color: '#2563eb',
       strokeColor: '#1d4ed8',
       strokeWidth: 2
@@ -1250,10 +1240,14 @@ function handleTopologyGraphNodeClick(payload = {}) {
   selectedInspectorNodeId.value = selectedInspectorNodeId.value === nodeId ? null : nodeId;
 }
 
-function handleTopologyGraphEdgeClick(payload = {}) {
+function resolveTopologyGraphEdgeId(payload = {}) {
   const directEdgeId = String(payload?.edge ?? '').trim();
   const fallbackEdgeId = Array.isArray(payload?.edges) ? String(payload.edges[0] ?? '').trim() : '';
-  const edgeId = directEdgeId || fallbackEdgeId;
+  return directEdgeId || fallbackEdgeId;
+}
+
+function handleTopologyGraphEdgeClick(payload = {}) {
+  const edgeId = resolveTopologyGraphEdgeId(payload);
   if (!edgeId) return;
   selectedInspectorNodeId.value = null;
   selectedInspectorEdgeId.value = selectedInspectorEdgeId.value === edgeId ? null : edgeId;
@@ -1296,31 +1290,13 @@ function resolveTopologyGraphEdgeTooltipLines(edge = {}) {
   return sourceLines.flatMap((line) => wrapTopologyGraphTooltipLine(line));
 }
 
-function resolveTopologyGraphEdgeTooltipModel(slotProps = {}) {
-  if (slotProps?.isSummarized === true || slotProps?.hovered !== true) return null;
-  const lines = resolveTopologyGraphEdgeTooltipLines(slotProps?.edge);
-  if (lines.length === 0) return null;
-
-  const scaleValue = Number(slotProps?.scale);
-  const scale = Number.isFinite(scaleValue) && scaleValue > 0 ? scaleValue : 1;
-  const inverseScale = 1 / scale;
-  const width = TOPOLOGY_GRAPH_EDGE_TOOLTIP_WIDTH;
-  const height = (TOPOLOGY_GRAPH_EDGE_TOOLTIP_PADDING_Y * 2) + (lines.length * TOPOLOGY_GRAPH_EDGE_TOOLTIP_LINE_HEIGHT);
-  const centerX = Number(slotProps?.center?.x);
-  const centerY = Number(slotProps?.center?.y);
-
-  return {
-    lines,
-    width,
-    height,
-    lineHeight: TOPOLOGY_GRAPH_EDGE_TOOLTIP_LINE_HEIGHT,
-    textX: TOPOLOGY_GRAPH_EDGE_TOOLTIP_PADDING_X,
-    textY: TOPOLOGY_GRAPH_EDGE_TOOLTIP_PADDING_Y + 10,
-    originX: Number.isFinite(centerX) ? centerX + 12 : 0,
-    originY: Number.isFinite(centerY) ? centerY - height - 12 : 0,
-    inverseScale
-  };
-}
+const selectedTopologyGraphEdgeTooltipLines = computed(() => {
+  const edgeId = selectedInspectorEdgeId.value;
+  if (!edgeId) return [];
+  const edge = topologyDebugGraph.value?.edges?.[edgeId];
+  if (!edge) return [];
+  return resolveTopologyGraphEdgeTooltipLines(edge);
+});
 
 const topologyOverlaySelection = computed(() => ({
   selectedBarrierElementId: selectedBarrierElementKey.value,
@@ -2230,65 +2206,43 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
       >
         No topology subgraph data is available for the selected scope.
       </p>
-      <VNetworkGraph
-        v-else
-        class="analysis-topology__graph-canvas analysis-topology__graph-canvas--dialog"
-        :nodes="topologyDebugGraph.nodes"
-        :edges="topologyDebugGraph.edges"
-        :layouts="topologyDebugGraph.layouts"
-        :configs="topologyGraphConfigs"
-        :layers="topologyGraphLayers"
-        :selected-nodes="topologyGraphSelectedNodeIds"
-        :selected-edges="topologyGraphSelectedEdgeIds"
-        :event-handlers="topologyGraphEventHandlers"
-      >
-        <template #lane-headers>
-          <g class="analysis-topology__graph-lane-headers" aria-hidden="true">
-            <g
-              v-for="laneHeader in topologyDebugGraph.laneHeaders"
-              :key="`topology-lane-header-${laneHeader.kind}`"
-              :transform="`translate(${laneHeader.x} ${laneHeader.y})`"
-            >
-              <rect class="analysis-topology__graph-lane-header-bg" x="-60" y="-12" width="120" height="22" rx="4" ry="4" />
-              <text class="analysis-topology__graph-lane-header-text" x="0" y="-1" text-anchor="middle" dominant-baseline="central">
-                {{ laneHeader.label }}
-              </text>
-            </g>
-          </g>
-        </template>
-        <template #edge-overlay="slotProps">
-          <template
-            v-for="tooltipModel in [resolveTopologyGraphEdgeTooltipModel(slotProps)]"
-            :key="`topology-edge-tooltip-${slotProps.edgeId ?? 'summary'}`"
-          >
-            <g
-              v-if="tooltipModel"
-              class="analysis-topology__graph-edge-tooltip"
-              :transform="`translate(${tooltipModel.originX} ${tooltipModel.originY}) scale(${tooltipModel.inverseScale})`"
-            >
-              <rect
-                class="analysis-topology__graph-edge-tooltip-bg"
-                x="0"
-                y="0"
-                :width="tooltipModel.width"
-                :height="tooltipModel.height"
-                rx="6"
-                ry="6"
-              />
-              <text class="analysis-topology__graph-edge-tooltip-line" :x="tooltipModel.textX" :y="tooltipModel.textY">
-                <tspan
-                  v-for="(line, lineIndex) in tooltipModel.lines"
-                  :key="`topology-edge-tooltip-line-${lineIndex}`"
-                  :x="tooltipModel.textX"
-                  :dy="lineIndex === 0 ? 0 : tooltipModel.lineHeight"
-                >
-                  {{ line }}
-                </tspan>
-              </text>
+      <div v-else class="analysis-topology__graph-canvas-shell">
+        <VNetworkGraph
+          class="analysis-topology__graph-canvas analysis-topology__graph-canvas--dialog"
+          :nodes="topologyDebugGraph.nodes"
+          :edges="topologyDebugGraph.edges"
+          :layouts="topologyDebugGraph.layouts"
+          :configs="topologyGraphConfigs"
+          :layers="topologyGraphLayers"
+          :selected-nodes="topologyGraphSelectedNodeIds"
+          :selected-edges="topologyGraphSelectedEdgeIds"
+          :event-handlers="topologyGraphEventHandlers"
+        >
+          <template #lane-headers>
+            <g class="analysis-topology__graph-lane-headers" aria-hidden="true">
+              <g
+                v-for="laneHeader in topologyDebugGraph.laneHeaders"
+                :key="`topology-lane-header-${laneHeader.kind}`"
+                :transform="`translate(${laneHeader.x} ${laneHeader.y})`"
+              >
+                <rect class="analysis-topology__graph-lane-header-bg" x="-60" y="-12" width="120" height="22" rx="4" ry="4" />
+                <text class="analysis-topology__graph-lane-header-text" x="0" y="-1" text-anchor="middle" dominant-baseline="central">
+                  {{ laneHeader.label }}
+                </text>
+              </g>
             </g>
           </template>
-        </template>
-      </VNetworkGraph>
+        </VNetworkGraph>
+        <div v-if="selectedTopologyGraphEdgeTooltipLines.length > 0" class="analysis-topology__graph-hover-detail">
+          <p
+            v-for="(line, lineIndex) in selectedTopologyGraphEdgeTooltipLines"
+            :key="`topology-edge-hover-line-${lineIndex}`"
+            class="analysis-topology__graph-hover-detail-line"
+          >
+            {{ line }}
+          </p>
+        </div>
+      </div>
       <div class="analysis-topology__graph-legend">
         <p class="analysis-topology__graph-legend-item">
           <span class="analysis-topology__graph-line analysis-topology__graph-line--open" />
@@ -2906,6 +2860,11 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   height: min(62vh, 620px);
 }
 
+.analysis-topology__graph-canvas-shell {
+  position: relative;
+  width: 100%;
+}
+
 .analysis-topology__graph-lane-headers {
   pointer-events: none;
 }
@@ -2923,20 +2882,29 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   letter-spacing: 0.01em;
 }
 
-.analysis-topology__graph-edge-tooltip {
+.analysis-topology__graph-hover-detail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  max-width: min(420px, 48%);
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.92);
   pointer-events: none;
 }
 
-.analysis-topology__graph-edge-tooltip-bg {
-  fill: rgba(15, 23, 42, 0.96);
-  stroke: rgba(148, 163, 184, 0.72);
-  stroke-width: 1;
+.analysis-topology__graph-hover-detail-line {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 0.73rem;
+  line-height: 1.35;
 }
 
-.analysis-topology__graph-edge-tooltip-line {
-  fill: #f8fafc;
-  font-size: 11px;
-  font-weight: 500;
+.analysis-topology__graph-hover-detail-line + .analysis-topology__graph-hover-detail-line {
+  margin-top: 2px;
 }
 
 :deep(.analysis-topology__graph-dialog .p-dialog-content) {
@@ -2962,13 +2930,13 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
 
 .analysis-topology__graph-legend {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
 }
 
 .analysis-topology__graph-legend-item {
   margin: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 0.75rem;
@@ -3069,6 +3037,12 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   .analysis-topology__graph-canvas--dialog {
     min-height: 300px;
     height: min(58vh, 440px);
+  }
+
+  .analysis-topology__graph-hover-detail {
+    top: 8px;
+    right: 8px;
+    max-width: calc(100% - 16px);
   }
 }
 </style>

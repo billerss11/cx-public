@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { BOTTOM_DOCK_MODES, useWorkspaceStore } from '@/stores/workspaceStore.js';
 import TablesTabsPanel from '@/components/tables/TablesTabsPanel.vue';
+import { setTablesAccordionOpen } from '@/components/tables/panes/tablePaneState.js';
 
 const props = defineProps({
   mode: {
@@ -23,12 +24,21 @@ const dockClassName = computed(() => ({
 }));
 
 function closeDock() {
+  setTablesAccordionOpen(false);
   workspaceStore.toggleBottomDock(false);
 }
 
 function setBottomDockMode(mode) {
   emit('request-mode-change', mode);
 }
+
+onMounted(() => {
+  setTablesAccordionOpen(true);
+});
+
+onBeforeUnmount(() => {
+  setTablesAccordionOpen(false);
+});
 </script>
 
 <template>

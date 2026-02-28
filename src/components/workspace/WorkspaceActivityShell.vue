@@ -3,17 +3,20 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import { useBottomDockResize } from '@/composables/useBottomDockResize.js';
 import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
+import { useLeftDockResize } from '@/composables/useLeftDockResize.js';
 import { useRightDockResize } from '@/composables/useRightDockResize.js';
 import { onLanguageChange, t } from '@/app/i18n.js';
 import {
-  BOTTOM_DOCK_MODES,
   BOTTOM_DOCK_MIN_HEIGHT,
+  BOTTOM_DOCK_MODES,
+  LEFT_DOCK_MIN_WIDTH,
   RIGHT_DOCK_MIN_WIDTH,
   useWorkspaceStore
 } from '@/stores/workspaceStore.js';
 import CanvasInteractionToolbar from '@/components/workspace/CanvasInteractionToolbar.vue';
-import RightContextDock from '@/components/workspace/RightContextDock.vue';
+import LeftHierarchyDock from '@/components/workspace/LeftHierarchyDock.vue';
 import ResizableBottomDock from '@/components/workspace/ResizableBottomDock.vue';
+import RightContextDock from '@/components/workspace/RightContextDock.vue';
 import WorkspaceProjectActions from '@/components/workspace/WorkspaceProjectActions.vue';
 import WorkspaceViewStateControls from '@/components/workspace/WorkspaceViewStateControls.vue';
 
@@ -35,6 +38,7 @@ const activityMeta = Object.freeze({
 let detachResizeListener = null;
 let unsubscribeLanguageChange = null;
 
+const isLeftDockVisible = computed(() => workspaceStore.leftDockVisible === true);
 const isRightDockVisible = computed(() => workspaceStore.rightDockVisible === true);
 const isBottomDockVisible = computed(() => workspaceStore.bottomDockVisible === true);
 const isBottomDockFloating = computed(() => workspaceStore.bottomDockMode === BOTTOM_DOCK_MODES.floating);
@@ -52,6 +56,7 @@ const activeActivity = computed(() => (
 const actionButtonLabels = computed(() => {
   void languageTick.value;
   return {
+    hierarchy: 'Hierarchy',
     dataTables: t('ui.sidebar.tables'),
     inspector: t('ui.visual_inspector.title'),
     dockedLayout: t('ui.layout.sidebar')
@@ -66,19 +71,23 @@ const floatingDockDialogStyle = computed(() => ({
 }));
 
 const layoutStyle = computed(() => {
-  const dockColumns = workspaceStore.rightDockVisible === true
+  const leftColumns = workspaceStore.leftDockVisible === true
+    ? `minmax(${LEFT_DOCK_MIN_WIDTH}px, ${workspaceStore.leftDockWidth}px) 12px`
+    : 'minmax(0, 0px) 0';
+  const rightColumns = workspaceStore.rightDockVisible === true
     ? `12px minmax(${RIGHT_DOCK_MIN_WIDTH}px, ${workspaceStore.rightDockWidth}px)`
     : '0 minmax(0, 0px)';
   const bottomRows = isInlineBottomDockVisible.value
     ? `auto minmax(0, 1fr) 12px minmax(${BOTTOM_DOCK_MIN_HEIGHT}px, ${workspaceStore.bottomDockHeight}px)`
     : 'auto minmax(0, 1fr) 0 minmax(0, 0px)';
   return {
-    gridTemplateColumns: `minmax(0, 1fr) ${dockColumns}`,
+    gridTemplateColumns: `${leftColumns} minmax(0, 1fr) ${rightColumns}`,
     gridTemplateRows: bottomRows
   };
 });
 
 const { startBottomDockResize } = useBottomDockResize(shellRef);
+const { startLeftDockResize } = useLeftDockResize(shellRef);
 const { startRightDockResize } = useRightDockResize(shellRef);
 const {
   dialogSize: floatingDockSize,
@@ -94,6 +103,10 @@ const {
   maxViewportHeightRatio: 0.8,
   cursorClass: 'resizing-both'
 });
+
+function toggleLeftDock() {
+  workspaceStore.toggleLeftDock();
+}
 
 function toggleRightDock() {
   workspaceStore.toggleRightDock();
@@ -117,11 +130,13 @@ onMounted(() => {
     languageTick.value += 1;
   });
 
+  workspaceStore.reconcileLeftDockWidth();
   workspaceStore.reconcileRightDockWidth();
   workspaceStore.reconcileBottomDockHeight();
   reconcileFloatingDockSize();
 
   const handleResize = () => {
+    workspaceStore.reconcileLeftDockWidth();
     workspaceStore.reconcileRightDockWidth();
     workspaceStore.reconcileBottomDockHeight();
     reconcileFloatingDockSize();
@@ -170,6 +185,16 @@ onBeforeUnmount(() => {
             <Button
               type="button"
               size="small"
+              :severity="isLeftDockVisible ? 'info' : 'secondary'"
+              :outlined="!isLeftDockVisible"
+              icon="pi pi-list"
+              :label="actionButtonLabels.hierarchy"
+              @click="toggleLeftDock"
+            />
+
+            <Button
+              type="button"
+              size="small"
               :severity="isBottomDockVisible ? 'info' : 'secondary'"
               :outlined="!isBottomDockVisible"
               icon="pi pi-table"
@@ -194,6 +219,19 @@ onBeforeUnmount(() => {
     <main class="workspace-activity-shell__content">
       <slot />
     </main>
+
+    <div
+      v-show="isLeftDockVisible"
+      class="workspace-activity-shell__left-splitter"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize hierarchy dock"
+      @pointerdown="startLeftDockResize"
+    ></div>
+
+    <aside v-show="isLeftDockVisible" class="workspace-activity-shell__left-dock">
+      <LeftHierarchyDock />
+    </aside>
 
     <div
       v-show="isRightDockVisible"
@@ -380,12 +418,13 @@ onBeforeUnmount(() => {
 }
 
 .workspace-activity-shell__content {
-  grid-column: 1;
+  grid-column: 3;
   grid-row: 2;
   min-width: 0;
   min-height: 0;
 }
 
+.workspace-activity-shell__left-splitter::before,
 .workspace-activity-shell__dock-splitter::before,
 .workspace-activity-shell__bottom-splitter::before {
   content: '';
@@ -394,6 +433,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--line) 80%, transparent);
 }
 
+.workspace-activity-shell__left-splitter::after,
 .workspace-activity-shell__dock-splitter::after,
 .workspace-activity-shell__bottom-splitter::after {
   content: '';
@@ -401,8 +441,31 @@ onBeforeUnmount(() => {
   inset: 0;
 }
 
-.workspace-activity-shell__dock-splitter {
+.workspace-activity-shell__left-splitter {
   grid-column: 2;
+  grid-row: 2;
+  width: 12px;
+  cursor: col-resize;
+  position: relative;
+}
+
+.workspace-activity-shell__left-splitter::before {
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 4px;
+  transform: translateX(-50%);
+}
+
+.workspace-activity-shell__left-dock {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workspace-activity-shell__dock-splitter {
+  grid-column: 4;
   grid-row: 2;
   width: 12px;
   cursor: col-resize;
@@ -418,7 +481,7 @@ onBeforeUnmount(() => {
 }
 
 .workspace-activity-shell__dock {
-  grid-column: 3;
+  grid-column: 5;
   grid-row: 2;
   min-width: 0;
   min-height: 0;
@@ -544,6 +607,7 @@ onBeforeUnmount(() => {
   }
 
   .workspace-activity-shell__dock-splitter,
+  .workspace-activity-shell__left-splitter,
   .workspace-activity-shell__bottom-splitter {
     display: none;
   }
@@ -552,6 +616,7 @@ onBeforeUnmount(() => {
     min-height: auto;
   }
 
+  .workspace-activity-shell__left-dock,
   .workspace-activity-shell__dock,
   .workspace-activity-shell__bottom-dock {
     margin-top: var(--spacing-md);

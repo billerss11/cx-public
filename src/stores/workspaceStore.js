@@ -7,10 +7,19 @@ const ACTIVITY_TO_VIEW = Object.freeze({
 });
 
 const UI_STATE_STORAGE_KEY = 'workspaceUiStateV1';
+const LEFT_DOCK_MIN_WIDTH = 240;
+const LEFT_DOCK_MAX_WIDTH = 520;
+const DEFAULT_LEFT_DOCK_WIDTH = 300;
+const DEFAULT_LEFT_DOCK_VISIBLE = true;
 const RIGHT_DOCK_MIN_WIDTH = 280;
 const RIGHT_DOCK_MAX_WIDTH = 560;
 const DEFAULT_RIGHT_DOCK_WIDTH = 340;
 const DEFAULT_RIGHT_DOCK_VISIBLE = true;
+const RIGHT_DOCK_EDITOR_MODES = Object.freeze({
+    common: 'common',
+    advanced: 'advanced'
+});
+const DEFAULT_RIGHT_DOCK_EDITOR_MODE = RIGHT_DOCK_EDITOR_MODES.common;
 const BOTTOM_DOCK_MIN_HEIGHT = 120;
 const DEFAULT_BOTTOM_DOCK_HEIGHT = 280;
 const DEFAULT_BOTTOM_DOCK_VISIBLE = true;
@@ -33,6 +42,32 @@ function resolveRightDockWidthBounds() {
         min: RIGHT_DOCK_MIN_WIDTH,
         max: Math.min(RIGHT_DOCK_MAX_WIDTH, dynamicMax)
     };
+}
+
+function resolveLeftDockWidthBounds() {
+    const dynamicMax = typeof window === 'undefined'
+        ? LEFT_DOCK_MAX_WIDTH
+        : Math.max(LEFT_DOCK_MIN_WIDTH, Math.round(window.innerWidth * 0.45));
+    return {
+        min: LEFT_DOCK_MIN_WIDTH,
+        max: Math.min(LEFT_DOCK_MAX_WIDTH, dynamicMax)
+    };
+}
+
+function normalizeLeftDockWidth(value, fallback = DEFAULT_LEFT_DOCK_WIDTH) {
+    const bounds = resolveLeftDockWidthBounds();
+    const fallbackNumber = Number.isFinite(Number(fallback))
+        ? Number(fallback)
+        : DEFAULT_LEFT_DOCK_WIDTH;
+    const safeFallback = Math.round(Math.max(bounds.min, Math.min(bounds.max, fallbackNumber)));
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return safeFallback;
+    return Math.round(Math.max(bounds.min, Math.min(bounds.max, numeric)));
+}
+
+function normalizeLeftDockVisibility(value) {
+    return value !== false;
 }
 
 function normalizeRightDockWidth(value, fallback = DEFAULT_RIGHT_DOCK_WIDTH) {
@@ -83,10 +118,43 @@ function normalizeBottomDockMode(value) {
         : BOTTOM_DOCK_MODES.docked;
 }
 
+function normalizeRightDockEditorMode(value) {
+    return value === RIGHT_DOCK_EDITOR_MODES.advanced
+        ? RIGHT_DOCK_EDITOR_MODES.advanced
+        : RIGHT_DOCK_EDITOR_MODES.common;
+}
+
+function normalizeLeftTreeExpandedKeys(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.entries(value).reduce((next, [key, isExpanded]) => {
+        const normalizedKey = String(key ?? '').trim();
+        if (!normalizedKey || isExpanded !== true) return next;
+        next[normalizedKey] = true;
+        return next;
+    }, {});
+}
+
+function normalizeHierarchySelectionRef(value) {
+    if (!value || typeof value !== 'object') return null;
+    const wellId = String(value.wellId ?? '').trim();
+    const entityType = String(value.entityType ?? '').trim();
+    const rowId = String(value.rowId ?? '').trim();
+    if (!wellId || !entityType || !rowId) return null;
+    return {
+        wellId,
+        entityType,
+        rowId
+    };
+}
+
 function createDefaultUiState() {
     return {
+        leftDockVisible: DEFAULT_LEFT_DOCK_VISIBLE,
+        leftDockWidth: DEFAULT_LEFT_DOCK_WIDTH,
+        leftTreeExpandedKeys: {},
         rightDockVisible: DEFAULT_RIGHT_DOCK_VISIBLE,
         rightDockWidth: DEFAULT_RIGHT_DOCK_WIDTH,
+        rightDockEditorMode: DEFAULT_RIGHT_DOCK_EDITOR_MODE,
         bottomDockVisible: DEFAULT_BOTTOM_DOCK_VISIBLE,
         bottomDockHeight: DEFAULT_BOTTOM_DOCK_HEIGHT,
         bottomDockMode: DEFAULT_BOTTOM_DOCK_MODE
@@ -106,8 +174,12 @@ function readPersistedUiState() {
 
         const parsed = JSON.parse(raw);
         return {
+            leftDockVisible: normalizeLeftDockVisibility(parsed?.leftDockVisible),
+            leftDockWidth: normalizeLeftDockWidth(parsed?.leftDockWidth, DEFAULT_LEFT_DOCK_WIDTH),
+            leftTreeExpandedKeys: normalizeLeftTreeExpandedKeys(parsed?.leftTreeExpandedKeys),
             rightDockVisible: normalizeRightDockVisibility(parsed?.rightDockVisible),
             rightDockWidth: normalizeRightDockWidth(parsed?.rightDockWidth, DEFAULT_RIGHT_DOCK_WIDTH),
+            rightDockEditorMode: normalizeRightDockEditorMode(parsed?.rightDockEditorMode),
             bottomDockVisible: normalizeBottomDockVisibility(parsed?.bottomDockVisible),
             bottomDockHeight: normalizeBottomDockHeight(parsed?.bottomDockHeight, DEFAULT_BOTTOM_DOCK_HEIGHT),
             bottomDockMode: normalizeBottomDockMode(parsed?.bottomDockMode)
@@ -123,8 +195,12 @@ function persistUiState(state) {
         localStorage.setItem(
             UI_STATE_STORAGE_KEY,
             JSON.stringify({
+                leftDockVisible: normalizeLeftDockVisibility(state.leftDockVisible),
+                leftDockWidth: normalizeLeftDockWidth(state.leftDockWidth, DEFAULT_LEFT_DOCK_WIDTH),
+                leftTreeExpandedKeys: normalizeLeftTreeExpandedKeys(state.leftTreeExpandedKeys),
                 rightDockVisible: normalizeRightDockVisibility(state.rightDockVisible),
                 rightDockWidth: normalizeRightDockWidth(state.rightDockWidth, DEFAULT_RIGHT_DOCK_WIDTH),
+                rightDockEditorMode: normalizeRightDockEditorMode(state.rightDockEditorMode),
                 bottomDockVisible: normalizeBottomDockVisibility(state.bottomDockVisible),
                 bottomDockHeight: normalizeBottomDockHeight(state.bottomDockHeight, DEFAULT_BOTTOM_DOCK_HEIGHT),
                 bottomDockMode: normalizeBottomDockMode(state.bottomDockMode)
@@ -142,8 +218,13 @@ export const useWorkspaceStore = defineStore('workspace', {
             currentActivity: 'design',
             activePanelId: 'workflow',
             cachedViews: ['DesignWorkspace'],
+            leftDockVisible: persistedUiState.leftDockVisible,
+            leftDockWidth: persistedUiState.leftDockWidth,
+            leftTreeExpandedKeys: persistedUiState.leftTreeExpandedKeys,
             rightDockVisible: persistedUiState.rightDockVisible,
             rightDockWidth: persistedUiState.rightDockWidth,
+            rightDockEditorMode: persistedUiState.rightDockEditorMode,
+            selectedHierarchyRef: null,
             bottomDockVisible: persistedUiState.bottomDockVisible,
             bottomDockHeight: persistedUiState.bottomDockHeight,
             bottomDockMode: persistedUiState.bottomDockMode
@@ -165,6 +246,40 @@ export const useWorkspaceStore = defineStore('workspace', {
             if (viewName && !this.cachedViews.includes(viewName)) {
                 this.cachedViews = [...this.cachedViews, viewName];
             }
+            return true;
+        },
+        setLeftDockVisibility(visible) {
+            const nextVisible = visible === true;
+            if (this.leftDockVisible === nextVisible) return false;
+            this.leftDockVisible = nextVisible;
+            persistUiState(this);
+            return true;
+        },
+        toggleLeftDock(forceVisible = null) {
+            const nextVisible = typeof forceVisible === 'boolean'
+                ? forceVisible
+                : !this.leftDockVisible;
+            return this.setLeftDockVisibility(nextVisible);
+        },
+        setLeftDockWidth(width) {
+            const nextWidth = normalizeLeftDockWidth(width, this.leftDockWidth);
+            if (this.leftDockWidth === nextWidth) return false;
+            this.leftDockWidth = nextWidth;
+            persistUiState(this);
+            return true;
+        },
+        reconcileLeftDockWidth() {
+            return this.setLeftDockWidth(this.leftDockWidth);
+        },
+        setLeftTreeExpandedKeys(expandedKeys) {
+            const nextExpandedKeys = normalizeLeftTreeExpandedKeys(expandedKeys);
+            const currentEntries = Object.keys(this.leftTreeExpandedKeys ?? {});
+            const nextEntries = Object.keys(nextExpandedKeys);
+            const hasSameShape = currentEntries.length === nextEntries.length
+                && currentEntries.every((key) => nextExpandedKeys[key] === true);
+            if (hasSameShape) return false;
+            this.leftTreeExpandedKeys = nextExpandedKeys;
+            persistUiState(this);
             return true;
         },
         setRightDockVisibility(visible) {
@@ -189,6 +304,31 @@ export const useWorkspaceStore = defineStore('workspace', {
         },
         reconcileRightDockWidth() {
             return this.setRightDockWidth(this.rightDockWidth);
+        },
+        setRightDockEditorMode(mode) {
+            const nextMode = normalizeRightDockEditorMode(mode);
+            if (this.rightDockEditorMode === nextMode) return false;
+            this.rightDockEditorMode = nextMode;
+            persistUiState(this);
+            return true;
+        },
+        setSelectedHierarchyRef(selectionRef) {
+            const nextRef = normalizeHierarchySelectionRef(selectionRef);
+            const currentRef = this.selectedHierarchyRef;
+            if (
+                currentRef?.wellId === nextRef?.wellId
+                && currentRef?.entityType === nextRef?.entityType
+                && currentRef?.rowId === nextRef?.rowId
+            ) {
+                return false;
+            }
+            this.selectedHierarchyRef = nextRef;
+            return true;
+        },
+        clearSelectedHierarchyRef() {
+            if (!this.selectedHierarchyRef) return false;
+            this.selectedHierarchyRef = null;
+            return true;
         },
         setBottomDockVisibility(visible) {
             const nextVisible = visible === true;
@@ -240,4 +380,11 @@ export const useWorkspaceStore = defineStore('workspace', {
     }
 });
 
-export { ACTIVITY_TO_VIEW, RIGHT_DOCK_MIN_WIDTH, BOTTOM_DOCK_MIN_HEIGHT, BOTTOM_DOCK_MODES };
+export {
+    ACTIVITY_TO_VIEW,
+    LEFT_DOCK_MIN_WIDTH,
+    RIGHT_DOCK_MIN_WIDTH,
+    RIGHT_DOCK_EDITOR_MODES,
+    BOTTOM_DOCK_MIN_HEIGHT,
+    BOTTOM_DOCK_MODES
+};

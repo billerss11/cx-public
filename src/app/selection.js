@@ -17,10 +17,13 @@ import {
     resolveTopmostInteractionEntity,
     serializeInteractionEntity
 } from '@/composables/useSchematicInteraction.js';
+import { normalizeRowId } from '@/utils/rowIdentity.js';
+import { resolveSelectionRowTarget } from '@/app/selectionRowLocator.js';
 
 const projectDataStore = useProjectDataStore(pinia);
 const interactionStore = useInteractionStore(pinia);
 const plotElementsStore = usePlotElementsStore(pinia);
+let projectStorePromise = null;
 const state = {
     get casingData() {
         return projectDataStore.casingData ?? [];
@@ -99,6 +102,15 @@ const INTERACTION_TABLE_TARGETS = Object.freeze({
     fluid: { tableType: 'fluid', tabKey: 'fluids' },
     equipment: { tableType: 'equipment', tabKey: 'equipment' }
 });
+
+function resolveProjectStore() {
+    if (!projectStorePromise) {
+        projectStorePromise = import('@/stores/projectStore.js')
+            .then((module) => module.useProjectStore(pinia))
+            .catch(() => null);
+    }
+    return projectStorePromise;
+}
 
 function normalizeSelectionType(type) {
     const normalized = String(type ?? '').trim().toLowerCase();
@@ -316,6 +328,28 @@ function updateNonPipeHighlights(activeEntity) {
     });
 }
 
+function lockSelectionByIndex(type, index) {
+    const normalizedType = normalizeSelectionType(type);
+    if (!normalizedType) return false;
+
+    const nextEntity = resolveEntityByTypeAndValue(normalizedType, index);
+    if (!nextEntity) return false;
+
+    const lockedEntity = normalizeInteractionEntity(state.interaction.lockedEntity);
+    const hoveredEntity = normalizeInteractionEntity(state.interaction.hoveredEntity);
+    const hasSameLocked = isSameInteractionEntity(lockedEntity, nextEntity);
+    const hasSameHovered = isSameInteractionEntity(hoveredEntity, nextEntity);
+
+    if (!hasSameLocked) {
+        state.interaction.lockedEntity = nextEntity;
+    }
+    if (!hasSameHovered) {
+        state.interaction.hoveredEntity = nextEntity;
+    }
+    syncSelectionIndicators();
+    return true;
+}
+
 function isSelectionLocked(type) {
     const locked = normalizeInteractionEntity(state.interaction.lockedEntity);
     if (!locked) return false;
@@ -388,6 +422,37 @@ export function toggleLock(type, index) {
         state.interaction.hoveredEntity = nextEntity;
     }
     syncSelectionIndicators();
+}
+
+export async function selectEntityByRowRef(rowRef = {}) {
+    const normalizedWellId = String(rowRef?.wellId ?? '').trim() || null;
+    const normalizedRowId = normalizeRowId(rowRef?.rowId);
+    const normalizedEntityType = normalizeSelectionType(rowRef?.entityType)
+        ?? String(rowRef?.entityType ?? '').trim();
+    if (!normalizedRowId || !normalizedEntityType) return false;
+
+    if (normalizedWellId) {
+        const projectStore = await resolveProjectStore();
+        if (projectStore && String(projectStore.activeWellId ?? '').trim() !== normalizedWellId) {
+            projectStore.setActiveWell(normalizedWellId);
+        }
+    }
+
+    const target = resolveSelectionRowTarget(projectDataStore, {
+        entityType: normalizedEntityType,
+        rowId: normalizedRowId
+    });
+    if (!target) {
+        clearSelection('all');
+        return false;
+    }
+
+    if (!target.canHighlight || !target.interactionType) {
+        clearSelection('all');
+        return true;
+    }
+
+    return lockSelectionByIndex(target.interactionType, target.storeRowIndex);
 }
 
 export function clearSelection(type, options = {}) {

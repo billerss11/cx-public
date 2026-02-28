@@ -71,7 +71,7 @@ function handleFocusWarningRow(warning) {
 <template>
   <div class="table-pane-content">
     <div class="info-box" data-i18n-html="ui.info.topology_breakouts">
-      <strong>Topology breakouts:</strong> define explicit cross-annulus volume pairs across depth ranges.
+      <strong>Crossflow paths:</strong> define explicit cross-annulus volume pairs across depth ranges.
     </div>
     <div class="handsontable-container">
       <HotTable ref="hotRef" :settings="hotSettingsWithWarnings" :data="tableData" />
@@ -87,7 +87,7 @@ function handleFocusWarningRow(warning) {
 
     <div v-if="breakoutWarnings.length > 0" class="topology-breakouts-table-pane__warnings">
       <p class="topology-breakouts-table-pane__warnings-title" data-i18n="ui.topology_breakout_warnings_title">
-        Topology breakout warnings:
+        Crossflow path warnings:
       </p>
       <ul class="topology-breakouts-table-pane__warnings-list">
         <li
