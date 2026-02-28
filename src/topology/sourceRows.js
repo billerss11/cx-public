@@ -89,6 +89,10 @@ export function filterScenarioBreakoutRows(sourceRows = []) {
     return toSafeArray(sourceRows).filter((sourceRow) => isScenarioBreakoutRow(sourceRow));
 }
 
+export function filterScenarioSourceRows(sourceRows = []) {
+    return toSafeArray(sourceRows).filter((sourceRow) => !isScenarioBreakoutRow(sourceRow));
+}
+
 export function mergeScenarioBreakoutRows(sourceRows = [], breakoutRows = []) {
     const baseRows = toSafeArray(sourceRows);
     const breakoutEditorRows = filterScenarioBreakoutRows(breakoutRows);
@@ -129,6 +133,46 @@ export function mergeScenarioBreakoutRows(sourceRows = [], breakoutRows = []) {
     return mergedRows;
 }
 
+export function mergeScenarioSourceRows(sourceRows = [], scenarioRows = []) {
+    const baseRows = toSafeArray(sourceRows);
+    const scenarioEditorRows = filterScenarioSourceRows(scenarioRows);
+    const scenarioByRowId = new Map();
+    const scenarioRowsWithoutStableId = [];
+
+    scenarioEditorRows.forEach((row) => {
+        const rowId = String(row?.rowId ?? '').trim();
+        if (rowId) {
+            scenarioByRowId.set(rowId, row);
+            return;
+        }
+        scenarioRowsWithoutStableId.push(row);
+    });
+
+    const mergedRows = [];
+    baseRows.forEach((row) => {
+        if (isScenarioBreakoutRow(row)) {
+            mergedRows.push(row);
+            return;
+        }
+
+        const rowId = String(row?.rowId ?? '').trim();
+        if (!rowId || !scenarioByRowId.has(rowId)) return;
+
+        mergedRows.push(scenarioByRowId.get(rowId));
+        scenarioByRowId.delete(rowId);
+    });
+
+    scenarioByRowId.forEach((row) => {
+        mergedRows.push(row);
+    });
+
+    scenarioRowsWithoutStableId.forEach((row) => {
+        mergedRows.push(row);
+    });
+
+    return mergedRows;
+}
+
 export default {
     isSourceRowVisible,
     resolveSourceDepthRange,
@@ -136,5 +180,7 @@ export default {
     resolveScenarioBreakoutVolumePair,
     isScenarioBreakoutRow,
     filterScenarioBreakoutRows,
-    mergeScenarioBreakoutRows
+    filterScenarioSourceRows,
+    mergeScenarioBreakoutRows,
+    mergeScenarioSourceRows
 };

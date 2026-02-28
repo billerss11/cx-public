@@ -4,13 +4,18 @@ import {
     resolveMaxModeledAnnulusSlotIndexForStack
 } from '@/topology/annulusVolumeMapping.js';
 import {
+    MODELED_CASING_ANNULUS_KINDS,
     MODELED_ANNULUS_VOLUME_SLOTS,
     NODE_KIND_FORMATION_ANNULUS,
+    NODE_KIND_TUBING_INNER,
     NODE_KIND_TUBING_ANNULUS,
     SOURCE_POLICY_MODE_SCENARIO_EXPLICIT,
+    SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN,
     SOURCE_POLICY_MODE_FLUID_OPT_IN,
     SOURCE_POLICY_MODE_MARKER_DEFAULT,
     TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE,
+    TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE,
+    SOURCE_KIND_FORMATION_INFLOW,
     SOURCE_KIND_SCENARIO,
     normalizeSourceType,
     normalizeSourceVolumeKind
@@ -37,6 +42,17 @@ const SOURCE_WARNING_SCENARIO_SOURCE_UNSUPPORTED_VOLUME = TOPOLOGY_WARNING_CODES
 const SOURCE_WARNING_SCENARIO_SOURCE_MISSING_DEPTH_RANGE = TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_MISSING_DEPTH_RANGE;
 const SOURCE_WARNING_SCENARIO_SOURCE_NO_RESOLVABLE_INTERVAL = TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_NO_RESOLVABLE_INTERVAL;
 const SOURCE_WARNING_SCENARIO_ROWS_WITH_NO_RESOLVED_NODES = TOPOLOGY_WARNING_CODES.SCENARIO_ROWS_WITH_NO_RESOLVED_NODES;
+const SUPPORTED_SOURCE_VOLUME_KINDS = Object.freeze([
+    'TUBING_INNER',
+    NODE_KIND_TUBING_ANNULUS,
+    ...MODELED_CASING_ANNULUS_KINDS,
+    NODE_KIND_FORMATION_ANNULUS
+]);
+const SUPPORTED_SOURCE_VOLUME_LIST = SUPPORTED_SOURCE_VOLUME_KINDS.join('/');
+const SUPPORTED_SCENARIO_SOURCE_VOLUME_LIST = SUPPORTED_SOURCE_VOLUME_KINDS.join(', ');
+const OUTERMOST_MODELED_ANNULUS_KIND = MODELED_CASING_ANNULUS_KINDS[
+    MODELED_CASING_ANNULUS_KINDS.length - 1
+] ?? 'ANNULUS_D';
 const MODELED_ANNULUS_SOURCE_VOLUME_KINDS = Object.freeze([
     NODE_KIND_TUBING_ANNULUS,
     ...MODELED_ANNULUS_VOLUME_SLOTS.map((slot) => slot.kind)
@@ -89,6 +105,75 @@ function resolveSourceNodeForVolumeKind(interval, intervalNodeByKind, volumeKind
         return resolveFormationSourceNodeForInterval(interval, intervalNodeByKind);
     }
     return intervalNodeByKind.get(`${interval.intervalIndex}|${volumeKind}`) ?? null;
+}
+
+function isBlockedSourceNode(node) {
+    return node?.meta?.isBlocked === true;
+}
+
+function isOpenHoleInterval(interval = {}) {
+    const stack = Array.isArray(interval?.stack) ? interval.stack : [];
+    return stack.some((layer) => (
+        layer?.role === 'core-boundary'
+        && layer?.isOpenHoleBoundary === true
+    ));
+}
+
+function resolveOpenHoleSourceCandidate(interval, intervalNodeByKind) {
+    const formationNode = resolveSourceNodeForVolumeKind(
+        interval,
+        intervalNodeByKind,
+        NODE_KIND_FORMATION_ANNULUS
+    );
+    if (formationNode && !isBlockedSourceNode(formationNode)) {
+        return {
+            node: formationNode,
+            volumeKey: NODE_KIND_FORMATION_ANNULUS
+        };
+    }
+
+    const innerNode = resolveSourceNodeForVolumeKind(
+        interval,
+        intervalNodeByKind,
+        NODE_KIND_TUBING_INNER
+    );
+    if (innerNode && !isBlockedSourceNode(innerNode)) {
+        return {
+            node: innerNode,
+            volumeKey: NODE_KIND_TUBING_INNER
+        };
+    }
+
+    return null;
+}
+
+export function buildOpenHoleSourceNodes(intervals, intervalNodeByKind) {
+    const sourceNodeIds = new Set();
+    const sourceEntities = [];
+
+    intervals.forEach((interval) => {
+        if (!isOpenHoleInterval(interval)) return;
+        const candidate = resolveOpenHoleSourceCandidate(interval, intervalNodeByKind);
+        if (!candidate?.node?.nodeId) return;
+
+        sourceNodeIds.add(candidate.node.nodeId);
+        sourceEntities.push({
+            sourceId: `source:open-hole:${interval.intervalIndex}:${candidate.node.nodeId}`,
+            sourceType: SOURCE_KIND_FORMATION_INFLOW,
+            volumeKey: candidate.volumeKey,
+            depthTop: interval.top,
+            depthBottom: interval.bottom,
+            rowId: null,
+            origin: 'open-hole-default',
+            nodeIds: [candidate.node.nodeId]
+        });
+    });
+
+    return {
+        sourceNodeIds: [...sourceNodeIds],
+        sourceEntities,
+        validationWarnings: []
+    };
 }
 
 export function buildFluidSourceNodes(stateSnapshot, intervals, intervalNodeByKind) {
@@ -167,14 +252,14 @@ export function buildFluidSourceNodes(stateSnapshot, intervals, intervalNodeByKi
     if (fluidRows.length > 0 && sourceNodeIds.size === 0) {
         validationWarnings.push(createTopologyValidationWarning(
             SOURCE_WARNING_FLUID_ROWS_WITHOUT_MODELED_SOURCE_NODES,
-            'Fluid intervals exist, but none currently map to TUBING_ANNULUS/ANNULUS_A/ANNULUS_B/ANNULUS_C/ANNULUS_D/FORMATION_ANNULUS sources in the topology MVP.'
+            `Fluid intervals exist, but none currently map to ${SUPPORTED_SOURCE_VOLUME_LIST} sources in the topology MVP.`
         ));
     }
 
     if (hasFluidOutsideModeledAnnuli) {
         validationWarnings.push(createTopologyValidationWarning(
             SOURCE_WARNING_FLUID_IN_UNMODELED_OUTER_ANNULUS,
-            'Fluid detected in non-formation annulus volumes beyond ANNULUS_D; those outer annulus volumes are not modeled in this topology MVP.'
+            `Fluid detected in non-formation annulus volumes beyond ${OUTERMOST_MODELED_ANNULUS_KIND}; those outer annulus volumes are not modeled in this topology MVP.`
         ));
     }
 
@@ -210,7 +295,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
         if (!volumeKey) {
             validationWarnings.push(createTopologyValidationWarning(
                 SOURCE_WARNING_SCENARIO_SOURCE_UNSUPPORTED_VOLUME,
-                'Scenario source row has an unsupported volume key. Use TUBING_INNER (legacy BORE), TUBING_ANNULUS, ANNULUS_A, ANNULUS_B, ANNULUS_C, ANNULUS_D, or FORMATION_ANNULUS for MVP.',
+                `Scenario source row has an unsupported volume key. Use ${SUPPORTED_SCENARIO_SOURCE_VOLUME_LIST.replace('TUBING_INNER', 'TUBING_INNER (legacy BORE)')} for MVP (OPEN_HOLE maps to FORMATION_ANNULUS).`,
                 {
                     rowId: rowId || undefined
                 }
@@ -274,23 +359,29 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
 
 export function resolveSourceChannels({
     useIllustrativeFluidSource,
+    useOpenHoleSource,
     radial,
     fluid,
+    openHole,
     explicit
 } = {}) {
     const warnings = [];
+    const explicitScenarioRowsPresent = explicit?.hasScenarioRows === true;
+    const explicitSourceNodeIds = toSafeArray(explicit?.sourceNodeIds);
+    const explicitSourceEntities = toSafeArray(explicit?.sourceEntities);
+    const hasResolvedExplicitSourceNodes = explicitSourceNodeIds.length > 0;
 
-    if (explicit?.hasScenarioRows) {
-        if ((explicit?.sourceNodeIds?.length ?? 0) === 0) {
-            warnings.push(createTopologyValidationWarning(
-                SOURCE_WARNING_SCENARIO_ROWS_WITH_NO_RESOLVED_NODES,
-                'Scenario source rows are present, but no source nodes were resolved for this run.'
-            ));
-        }
+    if (explicitScenarioRowsPresent && !hasResolvedExplicitSourceNodes) {
+        warnings.push(createTopologyValidationWarning(
+            SOURCE_WARNING_SCENARIO_ROWS_WITH_NO_RESOLVED_NODES,
+            'Scenario source rows are present, but no source nodes were resolved for this run.'
+        ));
+    }
 
+    if (explicitScenarioRowsPresent && hasResolvedExplicitSourceNodes) {
         return {
-            sourceNodeIds: toSafeArray(explicit?.sourceNodeIds),
-            sourceEntities: toSafeArray(explicit?.sourceEntities),
+            sourceNodeIds: explicitSourceNodeIds,
+            sourceEntities: explicitSourceEntities,
             sourcePolicy: {
                 mode: SOURCE_POLICY_MODE_SCENARIO_EXPLICIT,
                 markerDerived: false,
@@ -305,23 +396,33 @@ export function resolveSourceChannels({
     const illustrativeSourceNodeIds = useIllustrativeFluidSource
         ? toSafeArray(fluid?.sourceNodeIds)
         : [];
+    const openHoleSourceNodeIds = useOpenHoleSource
+        ? toSafeArray(openHole?.sourceNodeIds)
+        : [];
     const sourceNodeIds = [...new Set([
         ...markerSourceNodeIds,
-        ...illustrativeSourceNodeIds
+        ...illustrativeSourceNodeIds,
+        ...openHoleSourceNodeIds
     ])];
 
     const sourceEntities = [
         ...toSafeArray(radial?.sourceEntities),
-        ...(useIllustrativeFluidSource ? toSafeArray(fluid?.sourceEntities) : [])
+        ...(useIllustrativeFluidSource ? toSafeArray(fluid?.sourceEntities) : []),
+        ...(useOpenHoleSource ? toSafeArray(openHole?.sourceEntities) : [])
     ];
+
+    const fallbackSourcePolicyMode = useIllustrativeFluidSource
+        ? SOURCE_POLICY_MODE_FLUID_OPT_IN
+        : (useOpenHoleSource ? SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN : SOURCE_POLICY_MODE_MARKER_DEFAULT);
 
     return {
         sourceNodeIds,
         sourceEntities,
         sourcePolicy: {
-            mode: useIllustrativeFluidSource ? SOURCE_POLICY_MODE_FLUID_OPT_IN : SOURCE_POLICY_MODE_MARKER_DEFAULT,
+            mode: fallbackSourcePolicyMode,
             markerDerived: true,
             illustrativeFluidDerived: useIllustrativeFluidSource,
+            openHoleDerived: useOpenHoleSource,
             explicitScenarioDerived: false
         },
         validationWarnings: warnings
@@ -332,10 +433,16 @@ export function shouldUseIllustrativeFluidSource(stateSnapshot = {}) {
     return stateSnapshot?.config?.[TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE] === true;
 }
 
+export function shouldUseOpenHoleSource(stateSnapshot = {}) {
+    return stateSnapshot?.config?.[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] === true;
+}
+
 export default {
     normalizeStateSnapshot,
     buildFluidSourceNodes,
+    buildOpenHoleSourceNodes,
     buildExplicitScenarioSourceNodes,
     resolveSourceChannels,
-    shouldUseIllustrativeFluidSource
+    shouldUseIllustrativeFluidSource,
+    shouldUseOpenHoleSource
 };

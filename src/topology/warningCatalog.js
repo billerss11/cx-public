@@ -1,3 +1,5 @@
+import { MODELED_CASING_ANNULUS_KINDS } from '@/topology/topologyTypes.js';
+
 export const TOPOLOGY_WARNING_CODES = Object.freeze({
     UNKNOWN_EQUIPMENT_TYPE: 'unknown_type',
     INVALID_ANNULAR_SEAL_OVERRIDE: 'invalid_annular_seal_override',
@@ -29,6 +31,8 @@ export const TOPOLOGY_WARNING_CODES = Object.freeze({
     SCENARIO_BREAKOUT_UNSUPPORTED_VOLUME_PAIR: 'scenario_breakout_unsupported_volume_pair',
     SCENARIO_BREAKOUT_MISSING_DEPTH_RANGE: 'scenario_breakout_missing_depth_range',
     SCENARIO_BREAKOUT_NO_RESOLVABLE_INTERVAL: 'scenario_breakout_no_resolvable_interval',
+    STRUCTURAL_TRANSITION_NOT_MODELED: 'structural_transition_not_modeled',
+    TUBING_END_TRANSFER_UNRESOLVED: 'tubing_end_transfer_unresolved',
 
     ILLUSTRATIVE_FLUID_SOURCE_MODE_ENABLED: 'illustrative_fluid_source_mode_enabled',
     EXPLICIT_SCENARIO_SOURCE_MODE_ACTIVE: 'explicit_scenario_source_mode_active'
@@ -41,11 +45,24 @@ export const TOPOLOGY_WARNING_CATEGORIES = Object.freeze({
     POLICY: 'policy'
 });
 
+const SUPPORTED_VOLUME_KEYS = Object.freeze([
+    'TUBING_INNER',
+    'TUBING_ANNULUS',
+    ...MODELED_CASING_ANNULUS_KINDS,
+    'FORMATION_ANNULUS'
+]);
+const SUPPORTED_VOLUME_KEYS_WITH_LEGACY_LABEL = SUPPORTED_VOLUME_KEYS
+    .map((kind) => (kind === 'TUBING_INNER' ? 'TUBING_INNER (legacy BORE)' : kind))
+    .join(', ');
+const OUTERMOST_MODELED_ANNULUS_KIND = MODELED_CASING_ANNULUS_KINDS[
+    MODELED_CASING_ANNULUS_KINDS.length - 1
+] ?? 'ANNULUS_D';
+
 const WARNING_METADATA_BY_CODE = Object.freeze({
     [TOPOLOGY_WARNING_CODES.UNKNOWN_EQUIPMENT_TYPE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
         fields: ['type'],
-        recommendation: 'Use a recognized equipment type (for MVP: Packer or Safety Valve), or set explicit bore/annular seal overrides.'
+        recommendation: 'Use a recognized equipment type (Packer, Safety Valve, or Bridge Plug), or set explicit bore/annular seal overrides.'
     }),
     [TOPOLOGY_WARNING_CODES.INVALID_ANNULAR_SEAL_OVERRIDE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
@@ -60,7 +77,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     [TOPOLOGY_WARNING_CODES.INVALID_VOLUME_SEAL_OVERRIDE_KEY]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
         fields: ['sealByVolume'],
-        recommendation: 'Use supported volume keys only: TUBING_INNER (legacy BORE), TUBING_ANNULUS (alias PRIMARY_ANNULUS), ANNULUS_A, ANNULUS_B, ANNULUS_C, ANNULUS_D, FORMATION_ANNULUS.'
+        recommendation: `Use supported volume keys only: ${SUPPORTED_VOLUME_KEYS_WITH_LEGACY_LABEL}.`
     }),
     [TOPOLOGY_WARNING_CODES.INVALID_VOLUME_SEAL_OVERRIDE_VALUE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
@@ -95,17 +112,17 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     [TOPOLOGY_WARNING_CODES.EQUIPMENT_MISSING_ATTACH_TARGET]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
         fields: ['attachToDisplay', 'attachToHostType', 'attachToId'],
-        recommendation: 'Select a valid Attach To target (Tubing or Casing) for this packer row.'
+        recommendation: 'Select a valid Attach To target (Tubing or Casing) for this equipment row.'
     }),
     [TOPOLOGY_WARNING_CODES.EQUIPMENT_UNRESOLVED_ATTACH_TARGET]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
         fields: ['attachToDisplay', 'attachToHostType', 'attachToId'],
-        recommendation: 'Re-select Attach To so this packer references an existing host row.'
+        recommendation: 'Re-select Attach To so this equipment row references an existing host row.'
     }),
     [TOPOLOGY_WARNING_CODES.EQUIPMENT_INVALID_HOST_DEPTH]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.EQUIPMENT,
         fields: ['depth', 'attachToDisplay'],
-        recommendation: 'Move the packer depth into the selected host interval, or choose a host that overlaps this depth.'
+        recommendation: 'Move this equipment depth into the selected host interval, or choose a host that overlaps this depth.'
     }),
 
     [TOPOLOGY_WARNING_CODES.MARKER_INVALID_DEPTH_RANGE]: Object.freeze({
@@ -131,7 +148,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     }),
     [TOPOLOGY_WARNING_CODES.FLUID_IN_UNMODELED_OUTER_ANNULUS]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Move sources to modeled volumes or extend topology volume support for outer annulus slots beyond ANNULUS_D.'
+        recommendation: `Move sources to modeled volumes or extend topology volume support for outer annulus slots beyond ${OUTERMOST_MODELED_ANNULUS_KIND}.`
     }),
     [TOPOLOGY_WARNING_CODES.UNMAPPED_FORMATION_ANNULUS_FLUID]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
@@ -139,7 +156,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_UNSUPPORTED_VOLUME]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Use supported MVP volume keys: TUBING_INNER (legacy BORE), TUBING_ANNULUS (aliases PRIMARY_ANNULUS/PRODUCTION_ANNULUS), ANNULUS_A, ANNULUS_B, ANNULUS_C, ANNULUS_D, FORMATION_ANNULUS.'
+        recommendation: `Use supported MVP volume keys: ${SUPPORTED_VOLUME_KEYS_WITH_LEGACY_LABEL}. OPEN_HOLE maps to FORMATION_ANNULUS.`
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_MISSING_DEPTH_RANGE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
@@ -161,7 +178,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     [TOPOLOGY_WARNING_CODES.SCENARIO_BREAKOUT_UNSUPPORTED_VOLUME_PAIR]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
         fields: ['fromVolumeKey', 'toVolumeKey'],
-        recommendation: 'Use supported volume keys for breakout pairs: TUBING_INNER (legacy BORE), TUBING_ANNULUS (aliases PRIMARY_ANNULUS/PRODUCTION_ANNULUS), ANNULUS_A, ANNULUS_B, ANNULUS_C, ANNULUS_D, FORMATION_ANNULUS.'
+        recommendation: `Use supported volume keys for breakout pairs: ${SUPPORTED_VOLUME_KEYS_WITH_LEGACY_LABEL}.`
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_BREAKOUT_MISSING_DEPTH_RANGE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
@@ -172,6 +189,14 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
         fields: ['top', 'bottom', 'fromVolumeKey', 'toVolumeKey'],
         recommendation: 'Adjust breakout row depth range and volume pair so both volumes resolve in at least one interval.'
+    }),
+    [TOPOLOGY_WARNING_CODES.STRUCTURAL_TRANSITION_NOT_MODELED]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
+        recommendation: 'Review casing/annulus boundary behavior. This structural transition is detected but currently warning-only until explicit edge modeling is enabled.'
+    }),
+    [TOPOLOGY_WARNING_CODES.TUBING_END_TRANSFER_UNRESOLVED]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
+        recommendation: 'Align tubing-end boundary geometry so ANNULUS_A can be resolved for tubing-end transfer, and verify boundary equipment sealing intent.'
     }),
 
     [TOPOLOGY_WARNING_CODES.ILLUSTRATIVE_FLUID_SOURCE_MODE_ENABLED]: Object.freeze({

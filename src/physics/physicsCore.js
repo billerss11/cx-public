@@ -260,6 +260,9 @@ function normalizeEquipmentType(type) {
     const normalized = String(type ?? '').trim().toLowerCase();
     if (!normalized) return '';
     if (normalized === 'packer') return 'Packer';
+    if (normalized === 'bridge plug' || normalized === 'bridge_plug' || normalized === 'bridge-plug') {
+        return 'Bridge Plug';
+    }
     if (normalized === 'safety valve' || normalized === 'safety_valve' || normalized === 'safety-valve') {
         return 'Safety Valve';
     }

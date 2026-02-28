@@ -327,11 +327,27 @@ function toSafeAnalysisRequestId(value) {
   return null;
 }
 
+function createTopologyLineageMeta(requestId, options = {}) {
+  const safeRequestId = toSafeAnalysisRequestId(requestId);
+  const includeDirectionalReady = options?.includeDirectionalReady === true;
+  const geometryReadyRequestId = isDirectionalView.value
+    ? (includeDirectionalReady ? toSafeAnalysisRequestId(directionalGeometryReadyRequestId.value) : null)
+    : safeRequestId;
+
+  return {
+    viewMode: isDirectionalView.value ? 'directional' : 'vertical',
+    geometryRequestId: safeRequestId,
+    geometryReadyRequestId
+  };
+}
+
 function handleDirectionalGeometryReady(requestId) {
   const safeRequestId = toSafeAnalysisRequestId(requestId);
   if (!safeRequestId) return;
   if (safeRequestId !== toSafeAnalysisRequestId(latestAnalysisGeometryRequestId.value)) return;
   directionalGeometryReadyRequestId.value = safeRequestId;
+  if (!activeWellId.value) return;
+  topologyStore.setWellRequestGeometryReady?.(activeWellId.value, safeRequestId, safeRequestId);
 }
 
 watch(isAnalysisWorkspaceActive, (isActive) => {
@@ -391,18 +407,32 @@ watch(
     } else {
       directionalGeometryReadyRequestId.value = requestId;
     }
-    topologyStore.setWellRequestStarted(wellId, requestId);
+    topologyStore.setWellRequestStarted(wellId, requestId, createTopologyLineageMeta(requestId));
 
     promise
       .then((result) => {
-        topologyStore.setWellTopologyResult(wellId, result, requestId);
+        topologyStore.setWellTopologyResult(
+          wellId,
+          result,
+          requestId,
+          createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
+        );
       })
       .catch((error) => {
         if (isTopologyWorkerCancelledError(error)) {
-          topologyStore.setWellRequestCancelled(wellId, requestId);
+          topologyStore.setWellRequestCancelled(
+            wellId,
+            requestId,
+            createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
+          );
           return;
         }
-        topologyStore.setWellTopologyError(wellId, error, requestId);
+        topologyStore.setWellTopologyError(
+          wellId,
+          error,
+          requestId,
+          createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
+        );
       });
   },
   { immediate: true, deep: true }
@@ -846,6 +876,9 @@ const topologySourcePolicyKey = computed(() => {
   }
   if (sourcePolicy?.illustrativeFluidDerived === true) {
     return 'ui.analysis.topology.source_policy.fluid_opt_in';
+  }
+  if (sourcePolicy?.mode === 'open_hole_opt_in' || sourcePolicy?.openHoleDerived === true) {
+    return 'ui.analysis.topology.source_policy.open_hole_opt_in';
   }
   return 'ui.analysis.topology.source_policy.marker_default';
 });
@@ -1442,6 +1475,8 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
                 ? 'Explicit scenario source rows'
                 : topologySourcePolicyKey === 'ui.analysis.topology.source_policy.fluid_opt_in'
                   ? 'Marker + illustrative fluid (opt-in)'
+                  : topologySourcePolicyKey === 'ui.analysis.topology.source_policy.open_hole_opt_in'
+                    ? 'Marker + open-hole source (opt-in)'
                   : 'Marker-driven default'
             }}
           </span>

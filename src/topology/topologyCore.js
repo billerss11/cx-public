@@ -8,10 +8,12 @@ import {
 } from '@/topology/edgeBuilder.js';
 import {
     buildFluidSourceNodes,
+    buildOpenHoleSourceNodes,
     buildExplicitScenarioSourceNodes,
     normalizeStateSnapshot,
     resolveSourceChannels,
-    shouldUseIllustrativeFluidSource
+    shouldUseIllustrativeFluidSource,
+    shouldUseOpenHoleSource
 } from '@/topology/sourceResolver.js';
 import {
     computeActiveFlowNodeIds,
@@ -43,6 +45,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
     const physicsContext = createPhysicsContext(safeState);
     const { intervals, nodes, intervalNodeByKind } = buildTopologyNodes(physicsContext);
     const useIllustrativeFluidSource = shouldUseIllustrativeFluidSource(safeState);
+    const useOpenHoleSource = shouldUseOpenHoleSource(safeState);
 
     const vertical = buildVerticalEdges(intervals, intervalNodeByKind, physicsContext.equipment, {
         casingRows: physicsContext.casingRows,
@@ -54,18 +57,23 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
     const fluid = useIllustrativeFluidSource
         ? buildFluidSourceNodes(safeState, intervals, intervalNodeByKind)
         : { sourceNodeIds: [], sourceEntities: [], validationWarnings: [] };
+    const openHole = useOpenHoleSource
+        ? buildOpenHoleSourceNodes(intervals, intervalNodeByKind)
+        : { sourceNodeIds: [], sourceEntities: [], validationWarnings: [] };
 
     const sourceResolution = resolveSourceChannels({
         useIllustrativeFluidSource,
+        useOpenHoleSource,
         radial,
         fluid,
+        openHole,
         explicit
     });
 
     const policyWarnings = buildSourcePolicyWarnings({
         useIllustrativeFluidSource,
         hasVisibleFluidRows: safeState.annulusFluids.some((row) => row?.show !== false),
-        hasExplicitScenarioRows: explicit.hasScenarioRows
+        hasExplicitScenarioRows: sourceResolution?.sourcePolicy?.explicitScenarioDerived === true
     });
 
     const termination = buildTerminationEdges(intervals, intervalNodeByKind);
@@ -129,7 +137,10 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
                 ...scenarioRadial.validationWarnings
             ],
             explicitWarnings: explicit.validationWarnings,
-            fluidWarnings: fluid.validationWarnings,
+            fluidWarnings: [
+                ...fluid.validationWarnings,
+                ...openHole.validationWarnings
+            ],
             sourceResolutionWarnings: sourceResolution.validationWarnings,
             policyWarnings
         })

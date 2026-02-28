@@ -93,12 +93,20 @@ function normalizeMarkerAttachReferenceRow(row, pipeReferenceMap) {
         ? normalizePipeHostType(rawHostType, PIPE_HOST_TYPE_CASING)
         : null;
     const effectiveHostType = normalizedHostType ?? PIPE_HOST_TYPE_CASING;
-
-    const resolvedHost = resolvePipeHostReference(attachToRow, pipeReferenceMap, {
-        preferredId: attachToId,
-        hostType: effectiveHostType
-    });
-    const resolvedRowId = normalizeRowId(resolvedHost?.row?.rowId);
+    const resolvedHostFromRow = attachToRow
+        ? resolvePipeHostReference(attachToRow, pipeReferenceMap, {
+            preferredId: null,
+            hostType: effectiveHostType
+        })
+        : null;
+    const resolvedRowIdFromRow = normalizeRowId(resolvedHostFromRow?.row?.rowId);
+    const resolvedHostFromId = attachToId
+        ? resolvePipeHostReference('', pipeReferenceMap, {
+            preferredId: attachToId,
+            hostType: effectiveHostType
+        })
+        : null;
+    const resolvedRowIdFromId = normalizeRowId(resolvedHostFromId?.row?.rowId);
 
     let nextRow = row;
 
@@ -110,14 +118,25 @@ function normalizeMarkerAttachReferenceRow(row, pipeReferenceMap) {
     }
 
     if (attachToRow) {
-        if (!resolvedRowId || resolvedRowId === attachToId) return nextRow;
+        if (resolvedRowIdFromRow) {
+            if (resolvedRowIdFromRow === attachToId) return nextRow;
+            return {
+                ...nextRow,
+                attachToId: resolvedRowIdFromRow
+            };
+        }
+
+        // Preserve the current rowId when free-form text cannot be resolved but the id remains valid.
+        if (attachToId && resolvedRowIdFromId) return nextRow;
+
+        if (!attachToId) return nextRow;
         return {
             ...nextRow,
-            attachToId: resolvedRowId
+            attachToId: null
         };
     }
 
-    if (!attachToId || resolvedRowId) return nextRow;
+    if (!attachToId || resolvedRowIdFromId) return nextRow;
 
     return {
         ...nextRow,

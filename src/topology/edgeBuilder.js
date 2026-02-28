@@ -35,6 +35,10 @@ import {
     PIPE_HOST_TYPE_TUBING,
     resolvePipeHostReference
 } from '@/utils/pipeReference.js';
+import {
+    resolveBoundaryStructuralTransitionDefinitions,
+    resolveStructuralTransitionState
+} from '@/topology/structuralTransitions.js';
 
 function toSafeArray(value) {
     return Array.isArray(value) ? value : [];
@@ -68,87 +72,56 @@ function resolveBoundaryEquipmentEffectByVolumeKind(volumeKind, equipmentEffects
     return byVolume[volumeKind] ?? null;
 }
 
-function resolveBlockedTransitionState(fromNode, toNode, equipmentEffects = {}) {
-    const blockedByMaterial = fromNode?.meta?.isBlocked === true || toNode?.meta?.isBlocked === true;
-    const tubingAnnulusEffect = resolveBoundaryEquipmentEffectByVolumeKind(
-        NODE_KIND_TUBING_ANNULUS,
-        equipmentEffects
-    );
-    const annulusAEffect = resolveBoundaryEquipmentEffectByVolumeKind(
-        NODE_KIND_ANNULUS_A,
-        equipmentEffects
-    );
-    const blockedByEquipment = tubingAnnulusEffect?.blocked === true || annulusAEffect?.blocked === true;
-    const cost = blockedByMaterial || blockedByEquipment
-        ? Math.max(
-            blockedByMaterial ? 1 : 0,
-            Number(tubingAnnulusEffect?.cost ?? 0),
-            Number(annulusAEffect?.cost ?? 0),
-            1
-        )
-        : 0;
+function createStructuralTransitionWarning(definition, boundaryDepth) {
+    const fromVolumeKey = String(definition?.fromNode?.kind ?? '').trim();
+    const toVolumeKey = String(definition?.toNode?.kind ?? '').trim();
+    const warningCode = String(definition?.warningCode ?? '').trim()
+        || TOPOLOGY_WARNING_CODES.STRUCTURAL_TRANSITION_NOT_MODELED;
+    const warningMessage = String(definition?.warningSummary ?? '').trim()
+        || `Structural transition ${fromVolumeKey} -> ${toVolumeKey} is detected but not yet modeled as an explicit topology edge.`;
 
-    return {
-        blockedByMaterial,
-        blockedByEquipment,
-        cost,
-        equipmentContributors: [
-            ...toSafeArray(tubingAnnulusEffect?.contributors),
-            ...toSafeArray(annulusAEffect?.contributors)
-        ]
-    };
+    return createTopologyValidationWarning(
+        warningCode,
+        warningMessage,
+        {
+            depth: Number.isFinite(boundaryDepth) ? boundaryDepth : null
+        }
+    );
 }
 
-function appendTubingAnnulusTransitionEdges({
+function appendStructuralTransitionEdges({
     edges,
     edgeReasons,
+    validationWarnings,
     currentInterval,
     nextInterval,
     intervalNodeByKind,
     boundaryDepth,
     equipmentEffects
 }) {
-    const currentTubingAnnulusNode = intervalNodeByKind.get(
-        `${currentInterval.intervalIndex}|${NODE_KIND_TUBING_ANNULUS}`
-    ) ?? null;
-    const nextTubingAnnulusNode = intervalNodeByKind.get(
-        `${nextInterval.intervalIndex}|${NODE_KIND_TUBING_ANNULUS}`
-    ) ?? null;
-    const currentAnnulusANode = intervalNodeByKind.get(
-        `${currentInterval.intervalIndex}|${NODE_KIND_ANNULUS_A}`
-    ) ?? null;
-    const nextAnnulusANode = intervalNodeByKind.get(
-        `${nextInterval.intervalIndex}|${NODE_KIND_ANNULUS_A}`
-    ) ?? null;
-
-    const transitionDefinitions = [];
-    if (currentAnnulusANode && !currentTubingAnnulusNode && nextTubingAnnulusNode) {
-        transitionDefinitions.push({
-            fromNode: currentAnnulusANode,
-            toNode: nextTubingAnnulusNode,
-            transitionType: 'tubing_annulus_entry'
-        });
-    }
-    if (currentTubingAnnulusNode && !nextTubingAnnulusNode && nextAnnulusANode) {
-        transitionDefinitions.push({
-            fromNode: currentTubingAnnulusNode,
-            toNode: nextAnnulusANode,
-            transitionType: 'tubing_annulus_exit'
-        });
-    }
+    const transitionDefinitions = resolveBoundaryStructuralTransitionDefinitions({
+        currentInterval,
+        nextInterval,
+        intervalNodeByKind
+    });
 
     transitionDefinitions.forEach((definition) => {
-        const transitionState = resolveBlockedTransitionState(
-            definition.fromNode,
-            definition.toNode,
-            equipmentEffects
-        );
+        if (definition?.emitsEdge === false) {
+            validationWarnings.push(createStructuralTransitionWarning(definition, boundaryDepth));
+            return;
+        }
+
+        const transitionState = resolveStructuralTransitionState(definition, equipmentEffects);
         const blocked = transitionState.blockedByMaterial || transitionState.blockedByEquipment;
+        const transitionRuleId = String(definition?.ruleId ?? 'structural-transition').trim();
+        const transitionType = String(definition?.transitionType ?? 'unknown').trim();
+        const edgeSuffix = String(definition?.edgeSuffix ?? '').trim()
+            || `${transitionRuleId}:${transitionType || 'unknown'}`;
         const edgeId = createEdgeId(
             EDGE_KIND_VERTICAL,
             definition.fromNode.nodeId,
             definition.toNode.nodeId,
-            `tubing-annulus-transition:${definition.transitionType}`
+            edgeSuffix
         );
         appendEdge(edges, edgeReasons, {
             edgeId,
@@ -158,23 +131,24 @@ function appendTubingAnnulusTransitionEdges({
             cost: transitionState.cost,
             state: blocked ? 'closed_failable' : 'open',
             meta: {
-                volumeKey: NODE_KIND_TUBING_ANNULUS,
+                volumeKey: definition?.primaryVolumeKind ?? null,
                 fromVolumeKey: definition.fromNode.kind,
                 toVolumeKey: definition.toNode.kind,
-                transitionType: definition.transitionType
+                transitionType,
+                transitionRuleId
             },
             reason: {
-                ruleId: 'tubing-annulus-transition',
+                ruleId: transitionRuleId,
                 summary: blocked
-                    ? 'Tubing-annulus to Annulus A transition at tubing boundary is blocked by interval content or equipment seal behavior.'
-                    : 'Tubing-annulus to Annulus A transition is open across tubing boundary.',
+                    ? String(definition?.summaryWhenBlocked ?? '').trim()
+                    : String(definition?.summaryWhenOpen ?? '').trim(),
                 details: {
                     fromInterval: currentInterval.intervalIndex,
                     toInterval: nextInterval.intervalIndex,
                     boundaryDepth: Number.isFinite(boundaryDepth) ? boundaryDepth : null,
                     fromVolumeKey: definition.fromNode.kind,
                     toVolumeKey: definition.toNode.kind,
-                    transitionType: definition.transitionType,
+                    transitionType,
                     blockedByMaterial: transitionState.blockedByMaterial,
                     blockedByEquipment: transitionState.blockedByEquipment,
                     equipmentContributors: transitionState.equipmentContributors
@@ -241,9 +215,10 @@ export function buildVerticalEdges(intervals, intervalNodeByKind, equipmentRows 
             });
         });
 
-        appendTubingAnnulusTransitionEdges({
+        appendStructuralTransitionEdges({
             edges,
             edgeReasons,
+            validationWarnings,
             currentInterval,
             nextInterval,
             intervalNodeByKind,
@@ -305,6 +280,28 @@ function rangeOverlapsHostRange(range, hostRange) {
 function normalizeRowIdToken(value) {
     const token = String(value ?? '').trim();
     return token || null;
+}
+
+function isBlockedVolumeNode(node) {
+    return node?.meta?.isBlocked === true;
+}
+
+function resolveMarkerHostReference({ attachToRow, attachToId, attachToHostType, pipeReferenceMap }) {
+    const referenceToken = String(attachToRow ?? '').trim();
+    const idToken = String(attachToId ?? '').trim();
+    if (referenceToken) {
+        const byReference = resolvePipeHostReference(referenceToken, pipeReferenceMap, {
+            preferredId: null,
+            hostType: attachToHostType
+        });
+        if (byReference) return byReference;
+    }
+
+    if (!idToken) return null;
+    return resolvePipeHostReference('', pipeReferenceMap, {
+        preferredId: idToken,
+        hostType: attachToHostType
+    });
 }
 
 function rowOverlapsInterval(row, interval) {
@@ -434,6 +431,7 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
 
         const markerType = normalizeMarkerType(marker?.type);
         if (!markerType) return;
+        const markerCreatesSource = markerType === SOURCE_KIND_PERFORATION;
 
         const top = parseOptionalNumber(marker?.top);
         const bottom = parseOptionalNumber(marker?.bottom);
@@ -453,9 +451,11 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
         const attachToRow = String(marker?.attachToRow ?? '').trim();
         const attachToHostType = normalizePipeHostType(marker?.attachToHostType, PIPE_HOST_TYPE_CASING);
         const resolvedHost = (attachToId || attachToRow)
-            ? resolvePipeHostReference(attachToRow, pipeReferenceMap, {
-                preferredId: attachToId,
-                hostType: attachToHostType
+            ? resolveMarkerHostReference({
+                attachToRow,
+                attachToId,
+                attachToHostType,
+                pipeReferenceMap
             })
             : null;
         if (attachToId || attachToRow) {
@@ -468,6 +468,7 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
                         depth: top
                     }
                 ));
+                return;
             }
         }
 
@@ -526,6 +527,10 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
             }
             if (!innerNode || !outerNode) return;
 
+            const blockedByMaterial = isBlockedVolumeNode(innerNode) || isBlockedVolumeNode(outerNode);
+            const edgeCost = blockedByMaterial ? 1 : 0;
+            const edgeState = blockedByMaterial ? 'closed_failable' : 'open';
+
             const edgeId = createEdgeId(
                 EDGE_KIND_RADIAL,
                 innerNode.nodeId,
@@ -537,14 +542,17 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
                 : radialVolumePair.pairSource === 'casing_host_adjacent_annuli'
                     ? 'Casing-host marker creates a radial communication path across adjacent annulus volumes.'
                     : `${markerType} marker creates a radial communication path.`;
+            const summary = blockedByMaterial
+                ? `${radialSummary} The path is currently blocked by interval material content.`
+                : radialSummary;
 
             appendEdge(edges, edgeReasons, {
                 edgeId,
                 from: innerNode.nodeId,
                 to: outerNode.nodeId,
                 kind: EDGE_KIND_RADIAL,
-                cost: 0,
-                state: 'open',
+                cost: edgeCost,
+                state: edgeState,
                 meta: {
                     markerIndex,
                     markerRowId: String(marker?.rowId ?? '').trim() || null,
@@ -560,7 +568,7 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
                 },
                 reason: {
                     ruleId: `marker-${markerType}`,
-                    summary: radialSummary,
+                    summary,
                     details: {
                         markerIndex,
                         intervalIndex: interval.intervalIndex,
@@ -568,16 +576,21 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
                         markerHostRowId: String(resolvedHost?.row?.rowId ?? '').trim() || null,
                         fromVolumeKey: radialVolumePair.innerVolumeKind,
                         toVolumeKey: radialVolumePair.outerVolumeKind,
-                        radialPairSource: radialVolumePair.pairSource
+                        radialPairSource: radialVolumePair.pairSource,
+                        blockedByMaterial
                     }
                 }
             });
 
             connectedIntervalCount += 1;
-            sourceNodeIds.add(innerNode.nodeId);
-            sourceNodeIds.add(outerNode.nodeId);
-            markerSourceNodeIds.add(innerNode.nodeId);
-            markerSourceNodeIds.add(outerNode.nodeId);
+            if (markerCreatesSource) {
+                [innerNode, outerNode]
+                    .filter((node) => !isBlockedVolumeNode(node))
+                    .forEach((node) => {
+                        sourceNodeIds.add(node.nodeId);
+                        markerSourceNodeIds.add(node.nodeId);
+                    });
+            }
             markerVolumePairs.add(`${radialVolumePair.innerVolumeKind}+${radialVolumePair.outerVolumeKind}`);
         });
 
@@ -593,9 +606,12 @@ export function buildRadialEdges(stateSnapshot, intervals, intervalNodeByKind, p
             return;
         }
 
+        if (!markerCreatesSource) return;
+        if (markerSourceNodeIds.size === 0) return;
+
         sourceEntities.push({
             sourceId: `source:marker:${String(marker?.rowId ?? markerIndex)}`,
-            sourceType: markerType === SOURCE_KIND_LEAK ? SOURCE_KIND_LEAK : SOURCE_KIND_PERFORATION,
+            sourceType: SOURCE_KIND_PERFORATION,
             volumeKey: markerVolumePairs.size === 1
                 ? [...markerVolumePairs][0]
                 : [...markerVolumePairs].sort((left, right) => left.localeCompare(right)).join('|'),

@@ -70,6 +70,7 @@ export function createDefaultViewConfig() {
         lockAspectRatio: true,
         viewMode: 'vertical',
         annotationToolMode: USER_ANNOTATION_TOOL_MODE_SELECT,
+        topologyUseOpenHoleSource: false,
         xExaggeration: 1.0,
         intervalCalloutStandoffPx: DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX,
         directionalCasingArrowMode: DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED,

@@ -3,16 +3,15 @@ import {
   resolveFormationAnnulusLayer
 } from '@/utils/physicsLayers.js';
 import { resolveAnnulusLayerForVolumeKind } from '@/topology/annulusVolumeMapping.js';
+import { MODELED_CASING_ANNULUS_KINDS } from '@/topology/topologyTypes.js';
 
 export const TOPOLOGY_OVERLAY_EPSILON = 1e-4;
+const MODELED_CASING_ANNULUS_KIND_SET = new Set(MODELED_CASING_ANNULUS_KINDS);
 export const TRACKED_VOLUME_NODE_KINDS = Object.freeze([
   'TUBING_INNER',
   'TUBING_ANNULUS',
   'BORE',
-  'ANNULUS_A',
-  'ANNULUS_B',
-  'ANNULUS_C',
-  'ANNULUS_D',
+  ...MODELED_CASING_ANNULUS_KINDS,
   'FORMATION_ANNULUS'
 ]);
 
@@ -104,13 +103,7 @@ export function resolveNodeLayer(node, stack = []) {
     return resolveBoreLayer(stack);
   }
 
-  if (
-    node?.kind === 'TUBING_ANNULUS'
-    || node?.kind === 'ANNULUS_A'
-    || node?.kind === 'ANNULUS_B'
-    || node?.kind === 'ANNULUS_C'
-    || node?.kind === 'ANNULUS_D'
-  ) {
+  if (node?.kind === 'TUBING_ANNULUS' || MODELED_CASING_ANNULUS_KIND_SET.has(node?.kind)) {
     return resolveAnnulusLayerForVolumeKind(stack, node?.kind);
   }
 

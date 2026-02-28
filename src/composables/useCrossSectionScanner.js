@@ -10,6 +10,9 @@ function normalizeEquipmentType(type) {
     const normalized = String(type ?? '').trim().toLowerCase();
     if (!normalized) return '';
     if (normalized === 'packer') return 'Packer';
+    if (normalized === 'bridge plug' || normalized === 'bridge_plug' || normalized === 'bridge-plug') {
+        return 'Bridge Plug';
+    }
     if (normalized === 'safety valve' || normalized === 'safety_valve' || normalized === 'safety-valve') {
         return 'Safety Valve';
     }
@@ -231,18 +234,18 @@ function collectActiveEquipment(depth, context) {
             const resolvedSealOuterDiameter = Number(row?.sealOuterDiameter);
             const hasResolvedSealInnerDiameter = Number.isFinite(resolvedSealInnerDiameter) && resolvedSealInnerDiameter > 0;
             const hasResolvedSealOuterDiameter = Number.isFinite(resolvedSealOuterDiameter) && resolvedSealOuterDiameter > 0;
-            const isPacker = type === 'Packer';
+            const isPackerLike = type === 'Packer' || type === 'Bridge Plug';
             const isExplicitOrphan = Boolean(row?.isOrphaned);
             const packerSealInnerDiameter = hasResolvedSealInnerDiameter
                 ? resolvedSealInnerDiameter
-                : (isPacker && isExplicitOrphan ? null : tubingOuterDiameter);
+                : (isPackerLike && isExplicitOrphan ? null : tubingOuterDiameter);
             const packerSealOuterDiameter = hasResolvedSealOuterDiameter
                 ? resolvedSealOuterDiameter
-                : (isPacker && isExplicitOrphan ? null : parentInnerDiameter);
+                : (isPackerLike && isExplicitOrphan ? null : parentInnerDiameter);
             const hasPackerSealGeometry = Number.isFinite(packerSealInnerDiameter)
                 && Number.isFinite(packerSealOuterDiameter)
                 && packerSealOuterDiameter > packerSealInnerDiameter + EPSILON;
-            const isOrphaned = Boolean(row?.isOrphaned) || (isPacker && !hasPackerSealGeometry);
+            const isOrphaned = Boolean(row?.isOrphaned) || (isPackerLike && !hasPackerSealGeometry);
 
             return {
                 id: `equipment-${sourceIndex}`,

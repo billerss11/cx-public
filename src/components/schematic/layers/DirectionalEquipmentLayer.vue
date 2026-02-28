@@ -60,6 +60,9 @@ const frameContext = computed(() => ({
 function normalizeEquipmentType(type) {
   const normalized = String(type ?? '').trim().toLowerCase();
   if (normalized === 'packer') return 'packer';
+  if (normalized === 'bridge plug' || normalized === 'bridge_plug' || normalized === 'bridge-plug') {
+    return 'bridge-plug';
+  }
   if (normalized === 'safety valve' || normalized === 'safety_valve' || normalized === 'safety-valve') {
     return 'safety-valve';
   }
@@ -86,7 +89,7 @@ const equipmentShapes = computed(() => {
     if (!frame) return;
     const equipmentType = normalizeEquipmentType(equip?.type);
 
-    if (equipmentType === 'packer') {
+    if (equipmentType === 'packer' || equipmentType === 'bridge-plug') {
       const isOrphaned = equip.isOrphaned === true;
       const sealInnerDiameter = Number(equip.sealInnerDiameter ?? equip.tubingParentOD);
       const sealOuterDiameter = Number(equip.sealOuterDiameter ?? equip.parentInnerDiameter);

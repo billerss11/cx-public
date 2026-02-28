@@ -5,11 +5,13 @@ import {
 } from '@/topology/topologyTypes.js';
 import packerDefinition from './packer.definition.js';
 import safetyValveDefinition from './safetyValve.definition.js';
+import bridgePlugDefinition from './bridgePlug.definition.js';
 import { normalizeToken } from './utils.js';
 
 const EQUIPMENT_DEFINITIONS = Object.freeze([
     packerDefinition,
-    safetyValveDefinition
+    safetyValveDefinition,
+    bridgePlugDefinition
 ]);
 
 const EQUIPMENT_DEFINITION_BY_KEY = Object.freeze(

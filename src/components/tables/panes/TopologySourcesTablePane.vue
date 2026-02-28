@@ -1,8 +1,19 @@
 <script setup>
+import { computed } from 'vue';
 import { HotTable } from '@handsontable/vue3';
+import ToggleSwitch from 'primevue/toggleswitch';
 import { useTableController } from '@/composables/useTableController.js';
+import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 
 const { hotRef, hotSettings, tableData, addRow, deleteSelectedRow } = useTableController('topologySource', 'topologySources');
+const viewConfigStore = useViewConfigStore();
+
+const openHoleSourceEnabled = computed({
+  get: () => viewConfigStore.config?.topologyUseOpenHoleSource === true,
+  set: (value) => {
+    viewConfigStore.setConfigValue('topologyUseOpenHoleSource', value === true);
+  }
+});
 
 function handleAddRow() {
   addRow();
@@ -16,7 +27,21 @@ function handleDeleteRow() {
 <template>
   <div class="table-pane-content">
     <div class="info-box" data-i18n-html="ui.info.topology_sources">
-      <strong>Topology sources:</strong> define source rows or breakout rows for analysis runs.
+      <strong>Topology sources:</strong> define explicit source rows for analysis runs.
+    </div>
+    <div class="d-flex flex-column gap-1 mb-2">
+      <div class="d-flex align-items-center gap-2">
+        <ToggleSwitch
+          input-id="topologyOpenHoleSourceToggle"
+          v-model="openHoleSourceEnabled"
+        />
+        <label for="topologyOpenHoleSourceToggle" data-i18n="ui.topology.open_hole_source_toggle">
+          Treat open hole as source (basic mode)
+        </label>
+      </div>
+      <small class="text-muted" data-i18n="ui.topology.open_hole_source_toggle_help">
+        Adds source seeds on open-hole intervals when explicit topology source rows are absent/unresolved.
+      </small>
     </div>
     <div class="handsontable-container">
       <HotTable ref="hotRef" :settings="hotSettings" :data="tableData" />

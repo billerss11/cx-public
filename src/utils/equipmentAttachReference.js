@@ -42,7 +42,11 @@ function buildHostAttachOptions(rows = [], hostType = PIPE_HOST_TYPE_CASING) {
 
 export function isPackerEquipmentType(typeValue) {
     const normalized = String(typeValue ?? '').trim().toLowerCase();
-    return normalized.includes('packer');
+    if (!normalized) return false;
+    if (normalized.includes('packer')) return true;
+    return normalized.includes('bridge plug')
+        || normalized.includes('bridge_plug')
+        || normalized.includes('bridge-plug');
 }
 
 export function normalizeEquipmentAttachHostType(hostTypeValue) {

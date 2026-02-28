@@ -69,6 +69,8 @@ import {
     EQUIPMENT_TYPE_OPTIONS
 } from '@/topology/equipmentMetadata.js';
 import {
+    MODELED_CASING_ANNULUS_KINDS,
+    NODE_KIND_FORMATION_ANNULUS,
     SOURCE_KIND_FORMATION_INFLOW,
     SOURCE_KIND_LEAK,
     SOURCE_KIND_PERFORATION,
@@ -77,7 +79,9 @@ import {
 } from '@/topology/topologyTypes.js';
 import {
     filterScenarioBreakoutRows,
-    mergeScenarioBreakoutRows
+    filterScenarioSourceRows,
+    mergeScenarioBreakoutRows,
+    mergeScenarioSourceRows
 } from '@/topology/sourceRows.js';
 import {
     buildPipeReferenceOptions,
@@ -100,15 +104,25 @@ const TOPOLOGY_SOURCE_TYPE_OPTIONS = Object.freeze([
     SOURCE_KIND_SCENARIO
 ]);
 const TOPOLOGY_SOURCE_VOLUME_OPTIONS = TOPOLOGY_VOLUME_KINDS;
-const TOPOLOGY_SOURCE_VOLUME_CELL_LABELS = Object.freeze({
-    TUBING_INNER: 'TUBING_INNER (legacy BORE)',
-    TUBING_ANNULUS: 'TUBING_ANNULUS (inner annulus: tubing-to-first-casing)',
-    ANNULUS_A: 'ANNULUS_A (outer annulus A: first casing-to-casing)',
-    ANNULUS_B: 'ANNULUS_B (outer annulus B)',
-    ANNULUS_C: 'ANNULUS_C (outer annulus C)',
-    ANNULUS_D: 'ANNULUS_D (outer annulus D)',
-    FORMATION_ANNULUS: 'FORMATION_ANNULUS'
-});
+
+function createTopologySourceVolumeCellLabels() {
+    const labels = {
+        TUBING_INNER: 'TUBING_INNER (legacy BORE)',
+        TUBING_ANNULUS: 'TUBING_ANNULUS (inner annulus: tubing-to-first-casing)',
+        FORMATION_ANNULUS: 'FORMATION_ANNULUS (open hole / outside outermost casing)'
+    };
+
+    MODELED_CASING_ANNULUS_KINDS.forEach((kind, index) => {
+        const suffix = kind.replace('ANNULUS_', '');
+        labels[kind] = index === 0
+            ? `${kind} (outer annulus ${suffix}: first casing-to-casing)`
+            : `${kind} (outer annulus ${suffix})`;
+    });
+
+    return Object.freeze(labels);
+}
+
+const TOPOLOGY_SOURCE_VOLUME_CELL_LABELS = createTopologySourceVolumeCellLabels();
 const MARKER_HOST_TYPE_OPTIONS = Object.freeze([
     PIPE_HOST_TYPE_CASING,
     PIPE_HOST_TYPE_TUBING
@@ -902,7 +916,7 @@ function buildTableSchema(type, domainState) {
     if (type === 'topologySource') {
         const topologyVolumeRenderer = buildTopologySourceVolumeRenderer();
         return {
-            getData: () => domainState.topologySources,
+            getData: () => filterScenarioSourceRows(domainState.topologySources),
             prepareData: (rows) => rows.map((row) => ({
                 ...row,
                 show: row?.show !== false
@@ -912,8 +926,6 @@ function buildTableSchema(type, domainState) {
                 tf('table.topology_sources.bottom', 'Bottom'),
                 tf('table.topology_sources.source_type', 'Source type'),
                 tf('table.topology_sources.volume_key', 'Volume'),
-                tf('table.topology_sources.from_volume_key', 'From volume'),
-                tf('table.topology_sources.to_volume_key', 'To volume'),
                 tf('table.topology_sources.label', 'Label'),
                 tf('table.topology_sources.show', 'Show')
             ],
@@ -935,36 +947,21 @@ function buildTableSchema(type, domainState) {
                     allowInvalid: true,
                     renderer: topologyVolumeRenderer
                 },
-                {
-                    data: 'fromVolumeKey',
-                    type: 'dropdown',
-                    source: TOPOLOGY_SOURCE_VOLUME_OPTIONS,
-                    strict: false,
-                    allowInvalid: true,
-                    renderer: topologyVolumeRenderer
-                },
-                {
-                    data: 'toVolumeKey',
-                    type: 'dropdown',
-                    source: TOPOLOGY_SOURCE_VOLUME_OPTIONS,
-                    strict: false,
-                    allowInvalid: true,
-                    renderer: topologyVolumeRenderer
-                },
                 { data: 'label', type: 'text' },
                 { data: 'show', type: 'checkbox', className: 'htCenter' }
             ],
-            requiredFields: ['top', 'bottom', 'sourceType'],
+            requiredFields: ['top', 'bottom', 'sourceType', 'volumeKey'],
             numericFields: TOPOLOGY_SOURCE_NUMERIC_FIELDS,
             sampleKeyFields: ['label'],
             afterChangeIgnoreSources: ['loadData', 'normalize'],
             triggersSchematicRender: false,
             enableRowSelection: false,
+            mapRowsForStore: (rows) => mergeScenarioSourceRows(domainState.topologySources, rows),
             buildDefaultRow: () => ({
                 top: 9000,
                 bottom: 9000,
                 sourceType: 'formation_inflow',
-                volumeKey: TOPOLOGY_SOURCE_VOLUME_OPTIONS[0] ?? 'TUBING_INNER',
+                volumeKey: NODE_KIND_FORMATION_ANNULUS,
                 fromVolumeKey: null,
                 toVolumeKey: null,
                 label: t('defaults.new_topology_source'),

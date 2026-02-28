@@ -14,6 +14,9 @@ import {
     TOPOLOGY_EPSILON
 } from '@/topology/topologyTypes.js';
 
+const INNER_CHANNEL_TUBING = 'tubing_inner';
+const INNER_CHANNEL_WELLBORE = 'wellbore_inner';
+
 function createIntervalKey(top, bottom) {
     return `${Number(top).toFixed(6)}:${Number(bottom).toFixed(6)}`;
 }
@@ -61,6 +64,32 @@ function createAnnulusNode(kind, top, bottom, annulusLayer) {
     };
 }
 
+function toSafeArray(value) {
+    return Array.isArray(value) ? value : [];
+}
+
+function resolveInnermostPipeLayer(stack = []) {
+    const pipeLayers = toSafeArray(stack)
+        .filter((layer) => layer?.role === 'pipe' && layer?.material === 'steel');
+    if (pipeLayers.length === 0) return null;
+
+    return pipeLayers.reduce((innermost, layer) => {
+        const candidateOuterRadius = Number(layer?.outerRadius);
+        const currentOuterRadius = Number(innermost?.outerRadius);
+        if (!Number.isFinite(candidateOuterRadius)) return innermost;
+        if (!Number.isFinite(currentOuterRadius) || candidateOuterRadius < currentOuterRadius) {
+            return layer;
+        }
+        return innermost;
+    }, null);
+}
+
+function resolveInnerChannelForBoreNode(stack = []) {
+    const innermostPipeLayer = resolveInnermostPipeLayer(stack);
+    if (innermostPipeLayer?.pipeType === 'tubing') return INNER_CHANNEL_TUBING;
+    return INNER_CHANNEL_WELLBORE;
+}
+
 function createVolumeNodesForInterval(interval, stack = []) {
     const top = Number(interval?.top);
     const bottom = Number(interval?.bottom);
@@ -83,7 +112,8 @@ function createVolumeNodesForInterval(interval, stack = []) {
             depthBottom: bottom,
             volumeKey: NODE_KIND_BORE,
             meta: {
-                isBlocked: boreBlocked
+                isBlocked: boreBlocked,
+                innerChannel: resolveInnerChannelForBoreNode(stack)
             }
         });
     }

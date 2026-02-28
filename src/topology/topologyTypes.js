@@ -7,23 +7,52 @@ export const NODE_KIND_LEGACY_BORE = 'BORE';
 
 // Backward-compatible export alias used by existing modules.
 export const NODE_KIND_BORE = NODE_KIND_TUBING_INNER;
-export const NODE_KIND_ANNULUS_A = 'ANNULUS_A';
-export const NODE_KIND_ANNULUS_B = 'ANNULUS_B';
-export const NODE_KIND_ANNULUS_C = 'ANNULUS_C';
-export const NODE_KIND_ANNULUS_D = 'ANNULUS_D';
+const MODELED_ANNULUS_SUFFIXES = Object.freeze(['A', 'B', 'C', 'D', 'E', 'F']);
+const MAX_FORMATION_COMPATIBLE_CASING_ANNULUS_SLOT_INDEX = 2;
+
+function createAnnulusKindToken(suffix = '') {
+    const token = String(suffix ?? '').trim().toUpperCase();
+    return token ? `ANNULUS_${token}` : null;
+}
+
+const MODELED_ANNULUS_KIND_BY_SUFFIX = Object.freeze(
+    MODELED_ANNULUS_SUFFIXES.reduce((bySuffix, suffix) => {
+        const kind = createAnnulusKindToken(suffix);
+        if (!kind) return bySuffix;
+        bySuffix[suffix] = kind;
+        return bySuffix;
+    }, {})
+);
+
+export const NODE_KIND_ANNULUS_A = MODELED_ANNULUS_KIND_BY_SUFFIX.A;
+export const NODE_KIND_ANNULUS_B = MODELED_ANNULUS_KIND_BY_SUFFIX.B;
+export const NODE_KIND_ANNULUS_C = MODELED_ANNULUS_KIND_BY_SUFFIX.C;
+export const NODE_KIND_ANNULUS_D = MODELED_ANNULUS_KIND_BY_SUFFIX.D;
+export const NODE_KIND_ANNULUS_E = MODELED_ANNULUS_KIND_BY_SUFFIX.E;
+export const NODE_KIND_ANNULUS_F = MODELED_ANNULUS_KIND_BY_SUFFIX.F;
 export const NODE_KIND_FORMATION_ANNULUS = 'FORMATION_ANNULUS';
 
+export const MODELED_CASING_ANNULUS_KINDS = Object.freeze(
+    MODELED_ANNULUS_SUFFIXES
+        .map((suffix) => MODELED_ANNULUS_KIND_BY_SUFFIX[suffix])
+        .filter(Boolean)
+);
+const MODELED_CASING_ANNULUS_KIND_SET = new Set(MODELED_CASING_ANNULUS_KINDS);
+
 export const MODELED_ANNULUS_VOLUME_SLOTS = Object.freeze([
-    Object.freeze({ kind: NODE_KIND_ANNULUS_A, slotIndex: 0, allowFormationRepresentation: true }),
-    Object.freeze({ kind: NODE_KIND_ANNULUS_B, slotIndex: 1, allowFormationRepresentation: true }),
-    Object.freeze({ kind: NODE_KIND_ANNULUS_C, slotIndex: 2, allowFormationRepresentation: true }),
-    Object.freeze({ kind: NODE_KIND_ANNULUS_D, slotIndex: 3, allowFormationRepresentation: false })
+    ...MODELED_CASING_ANNULUS_KINDS.map((kind, slotIndex) => (
+        Object.freeze({
+            kind,
+            slotIndex,
+            allowFormationRepresentation: slotIndex <= MAX_FORMATION_COMPATIBLE_CASING_ANNULUS_SLOT_INDEX
+        })
+    ))
 ]);
 
 export const MODELED_VOLUME_KINDS = Object.freeze([
     NODE_KIND_TUBING_INNER,
     NODE_KIND_TUBING_ANNULUS,
-    ...MODELED_ANNULUS_VOLUME_SLOTS.map((annulusSlot) => annulusSlot.kind)
+    ...MODELED_CASING_ANNULUS_KINDS
 ]);
 
 export const TOPOLOGY_VOLUME_KINDS = Object.freeze([
@@ -40,8 +69,10 @@ export const EDGE_KIND_RADIAL = 'radial';
 export const EDGE_KIND_TERMINATION = 'termination';
 
 export const TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE = 'topologyUseIllustrativeFluidSource';
+export const TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE = 'topologyUseOpenHoleSource';
 export const SOURCE_POLICY_MODE_MARKER_DEFAULT = 'marker_default';
 export const SOURCE_POLICY_MODE_FLUID_OPT_IN = 'fluid_opt_in';
+export const SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN = 'open_hole_opt_in';
 export const SOURCE_POLICY_MODE_SCENARIO_EXPLICIT = 'scenario_explicit';
 export const SOURCE_KIND_PERFORATION = 'perforation';
 export const SOURCE_KIND_LEAK = 'leak';
@@ -68,6 +99,34 @@ export function normalizeSourceType(value) {
     if (token.includes('leak')) return SOURCE_KIND_LEAK;
     if (token.includes('formation') || token.includes('inflow')) return SOURCE_KIND_FORMATION_INFLOW;
     return token.replace(/\s+/g, '_');
+}
+
+function resolveModeledAnnulusKindFromToken(token) {
+    for (const kind of MODELED_CASING_ANNULUS_KINDS) {
+        const suffix = kind.replace('ANNULUS_', '');
+        const compactKind = kind.replace(/_/g, '');
+        const compactToken = token.replace(/_/g, '');
+        if (
+            token === kind
+            || token === compactKind
+            || token === `CASING_ANNULUS_${suffix}`
+            || token === `${suffix}_ANNULUS`
+            || token === `${suffix}_ANNULUS_${suffix}`
+            || token.includes(kind)
+        ) {
+            return kind;
+        }
+        if (compactToken.includes(compactKind)) {
+            return kind;
+        }
+    }
+    return null;
+}
+
+export function isModeledCasingAnnulusKind(value) {
+    const token = String(value ?? '').trim().toUpperCase();
+    if (!token) return false;
+    return MODELED_CASING_ANNULUS_KIND_SET.has(token);
 }
 
 export function normalizeSourceVolumeKind(value) {
@@ -106,47 +165,16 @@ export function normalizeSourceVolumeKind(value) {
         token === NODE_KIND_FORMATION_ANNULUS
         || token === 'FORMATIONANNULUS'
         || token === 'FORMATION'
+        || token === 'OPEN_HOLE'
+        || token === 'OPENHOLE'
+        || token.includes('OPEN_HOLE')
+        || token.includes('OPENHOLE')
         || token.includes('FORMATION_ANNULUS')
     ) {
         return NODE_KIND_FORMATION_ANNULUS;
     }
-    if (
-        token === NODE_KIND_ANNULUS_A
-        || token === 'CASING_ANNULUS_A'
-        || token === 'ANNULUSA'
-        || token === 'A_ANNULUS'
-        || token === 'A_ANNULUS_A'
-        || token.includes('ANNULUS_A')
-    ) {
-        return NODE_KIND_ANNULUS_A;
-    }
-    if (
-        token === NODE_KIND_ANNULUS_B
-        || token === 'ANNULUSB'
-        || token === 'B_ANNULUS'
-        || token === 'B_ANNULUS_B'
-        || token.includes('ANNULUS_B')
-    ) {
-        return NODE_KIND_ANNULUS_B;
-    }
-    if (
-        token === NODE_KIND_ANNULUS_C
-        || token === 'ANNULUSC'
-        || token === 'C_ANNULUS'
-        || token === 'C_ANNULUS_C'
-        || token.includes('ANNULUS_C')
-    ) {
-        return NODE_KIND_ANNULUS_C;
-    }
-    if (
-        token === NODE_KIND_ANNULUS_D
-        || token === 'ANNULUSD'
-        || token === 'D_ANNULUS'
-        || token === 'D_ANNULUS_D'
-        || token.includes('ANNULUS_D')
-    ) {
-        return NODE_KIND_ANNULUS_D;
-    }
+    const modeledAnnulusKind = resolveModeledAnnulusKindFromToken(token);
+    if (modeledAnnulusKind) return modeledAnnulusKind;
     return null;
 }
 
@@ -161,7 +189,10 @@ export default {
     NODE_KIND_ANNULUS_B,
     NODE_KIND_ANNULUS_C,
     NODE_KIND_ANNULUS_D,
+    NODE_KIND_ANNULUS_E,
+    NODE_KIND_ANNULUS_F,
     NODE_KIND_FORMATION_ANNULUS,
+    MODELED_CASING_ANNULUS_KINDS,
     MODELED_ANNULUS_VOLUME_SLOTS,
     MODELED_VOLUME_KINDS,
     TOPOLOGY_VOLUME_KINDS,
@@ -170,13 +201,16 @@ export default {
     EDGE_KIND_RADIAL,
     EDGE_KIND_TERMINATION,
     TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE,
+    TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE,
     SOURCE_POLICY_MODE_MARKER_DEFAULT,
     SOURCE_POLICY_MODE_FLUID_OPT_IN,
+    SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN,
     SOURCE_POLICY_MODE_SCENARIO_EXPLICIT,
     SOURCE_KIND_PERFORATION,
     SOURCE_KIND_LEAK,
     SOURCE_KIND_FORMATION_INFLOW,
     SOURCE_KIND_SCENARIO,
+    isModeledCasingAnnulusKind,
     normalizeWellId,
     normalizeMarkerType,
     normalizeSourceType,

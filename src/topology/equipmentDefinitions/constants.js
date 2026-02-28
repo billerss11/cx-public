@@ -1,5 +1,6 @@
 export const NORMALIZED_EQUIPMENT_TYPE_PACKER = 'packer';
 export const NORMALIZED_EQUIPMENT_TYPE_SAFETY_VALVE = 'safety-valve';
+export const NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG = 'bridge-plug';
 
 export const ACTUATION_STATIC = 'static';
 export const ACTUATION_OPEN = 'open';
