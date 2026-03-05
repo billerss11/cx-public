@@ -44,6 +44,9 @@ export function buildEquipmentTableSchema(domainState, options = {}) {
       tf('table.equipment.color', 'Color'),
       tf('table.equipment.scale', 'Scale'),
       tf('table.equipment.label', 'Label'),
+      tf('table.casing.label_x', 'Label X'),
+      tf('table.casing.label_depth', 'Label depth'),
+      tf('table.boxes.font_size', 'Font Size'),
       tf('table.equipment.show_label', 'Show label')
     ],
     columns: () => {
@@ -81,6 +84,9 @@ export function buildEquipmentTableSchema(domainState, options = {}) {
         },
         { data: 'scale', type: 'numeric' },
         { data: 'label', type: 'text' },
+        { data: 'labelXPos', type: 'numeric' },
+        { data: 'manualLabelDepth', type: 'numeric' },
+        { data: 'labelFontSize', type: 'numeric' },
         { data: 'showLabel', type: 'checkbox', className: 'htCenter' }
       ];
     },

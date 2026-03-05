@@ -1,0 +1,87 @@
+{
+  "name": "tubing_annulus_source_present",
+  "description": "Explicit TUBING_ANNULUS scenario source resolves when tubing-annulus volume is present.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "csg-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 5000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "csg-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 4500,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [
+      {
+        "rowId": "tbg-1",
+        "label": "Production Tubing",
+        "od": 4.5,
+        "weight": 12.6,
+        "top": 0,
+        "bottom": 3500,
+        "show": true
+      }
+    ],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "src-tbg-annulus",
+        "sourceType": "scenario",
+        "volumeKey": "TUBING_ANNULUS",
+        "top": 1200,
+        "bottom": 1300,
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 7,
+    "edgeCount": 9,
+    "activeFlowNodeCount": 7,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 1,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

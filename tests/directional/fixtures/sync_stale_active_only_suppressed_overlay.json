@@ -1,0 +1,29 @@
+{
+  "name": "sync_stale_active_only_suppressed_overlay",
+  "description": "Directional overlay is suppressed in stale-result state even when active channel is enabled.",
+  "extendsFixture": "toggle_active_only_overlay",
+  "expected": {
+    "transitionEdgeCount": 0,
+    "transitionEdgePairs": [],
+    "transitionBoundaryDepths": [],
+    "topologyWarningCodes": [],
+    "overlayEntryCount": 0,
+    "overlayEntryKindCounts": {},
+    "overlayEntryStyleCounts": {},
+    "overlayPolygonCount": 0,
+    "overlayPolygonKindCounts": {},
+    "overlayPolygonStyleCounts": {},
+    "overlayPolygonChecksum": 2166136261,
+    "overlaySynchronization": {
+      "isSynchronized": false,
+      "overlaySuppressed": true,
+      "reason": "stale_result"
+    }
+  },
+  "synchronization": {
+    "latestRequestId": 2,
+    "resultRequestId": 1,
+    "loading": true,
+    "requireExpectedRequestId": false
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "name": "marker_casing_middle_cross_annulus",
+  "description": "Middle-casing marker creates ANNULUS_A <-> ANNULUS_B radial communication instead of default BORE <-> ANNULUS_A.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "csg-outer",
+        "label": "Outer",
+        "top": 0,
+        "bottom": 10000,
+        "od": 16,
+        "weight": 58,
+        "show": true
+      },
+      {
+        "rowId": "csg-middle",
+        "label": "Middle",
+        "top": 0,
+        "bottom": 10000,
+        "od": 13.375,
+        "weight": 54.5,
+        "show": true
+      },
+      {
+        "rowId": "csg-inner",
+        "label": "Inner",
+        "top": 0,
+        "bottom": 10000,
+        "od": 9.625,
+        "weight": 40,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-middle-casing",
+        "type": "Perforation",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "csg-middle",
+        "attachToHostType": "casing",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 10,
+    "edgeCount": 10,
+    "activeFlowNodeCount": 7,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "marker_default",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 2,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 0,
+    "validationWarningCodes": [],
+    "validationWarningCodeCounts": {},
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

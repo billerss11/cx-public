@@ -1,0 +1,84 @@
+{
+  "name": "tubing_leak_point_depth_inside",
+  "description": "Point-depth tubing-host leak marker resolves radial communication when marker depth is inside tubing interval.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [
+      {
+        "rowId": "tbg-1",
+        "label": "Production Tubing",
+        "od": 4.5,
+        "weight": 12,
+        "top": 0,
+        "bottom": 7000,
+        "show": true
+      }
+    ],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-tubing-leak-point-inside",
+        "type": "Leak",
+        "top": 6500,
+        "bottom": 6500,
+        "attachToId": "tbg-1",
+        "attachToHostType": "tubing",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 10,
+    "edgeCount": 14,
+    "activeFlowNodeCount": 0,
+    "sourceEntityCount": 0,
+    "sourcePolicyMode": "marker_default",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 0,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 0,
+    "validationWarningCodes": [],
+    "validationWarningCodeCounts": {},
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

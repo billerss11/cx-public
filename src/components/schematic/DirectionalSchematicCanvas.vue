@@ -547,7 +547,10 @@ const displayScaleValue = computed(() => {
   if (!Number.isFinite(figHeightValue.value) || figHeightValue.value <= 0) return 1;
 
   const widthRatio = nextContainerWidth / svgWidthValue.value;
-  return widthRatio > 1 ? widthRatio : 1;
+  const heightRatio = nextContainerHeight / figHeightValue.value;
+  const containRatio = Math.min(widthRatio, heightRatio);
+  if (!Number.isFinite(containRatio) || containRatio <= 0) return 1;
+  return containRatio;
 });
 const displayWidthValue = computed(() => Math.round(svgWidthValue.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(figHeightValue.value * displayScaleValue.value));

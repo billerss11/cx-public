@@ -1,0 +1,30 @@
+{
+  "name": "sync_request_mismatch_selected_only_suppressed_overlay",
+  "description": "Directional overlay is suppressed on request mismatch even with selected-node highlighting configured.",
+  "extendsFixture": "toggle_selected_only_overlay",
+  "expected": {
+    "transitionEdgeCount": 0,
+    "transitionEdgePairs": [],
+    "transitionBoundaryDepths": [],
+    "topologyWarningCodes": [],
+    "overlayEntryCount": 0,
+    "overlayEntryKindCounts": {},
+    "overlayEntryStyleCounts": {},
+    "overlayPolygonCount": 0,
+    "overlayPolygonKindCounts": {},
+    "overlayPolygonStyleCounts": {},
+    "overlayPolygonChecksum": 2166136261,
+    "overlaySynchronization": {
+      "isSynchronized": false,
+      "overlaySuppressed": true,
+      "reason": "request_mismatch"
+    }
+  },
+  "synchronization": {
+    "latestRequestId": 1,
+    "resultRequestId": 1,
+    "loading": false,
+    "expectedRequestId": 2,
+    "requireExpectedRequestId": true
+  }
+}

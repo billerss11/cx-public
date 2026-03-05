@@ -18,6 +18,7 @@ import {
   isTopologyWorkerCancelledError,
   requestTopologyModelInWorker
 } from '@/composables/useTopologyWorker.js';
+import { useFeatureTiming } from '@/composables/useFeatureTiming.js';
 import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
 import SchematicCanvas from '@/components/schematic/SchematicCanvas.vue';
 import DirectionalSchematicCanvas from '@/components/schematic/DirectionalSchematicCanvas.vue';
@@ -51,6 +52,7 @@ const viewConfigStore = useViewConfigStore();
 const projectStore = useProjectStore();
 const workspaceStore = useWorkspaceStore();
 const topologyStore = useTopologyStore();
+const { startFeatureTimer } = useFeatureTiming();
 const topologyOverlayOptions = reactive({
   showActiveFlow: true,
   showMinCostPath: false,
@@ -389,11 +391,13 @@ watch(
   [topologyStateSnapshot, activeWellId, isAnalysisWorkspaceActive],
   ([snapshot, wellId, isActive]) => {
     if (!isActive || !wellId) return;
+    const requestMode = isDirectionalView.value ? 'directional' : 'vertical';
 
     const { requestId, promise } = requestTopologyModelInWorker(snapshot, {
       wellId,
       supersedeReason: 'New analysis snapshot available'
     });
+    const topologyPerfTimer = startFeatureTimer('analysis.topology.recompute');
     latestAnalysisGeometryRequestId.value = requestId;
     if (isDirectionalView.value) {
       directionalGeometryReadyRequestId.value = null;
@@ -410,6 +414,12 @@ watch(
           requestId,
           createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
         );
+        void topologyPerfTimer.end({
+          status: 'success',
+          task: 'topology.build_model',
+          requestId,
+          mode: requestMode
+        });
       })
       .catch((error) => {
         if (isTopologyWorkerCancelledError(error)) {
@@ -418,6 +428,12 @@ watch(
             requestId,
             createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
           );
+          void topologyPerfTimer.end({
+            status: 'cancelled',
+            task: 'topology.build_model',
+            requestId,
+            mode: requestMode
+          });
           return;
         }
         topologyStore.setWellTopologyError(
@@ -426,6 +442,12 @@ watch(
           requestId,
           createTopologyLineageMeta(requestId, { includeDirectionalReady: true })
         );
+        void topologyPerfTimer.end({
+          status: 'error',
+          task: 'topology.build_model',
+          requestId,
+          mode: requestMode
+        });
       });
   },
   { immediate: true, deep: true }

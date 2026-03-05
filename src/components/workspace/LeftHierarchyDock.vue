@@ -78,6 +78,10 @@ function resolveNodeKind(node) {
   return String(node?.data?.kind ?? '').trim();
 }
 
+function isWellNode(node) {
+  return resolveNodeKind(node) === 'well';
+}
+
 function isRenamableNode(node) {
   const kind = resolveNodeKind(node);
   return kind === 'well' || kind === 'item';
@@ -85,6 +89,12 @@ function isRenamableNode(node) {
 
 function resolveNodeLabel(node) {
   return String(node?.label ?? '').trim();
+}
+
+function resolveNodeLabelClass(node) {
+  return {
+    'left-hierarchy-dock__node-label--well': isWellNode(node)
+  };
 }
 
 function findNodeByKey(nodes, nodeKey) {
@@ -559,7 +569,7 @@ watch(
       >
         <template #default="{ node }">
           <span
-            class="left-hierarchy-dock__node-label"
+            :class="['left-hierarchy-dock__node-label', resolveNodeLabelClass(node)]"
             @contextmenu.prevent.stop="handleNodeContextMenu($event, node)"
           >
             <InputText
@@ -656,6 +666,17 @@ watch(
 .left-hierarchy-dock__node-label {
   display: inline-block;
   width: 100%;
+}
+
+.left-hierarchy-dock__node-label--well {
+  display: block;
+  min-height: 1.25rem;
+  padding-inline: 0.35rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--color-accent-primary-strong) 52%, transparent);
+  color: var(--color-text-primary);
+  font-weight: 500;
 }
 
 .left-hierarchy-dock__tree :deep([data-p-selected='true']) {

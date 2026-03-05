@@ -1,0 +1,30 @@
+{
+  "name": "sync_geometry_pending_path_only_suppressed_overlay",
+  "description": "Directional overlay is suppressed when geometry request is pending even with path channel enabled.",
+  "extendsFixture": "toggle_path_only_overlay",
+  "expected": {
+    "transitionEdgeCount": 0,
+    "transitionEdgePairs": [],
+    "transitionBoundaryDepths": [],
+    "topologyWarningCodes": [],
+    "overlayEntryCount": 0,
+    "overlayEntryKindCounts": {},
+    "overlayEntryStyleCounts": {},
+    "overlayPolygonCount": 0,
+    "overlayPolygonKindCounts": {},
+    "overlayPolygonStyleCounts": {},
+    "overlayPolygonChecksum": 2166136261,
+    "overlaySynchronization": {
+      "isSynchronized": false,
+      "overlaySuppressed": true,
+      "reason": "expected_request_pending"
+    }
+  },
+  "synchronization": {
+    "latestRequestId": 1,
+    "resultRequestId": 1,
+    "loading": false,
+    "expectedRequestId": null,
+    "requireExpectedRequestId": true
+  }
+}

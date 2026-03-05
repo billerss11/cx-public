@@ -1,0 +1,84 @@
+{
+  "name": "sealed_boundary_costed_path",
+  "description": "Closed safety-valve style boundary forces costed traversal.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [
+      {
+        "rowId": "equipment-sv-1",
+        "depth": 5000,
+        "type": "Safety Valve",
+        "actuationState": "closed",
+        "integrityStatus": "intact",
+        "boreSeal": true,
+        "annularSeal": true,
+        "show": true
+      }
+    ],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-perf-1",
+        "type": "Perforation",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "casing-inner",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 10,
+    "edgeCount": 10,
+    "activeFlowNodeCount": 7,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "marker_default",
+    "minFailureCostToSurface": 1,
+    "minCostPathLength": 3,
+    "spofEdgeCount": 1,
+    "validationWarningCount": 0,
+    "validationWarningCodes": [],
+    "validationWarningCodeCounts": {},
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 1,
+    "barrierSecondaryElementCount": 1,
+    "barrierOverlapElementCount": 0
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "sync_include_result_false_active_only_suppressed_overlay",
+  "description": "Directional overlay stays suppressed when synchronization input omits topology result (includeResult=false) during loading.",
+  "extendsFixture": "toggle_active_only_overlay",
+  "expected": {
+    "transitionEdgeCount": 0,
+    "transitionEdgePairs": [],
+    "transitionBoundaryDepths": [],
+    "topologyWarningCodes": [],
+    "overlayEntryCount": 0,
+    "overlayEntryKindCounts": {},
+    "overlayEntryStyleCounts": {},
+    "overlayPolygonCount": 0,
+    "overlayPolygonKindCounts": {},
+    "overlayPolygonStyleCounts": {},
+    "overlayPolygonChecksum": 2166136261,
+    "overlaySynchronization": {
+      "isSynchronized": false,
+      "overlaySuppressed": true,
+      "reason": "loading_no_result"
+    }
+  },
+  "synchronization": {
+    "latestRequestId": 1,
+    "loading": true,
+    "includeResult": false,
+    "requireExpectedRequestId": false
+  }
+}

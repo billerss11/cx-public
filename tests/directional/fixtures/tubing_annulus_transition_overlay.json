@@ -1,0 +1,141 @@
+{
+  "name": "tubing_annulus_transition_overlay",
+  "description": "Directional topology overlay retains tubing-boundary transition semantics between ANNULUS_A and TUBING_ANNULUS.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "csg-1",
+        "label": "Casing 13-3/8",
+        "od": 13.375,
+        "weight": 54.5,
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "csg-2",
+        "label": "Casing 9-5/8",
+        "od": 9.625,
+        "weight": 47,
+        "top": 0,
+        "bottom": 9500,
+        "show": true
+      },
+      {
+        "rowId": "csg-3",
+        "label": "Casing 7",
+        "od": 7,
+        "weight": 29,
+        "top": 0,
+        "bottom": 9000,
+        "show": true
+      }
+    ],
+    "tubingData": [
+      {
+        "rowId": "tbg-1",
+        "label": "Tubing 4-1/2",
+        "od": 4.5,
+        "weight": 12.6,
+        "top": 1500,
+        "bottom": 6500,
+        "show": true
+      }
+    ],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "src-1",
+        "sourceType": "scenario",
+        "volumeKey": "TUBING_ANNULUS",
+        "top": 2200,
+        "bottom": 2600,
+        "show": true
+      }
+    ],
+    "trajectory": [
+      {
+        "md": 0,
+        "inc": 0,
+        "azi": 0
+      },
+      {
+        "md": 2000,
+        "inc": 18,
+        "azi": 35
+      },
+      {
+        "md": 4500,
+        "inc": 42,
+        "azi": 70
+      },
+      {
+        "md": 7500,
+        "inc": 50,
+        "azi": 95
+      },
+      {
+        "md": 10000,
+        "inc": 58,
+        "azi": 120
+      }
+    ],
+    "config": {
+      "operationPhase": "production",
+      "units": "ft"
+    },
+    "interaction": {}
+  },
+  "overlayOptions": {
+    "diameterScale": 1,
+    "sampleStepMd": 40,
+    "showActiveFlow": true,
+    "showMinCostPath": true,
+    "showSpof": true,
+    "selectedNodeIds": []
+  },
+  "expected": {
+    "transitionEdgeCount": 2,
+    "transitionEdgePairs": [
+      "ANNULUS_A->TUBING_ANNULUS",
+      "TUBING_ANNULUS->ANNULUS_A"
+    ],
+    "transitionBoundaryDepths": [
+      "1500.000",
+      "6500.000"
+    ],
+    "topologyWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "overlayEntryCount": 13,
+    "overlayEntryKindCounts": {
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2,
+      "TUBING_ANNULUS": 2,
+      "TUBING_INNER": 5
+    },
+    "overlayEntryStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 9,
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 4
+    },
+    "overlayPolygonCount": 13,
+    "overlayPolygonKindCounts": {
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2,
+      "TUBING_ANNULUS": 2,
+      "TUBING_INNER": 5
+    },
+    "overlayPolygonStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 9,
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 4
+    },
+    "overlayPolygonChecksum": 4035526581
+  }
+}

@@ -1,0 +1,168 @@
+import { setActivePinia } from 'pinia';
+import { mount, flushPromises } from '@vue/test-utils';
+import { computed, defineComponent } from 'vue';
+import { describe, expect, it } from 'vitest';
+import LeftHierarchyDock from '@/components/workspace/LeftHierarchyDock.vue';
+import { pinia } from '@/stores/pinia.js';
+import { useProjectDataStore } from '@/stores/projectDataStore.js';
+import { useProjectStore } from '@/stores/projectStore.js';
+
+function createWellData(lineRows = []) {
+  return {
+    casingData: [],
+    tubingData: [],
+    drillStringData: [],
+    equipmentData: [],
+    horizontalLines: lineRows,
+    annotationBoxes: [],
+    userAnnotations: [],
+    cementPlugs: [],
+    annulusFluids: [],
+    markers: [],
+    topologySources: [],
+    trajectory: []
+  };
+}
+
+function toSafeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function findNodeByPredicate(nodes, predicate) {
+  const queue = toSafeArray(nodes).slice();
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node || typeof node !== 'object') continue;
+    if (predicate(node) === true) return node;
+    if (Array.isArray(node.children)) {
+      queue.push(...node.children);
+    }
+  }
+  return null;
+}
+
+const TreeStub = defineComponent({
+  name: 'Tree',
+  props: {
+    value: {
+      type: Array,
+      default: () => []
+    }
+  },
+  setup(props, { slots }) {
+    const targetNode = computed(() => findNodeByPredicate(
+      props.value,
+      (node) => node?.data?.kind === 'item' && node?.data?.domainKey === 'lines'
+    ));
+    return {
+      targetNode
+    };
+  },
+  template: `
+    <div>
+      <slot v-if="targetNode" name="default" :node="targetNode" />
+    </div>
+  `
+});
+
+const ContextMenuStub = defineComponent({
+  name: 'ContextMenu',
+  props: {
+    model: {
+      type: Array,
+      default: () => []
+    }
+  },
+  setup(props, { expose }) {
+    expose({
+      show: () => {
+        const renameAction = toSafeArray(props.model).find((entry) => entry?.label === 'Rename');
+        renameAction?.command?.();
+      }
+    });
+    return {};
+  },
+  template: '<div class="context-menu-stub" />'
+});
+
+const InputTextStub = defineComponent({
+  name: 'InputText',
+  props: {
+    modelValue: {
+      type: String,
+      default: ''
+    }
+  },
+  emits: ['update:modelValue'],
+  template: '<input data-testid="rename-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />'
+});
+
+const ButtonStub = defineComponent({
+  name: 'Button',
+  props: {
+    label: {
+      type: String,
+      default: ''
+    },
+    disabled: {
+      type: Boolean,
+      default: false
+    }
+  },
+  emits: ['click'],
+  template: '<button type="button" :disabled="disabled" @click="$emit(\'click\')">{{ label }}</button>'
+});
+
+describe('LeftHierarchyDock rename context menu', () => {
+  it('renames item label via right-click context menu and syncs source row field', async () => {
+    setActivePinia(pinia);
+
+    const projectStore = useProjectStore(pinia);
+    const projectDataStore = useProjectDataStore(pinia);
+    projectStore.loadProject({
+      projectSchemaVersion: '3.0',
+      projectName: 'Rename Context',
+      projectAuthor: '',
+      activeWellId: 'well-1',
+      projectConfig: { defaultUnits: 'ft' },
+      wells: [
+        {
+          id: 'well-1',
+          name: 'Well 1',
+          data: createWellData([
+            { rowId: 'line-1', depth: 1200, label: 'Original Line', show: true }
+          ]),
+          config: {}
+        }
+      ]
+    });
+
+    const wrapper = mount(LeftHierarchyDock, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          Tree: TreeStub,
+          ContextMenu: ContextMenuStub,
+          InputText: InputTextStub,
+          Button: ButtonStub,
+          LeftHierarchyDockSectionActions: defineComponent({
+            name: 'LeftHierarchyDockSectionActions',
+            template: '<div />'
+          })
+        }
+      }
+    });
+
+    const labelNode = wrapper.get('.left-hierarchy-dock__node-label');
+    await labelNode.trigger('contextmenu');
+    await flushPromises();
+
+    const renameInput = wrapper.get('[data-testid="rename-input"]');
+    await renameInput.setValue('Renamed Line');
+    await renameInput.trigger('keydown.enter');
+    await flushPromises();
+
+    expect(projectDataStore.horizontalLines[0].label).toBe('Renamed Line');
+    expect(wrapper.get('.left-hierarchy-dock__node-label').text()).toContain('Renamed Line');
+  });
+});

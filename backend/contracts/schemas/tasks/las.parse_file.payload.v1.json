@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cx-backend/tasks/las.parse_file.payload.v1.json",
+  "type": "object",
+  "required": ["filePath"],
+  "properties": {
+    "filePath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previewRows": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+    }
+  },
+  "additionalProperties": false
+}

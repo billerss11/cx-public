@@ -390,7 +390,10 @@ const displayScaleValue = computed(() => {
   if (!Number.isFinite(height.value) || height.value <= 0) return 1;
 
   const widthRatio = containerWidth / width.value;
-  return widthRatio > 1 ? widthRatio : 1;
+  const heightRatio = containerHeight / height.value;
+  const containRatio = Math.min(widthRatio, heightRatio);
+  if (!Number.isFinite(containRatio) || containRatio <= 0) return 1;
+  return containRatio;
 });
 const displayWidthValue = computed(() => Math.round(width.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(height.value * displayScaleValue.value));

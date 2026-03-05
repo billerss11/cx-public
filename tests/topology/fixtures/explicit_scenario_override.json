@@ -1,0 +1,86 @@
+{
+  "name": "explicit_scenario_override",
+  "description": "Explicit topologySources rows override marker-derived fallback.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-perf-1",
+        "type": "Perforation",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "casing-inner",
+        "show": true
+      }
+    ],
+    "topologySources": [
+      {
+        "rowId": "source-explicit-1",
+        "top": 6400,
+        "bottom": 6600,
+        "sourceType": "formation_inflow",
+        "volumeKey": "BORE",
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 8,
+    "edgeCount": 8,
+    "activeFlowNodeCount": 8,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 1,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

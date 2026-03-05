@@ -1,0 +1,124 @@
+{
+  "name": "annulus_c_sealed_boundary",
+  "description": "Explicit ANNULUS_C source below a closed annular boundary yields a costed path.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-1",
+        "label": "18.625",
+        "od": 18.625,
+        "weight": 68,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-2",
+        "label": "16.000",
+        "od": 16,
+        "weight": 58,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-3",
+        "label": "13.375",
+        "od": 13.375,
+        "weight": 54.5,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-4",
+        "label": "9.625",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-5",
+        "label": "7.000",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "open-hole-1",
+        "label": "Open Hole",
+        "od": 22,
+        "weight": 0,
+        "grade": "OH",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [
+      {
+        "rowId": "equipment-packer-1",
+        "depth": 5000,
+        "type": "Packer",
+        "attachToHostType": "casing",
+        "attachToId": "casing-3",
+        "actuationState": "static",
+        "integrityStatus": "intact",
+        "show": true
+      }
+    ],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "source-annulus-c-1",
+        "top": 6500,
+        "bottom": 6700,
+        "sourceType": "formation_inflow",
+        "volumeKey": "ANNULUS_C",
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 13,
+    "edgeCount": 12,
+    "activeFlowNodeCount": 1,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 1,
+    "minCostPathLength": 2,
+    "spofEdgeCount": 1,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 1,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

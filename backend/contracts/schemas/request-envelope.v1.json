@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cx-backend/request-envelope.v1.json",
+  "type": "object",
+  "required": ["requestId", "task", "taskVersion", "payload", "context"],
+  "properties": {
+    "requestId": {
+      "type": ["string", "null"]
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taskVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payload": {
+      "type": "object"
+    },
+    "context": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

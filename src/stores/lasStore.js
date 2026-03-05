@@ -1,5 +1,8 @@
+import { markRaw } from 'vue';
 import { defineStore } from 'pinia';
 import { backendRequest, getBackendResultMeta, openLasFileDialog } from '@/composables/useBackendClient.js';
+
+const LARGE_LAS_FILE_THRESHOLD_BYTES = 25 * 1024 * 1024;
 
 function normalizeRequestMeta(rawMeta, fallbackTask) {
     if (!rawMeta || typeof rawMeta !== 'object') {
@@ -40,6 +43,71 @@ function normalizeBackendError(err, fallbackMessage, fallbackTask) {
     };
 }
 
+function normalizeFileSizeBytes(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) return null;
+    return Math.trunc(numeric);
+}
+
+function formatFileSizeMb(bytes) {
+    const safeBytes = normalizeFileSizeBytes(bytes);
+    if (!Number.isFinite(safeBytes)) return null;
+    const mb = safeBytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+}
+
+function normalizeOptionalText(value) {
+    const token = String(value ?? '').trim();
+    return token || null;
+}
+
+function resolveLargeLasFileWarning(dialogResult = {}) {
+    const fileSizeBytes = normalizeFileSizeBytes(dialogResult?.fileSizeBytes);
+    if (!Number.isFinite(fileSizeBytes) || fileSizeBytes <= LARGE_LAS_FILE_THRESHOLD_BYTES) {
+        return null;
+    }
+
+    const fileSizeLabel = formatFileSizeMb(fileSizeBytes) ?? 'unknown size';
+    const thresholdLabel = formatFileSizeMb(LARGE_LAS_FILE_THRESHOLD_BYTES) ?? '25.0 MB';
+    return {
+        code: 'LAS_LARGE_FILE',
+        message: `Large LAS file selected (${fileSizeLabel}). Import may take longer than usual (threshold: ${thresholdLabel}).`,
+        filePath: normalizeOptionalText(dialogResult?.filePath),
+        fileName: normalizeOptionalText(dialogResult?.fileName),
+        fileSizeBytes,
+        fileSizeLabel,
+        thresholdBytes: LARGE_LAS_FILE_THRESHOLD_BYTES,
+        thresholdLabel,
+    };
+}
+
+function emitLargeLasFileWarningLog(warning = null) {
+    if (!warning || typeof warning !== 'object') return;
+    if (typeof window === 'undefined' || typeof window.cxApp?.appendSupportLog !== 'function') return;
+
+    const payload = {
+        feature: 'las.import',
+        warningCode: warning.code,
+        filePath: warning.filePath,
+        fileName: warning.fileName,
+        fileSizeBytes: warning.fileSizeBytes,
+        fileSizeLabel: warning.fileSizeLabel,
+        thresholdBytes: warning.thresholdBytes,
+        thresholdLabel: warning.thresholdLabel,
+        optimizationHint: 'Large LAS file; consider reducing requested curves/range or improving parse pipeline.'
+    };
+
+    Promise.resolve(
+        window.cxApp.appendSupportLog({
+            level: 'warn',
+            event: 'las.large_file_warning',
+            payload
+        })
+    ).catch(() => {
+        // Do not block import flow on support-log transport errors.
+    });
+}
+
 export const useLasStore = defineStore('las', {
     state: () => ({
         sessions: {},
@@ -51,6 +119,7 @@ export const useLasStore = defineStore('las', {
         error: null,
         errorCode: null,
         errorDetails: null,
+        warning: null,
         lastRequestMeta: null,
     }),
 
@@ -93,6 +162,10 @@ export const useLasStore = defineStore('las', {
             this.errorDetails = null;
         },
 
+        clearWarning() {
+            this.warning = null;
+        },
+
         applyBackendError(err, fallbackMessage, fallbackTask) {
             const normalized = normalizeBackendError(err, fallbackMessage, fallbackTask);
             this.error = normalized.message;
@@ -108,6 +181,8 @@ export const useLasStore = defineStore('las', {
         async openAndParseFile() {
             const dialogResult = await openLasFileDialog();
             if (dialogResult.canceled) return null;
+            this.warning = resolveLargeLasFileWarning(dialogResult);
+            emitLargeLasFileWarningLog(this.warning);
             return this.parseFile(dialogResult.filePath);
         },
 
@@ -151,7 +226,7 @@ export const useLasStore = defineStore('las', {
                     ...options,
                 };
                 const result = await backendRequest('las.get_curve_data', payload);
-                this.curveData[session.sessionId] = result;
+                this.curveData[session.sessionId] = markRaw(result);
                 this.setLastRequestMetaFromResult(result, 'las.get_curve_data');
 
                 this.sessions[session.sessionId] = {

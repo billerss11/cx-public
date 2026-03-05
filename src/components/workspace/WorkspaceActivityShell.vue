@@ -39,9 +39,20 @@ const activityMeta = Object.freeze({
 let detachResizeListener = null;
 let unsubscribeLanguageChange = null;
 
-const isLeftDockVisible = computed(() => workspaceStore.leftDockVisible === true);
-const isRightDockVisible = computed(() => workspaceStore.rightDockVisible === true);
-const isBottomDockVisible = computed(() => workspaceStore.bottomDockVisible === true);
+const isLasActivityActive = computed(() => workspaceStore.currentActivity === 'las');
+const shouldShowSharedTopControls = computed(() => isLasActivityActive.value !== true);
+const isLeftDockVisible = computed(() => (
+  shouldShowSharedTopControls.value === true
+  && workspaceStore.leftDockVisible === true
+));
+const isRightDockVisible = computed(() => (
+  shouldShowSharedTopControls.value === true
+  && workspaceStore.rightDockVisible === true
+));
+const isBottomDockVisible = computed(() => (
+  shouldShowSharedTopControls.value === true
+  && workspaceStore.bottomDockVisible === true
+));
 const isBottomDockFloating = computed(() => workspaceStore.bottomDockMode === BOTTOM_DOCK_MODES.floating);
 const isBottomDockDocked = computed(() => isBottomDockFloating.value !== true);
 const isInlineBottomDockVisible = computed(() => isBottomDockVisible.value && isBottomDockDocked.value);
@@ -72,10 +83,10 @@ const floatingDockDialogStyle = computed(() => ({
 }));
 
 const layoutStyle = computed(() => {
-  const leftColumns = workspaceStore.leftDockVisible === true
+  const leftColumns = isLeftDockVisible.value === true
     ? `minmax(${LEFT_DOCK_MIN_WIDTH}px, ${workspaceStore.leftDockWidth}px) 12px`
     : 'minmax(0, 0px) 0';
-  const rightColumns = workspaceStore.rightDockVisible === true
+  const rightColumns = isRightDockVisible.value === true
     ? `12px minmax(${RIGHT_DOCK_MIN_WIDTH}px, ${workspaceStore.rightDockWidth}px)`
     : '0 minmax(0, 0px)';
   const bottomRows = isInlineBottomDockVisible.value
@@ -175,7 +186,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="workspace-activity-shell__row workspace-activity-shell__row--secondary">
+      <div
+        v-show="shouldShowSharedTopControls"
+        class="workspace-activity-shell__row workspace-activity-shell__row--secondary"
+      >
         <WorkspaceProjectActions class="workspace-activity-shell__project-actions" />
         <WorkspaceViewStateControls class="workspace-activity-shell__view-state-controls" />
 

@@ -1,0 +1,91 @@
+{
+  "name": "invalid_volume_override_value_warning",
+  "description": "Invalid sealByVolume value emits invalid_volume_seal_override_value warning.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [
+      {
+        "rowId": "equipment-packer-invalid-value",
+        "depth": 5000,
+        "type": "Packer",
+        "attachToHostType": "casing",
+        "attachToId": "casing-inner",
+        "actuationState": "open",
+        "integrityStatus": "intact",
+        "sealByVolume": {
+          "ANNULUS_A": "invalid"
+        },
+        "show": true
+      }
+    ],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-perf-1",
+        "type": "Perforation",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "casing-inner",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 10,
+    "edgeCount": 10,
+    "activeFlowNodeCount": 10,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "marker_default",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 3,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "invalid_volume_seal_override_value"
+    ],
+    "validationWarningCodeCounts": {
+      "invalid_volume_seal_override_value": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

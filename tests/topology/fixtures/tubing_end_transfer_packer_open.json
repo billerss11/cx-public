@@ -1,0 +1,94 @@
+{
+  "name": "tubing_end_transfer_packer_open",
+  "description": "Tubing-end transfer path remains open when tubing-host packer at tubing end is explicitly open.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "csg-outer",
+        "label": "Outer Casing",
+        "od": 13.375,
+        "weight": 54.5,
+        "top": 0,
+        "bottom": 5000,
+        "show": true
+      },
+      {
+        "rowId": "csg-inner-liner",
+        "label": "Inner Liner",
+        "od": 9.625,
+        "weight": 40,
+        "top": 1500,
+        "bottom": 5000,
+        "show": true
+      }
+    ],
+    "tubingData": [
+      {
+        "rowId": "tbg-1",
+        "label": "Production Tubing",
+        "od": 4.5,
+        "weight": 12.6,
+        "top": 1000,
+        "bottom": 2000,
+        "show": true
+      }
+    ],
+    "drillStringData": [],
+    "equipmentData": [
+      {
+        "rowId": "eq-packer-open",
+        "type": "Packer",
+        "depth": 2000,
+        "attachToHostType": "tubing",
+        "attachToId": "tbg-1",
+        "actuationState": "open",
+        "integrityStatus": "intact",
+        "show": true
+      }
+    ],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "src-annulus-a",
+        "sourceType": "scenario",
+        "volumeKey": "ANNULUS_A",
+        "top": 2200,
+        "bottom": 2300,
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 9,
+    "edgeCount": 9,
+    "activeFlowNodeCount": 9,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 4,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 2,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active",
+      "tubing_end_transfer_unresolved"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1,
+      "tubing_end_transfer_unresolved": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

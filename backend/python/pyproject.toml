@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cx-backend"
+version = "0.1.0"
+description = "Python task backend for the Casing Schematic Plotter."
+requires-python = ">=3.10"
+dependencies = [
+    "dlisio>=1.0,<2",
+    "lasio>=0.32,<1",
+    "pandas>=2.2,<3",
+    "wellpathpy>=0.5,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+]
+
+[project.scripts]
+cx-backend = "cx_backend.host.stdio_host:run_stdio_host"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

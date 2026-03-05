@@ -1,0 +1,83 @@
+{
+  "name": "surface_sink_only_annulus_b_active_flow",
+  "description": "ANNULUS_B explicit source preserves source-to-surface routing intent without surface back-propagation.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 16,
+        "weight": 58,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-middle",
+        "label": "Middle",
+        "od": 13.375,
+        "weight": 54.5,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "source-annulus-b-1",
+        "top": 6400,
+        "bottom": 6600,
+        "sourceType": "leak",
+        "volumeKey": "ANNULUS_B",
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 4,
+    "edgeCount": 3,
+    "activeFlowNodeCount": 2,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 1,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cx-backend/tasks/las.get_correlation_matrix.payload.v1.json",
+  "type": "object",
+  "required": ["sessionId", "curveMnemonics"],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "curveMnemonics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "maxRows": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 500000
+    }
+  },
+  "additionalProperties": false
+}

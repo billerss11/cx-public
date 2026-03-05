@@ -1,0 +1,123 @@
+{
+  "name": "toggle_path_only_overlay",
+  "description": "Directional overlay renders path-channel highlights only when active/spof channels are disabled.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [
+      {
+        "rowId": "equipment-sv-1",
+        "depth": 5000,
+        "type": "Safety Valve",
+        "actuationState": "closed",
+        "integrityStatus": "intact",
+        "boreSeal": true,
+        "annularSeal": true,
+        "show": true
+      }
+    ],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-perf-1",
+        "type": "Perforation",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "casing-inner",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [
+      {
+        "md": 0,
+        "inc": 0,
+        "azi": 0
+      },
+      {
+        "md": 2000,
+        "inc": 18,
+        "azi": 35
+      },
+      {
+        "md": 4500,
+        "inc": 42,
+        "azi": 70
+      },
+      {
+        "md": 7500,
+        "inc": 50,
+        "azi": 95
+      },
+      {
+        "md": 10000,
+        "inc": 58,
+        "azi": 120
+      }
+    ],
+    "config": {
+      "operationPhase": "production",
+      "units": "ft"
+    },
+    "interaction": {}
+  },
+  "overlayOptions": {
+    "diameterScale": 1,
+    "sampleStepMd": 40,
+    "showActiveFlow": false,
+    "showMinCostPath": true,
+    "showSpof": false,
+    "selectedNodeIds": []
+  },
+  "expected": {
+    "transitionEdgeCount": 0,
+    "transitionEdgePairs": [],
+    "transitionBoundaryDepths": [],
+    "topologyWarningCodes": [],
+    "overlayEntryCount": 1,
+    "overlayEntryKindCounts": {
+      "TUBING_INNER": 1
+    },
+    "overlayEntryStyleCounts": {
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 1
+    },
+    "overlayPolygonCount": 1,
+    "overlayPolygonKindCounts": {
+      "TUBING_INNER": 1
+    },
+    "overlayPolygonStyleCounts": {
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 1
+    },
+    "overlayPolygonChecksum": 937727356
+  }
+}

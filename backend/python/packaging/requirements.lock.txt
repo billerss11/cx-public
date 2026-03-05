@@ -1,0 +1,6 @@
+dlisio==1.0.4
+lasio==0.32
+pandas==2.2.3
+wellpathpy==0.5.2
+pytest==8.3.5
+pyinstaller==6.12.0

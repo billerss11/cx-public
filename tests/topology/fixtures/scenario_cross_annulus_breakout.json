@@ -1,0 +1,89 @@
+{
+  "name": "scenario_cross_annulus_breakout",
+  "description": "Scenario rows can define explicit ANNULUS_A -> ANNULUS_B breakout connectivity without marker-derived radial paths.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "csg-outer",
+        "label": "Outer",
+        "top": 0,
+        "bottom": 10000,
+        "od": 16,
+        "weight": 58,
+        "show": true
+      },
+      {
+        "rowId": "csg-middle",
+        "label": "Middle",
+        "top": 0,
+        "bottom": 10000,
+        "od": 13.375,
+        "weight": 54.5,
+        "show": true
+      },
+      {
+        "rowId": "csg-inner",
+        "label": "Inner",
+        "top": 0,
+        "bottom": 10000,
+        "od": 9.625,
+        "weight": 40,
+        "show": true
+      }
+    ],
+    "tubingData": [],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [],
+    "topologySources": [
+      {
+        "rowId": "source-annulus-a",
+        "top": 6500,
+        "bottom": 6700,
+        "sourceType": "formation_inflow",
+        "volumeKey": "ANNULUS_A",
+        "show": true
+      },
+      {
+        "rowId": "breakout-a-b",
+        "top": 6500,
+        "bottom": 6700,
+        "sourceType": "cross_annulus_failure",
+        "fromVolumeKey": "ANNULUS_A",
+        "toVolumeKey": "ANNULUS_B",
+        "show": true
+      }
+    ],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 4,
+    "edgeCount": 4,
+    "activeFlowNodeCount": 3,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 1,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "validationWarningCodeCounts": {
+      "explicit_scenario_source_mode_active": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

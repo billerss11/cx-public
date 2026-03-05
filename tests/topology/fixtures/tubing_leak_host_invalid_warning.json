@@ -1,0 +1,88 @@
+{
+  "name": "tubing_leak_host_invalid_warning",
+  "description": "Leak marker attached to tubing emits deterministic warning when tubing host does not exist at marker depth.",
+  "input": {
+    "casingData": [
+      {
+        "rowId": "casing-outer",
+        "label": "Outer",
+        "od": 9.625,
+        "weight": 40,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 10000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      },
+      {
+        "rowId": "casing-inner",
+        "label": "Inner",
+        "od": 7,
+        "weight": 29,
+        "grade": "L80",
+        "top": 0,
+        "bottom": 8000,
+        "toc": null,
+        "boc": null,
+        "show": true
+      }
+    ],
+    "tubingData": [
+      {
+        "rowId": "tbg-1",
+        "label": "Production Tubing",
+        "od": 4.5,
+        "weight": 12,
+        "top": 0,
+        "bottom": 5000,
+        "show": true
+      }
+    ],
+    "drillStringData": [],
+    "equipmentData": [],
+    "horizontalLines": [],
+    "annotationBoxes": [],
+    "userAnnotations": [],
+    "cementPlugs": [],
+    "annulusFluids": [],
+    "markers": [
+      {
+        "rowId": "marker-tubing-leak-invalid",
+        "type": "Leak",
+        "top": 6500,
+        "bottom": 6700,
+        "attachToId": "tbg-1",
+        "attachToHostType": "tubing",
+        "show": true
+      }
+    ],
+    "topologySources": [],
+    "trajectory": [],
+    "config": {
+      "operationPhase": "production"
+    },
+    "interaction": {}
+  },
+  "expected": {
+    "nodeCount": 11,
+    "edgeCount": 13,
+    "activeFlowNodeCount": 0,
+    "sourceEntityCount": 0,
+    "sourcePolicyMode": "marker_default",
+    "minFailureCostToSurface": 0,
+    "minCostPathLength": 0,
+    "spofEdgeCount": 0,
+    "validationWarningCount": 1,
+    "validationWarningCodes": [
+      "marker_invalid_tubing_host_at_depth"
+    ],
+    "validationWarningCodeCounts": {
+      "marker_invalid_tubing_host_at_depth": 1
+    },
+    "uncodedValidationWarningCount": 0,
+    "barrierPrimaryElementCount": 0,
+    "barrierSecondaryElementCount": 0,
+    "barrierOverlapElementCount": 0
+  }
+}

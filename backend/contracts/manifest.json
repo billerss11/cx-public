@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "transport": "stdio",
+  "tasks": {
+    "backend.health": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "immediate",
+      "payloadSchema": "schemas/tasks/backend.health.payload.v1.json"
+    },
+    "backend.get_capabilities": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "immediate",
+      "payloadSchema": "schemas/tasks/backend.get_capabilities.payload.v1.json"
+    },
+    "backend.shutdown": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "immediate",
+      "payloadSchema": "schemas/tasks/backend.shutdown.payload.v1.json"
+    },
+    "las.parse_file": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "immediate",
+      "payloadSchema": "schemas/tasks/las.parse_file.payload.v1.json"
+    },
+    "las.get_curve_data": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.get_curve_data.payload.v1.json"
+    },
+    "las.get_curve_statistics": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.get_curve_statistics.payload.v1.json"
+    },
+    "las.get_correlation_matrix": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.get_correlation_matrix.payload.v1.json"
+    },
+    "las.delete_session": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.delete_session.payload.v1.json"
+    }
+  }
+}

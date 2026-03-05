@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cx-backend/tasks/las.get_curve_data.payload.v1.json",
+  "type": "object",
+  "required": ["sessionId", "curveMnemonics"],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "curveMnemonics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "indexCurve": {
+      "type": "string",
+      "minLength": 1
+    },
+    "depthMin": {
+      "type": "number"
+    },
+    "depthMax": {
+      "type": "number"
+    },
+    "maxPoints": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 100000
+    },
+    "includeNulls": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

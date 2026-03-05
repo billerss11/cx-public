@@ -51,7 +51,7 @@ const isCameraZoomAvailableForCurrentView = computed(() => (
   isCameraTransformEnabledForCurrentView.value === true
 ));
 const isFitToDataAvailableForCurrentView = computed(() => (
-  config.viewMode === 'directional' ? true : isCameraTransformEnabledForCurrentView.value === true
+  isCameraTransformEnabledForCurrentView.value === true
 ));
 const currentCameraState = computed(() => (
   config.viewMode === 'directional'
@@ -164,12 +164,11 @@ function zoomCameraOut() {
 }
 
 function fitToDataForCurrentView() {
+  if (!isCameraTransformEnabledForCurrentView.value) return;
   if (config.viewMode === 'directional') {
-    viewConfigStore.requestDirectionalFitToData();
     viewConfigStore.resetDirectionalCameraView();
     return;
   }
-  if (!isCameraTransformEnabledForCurrentView.value) return;
   viewConfigStore.resetVerticalCameraView();
 }
 
