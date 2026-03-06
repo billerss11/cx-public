@@ -49,16 +49,15 @@ def normalize_column_names(columns: list[object]) -> list[str]:
 
 
 def choose_index_curve(numeric_df: object, initial_name: str) -> str:
-    preferred = [initial_name, "DEPT", "DEPTH", "MD", "TDEP"]
-    for candidate in preferred:
-        if candidate in numeric_df.columns and numeric_df[candidate].notna().any():
-            return candidate
+    # Ground rule: the first LAS curve is the default index curve.
+    if initial_name in numeric_df.columns:
+        return initial_name
 
-    for column_name in numeric_df.columns:
-        if numeric_df[column_name].notna().any():
-            return column_name
+    columns = list(numeric_df.columns)
+    if columns:
+        return str(columns[0])
 
-    raise ValueError("No numeric index/depth column detected in LAS data.")
+    raise ValueError("No columns available to determine LAS index curve.")
 
 
 def curve_meta_from_las(las_file: object) -> dict[str, tuple[str | None, str | None]]:
@@ -91,6 +90,7 @@ def build_curve_summaries(
         raw_count = int(raw_non_null.shape[0])
         numeric_count = int(numeric_non_null.shape[0])
         is_numeric = raw_count == 0 or numeric_count / max(raw_count, 1) >= 0.8
+        numeric_parse_ratio = float(numeric_count / raw_count) if raw_count > 0 else 1.0
         data_points = numeric_count if is_numeric else raw_count
 
         min_value = float(numeric_non_null.min()) if numeric_count > 0 else None
@@ -105,6 +105,9 @@ def build_curve_summaries(
             "minValue": min_value,
             "maxValue": max_value,
             "isNumeric": is_numeric,
+            "rawNonNullCount": raw_count,
+            "numericNonNullCount": numeric_count,
+            "numericParseRatio": numeric_parse_ratio,
         })
 
         if column_name == index_curve:

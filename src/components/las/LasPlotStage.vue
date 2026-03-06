@@ -35,6 +35,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  resolveExactValuesAtDepth: {
+    type: Function,
+    default: null,
+  }
 });
 
 const emit = defineEmits(['toggle-library']);
@@ -89,7 +93,11 @@ const libraryButtonLabel = computed(() => (props.curveLibraryOpen ? 'Hide Curve 
           </p>
         </div>
         <div v-else class="las-plot-stage__canvas-shell">
-          <LasPlotCanvas :data="data" class="las-plot-stage__canvas" />
+          <LasPlotCanvas
+            :data="data"
+            :resolve-exact-values-at-depth="resolveExactValuesAtDepth"
+            class="las-plot-stage__canvas"
+          />
         </div>
       </div>
 

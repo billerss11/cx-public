@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { isProxy, ref } from 'vue';
 
-const { backendRequestMock, openLasFileDialogMock, getBackendResultMetaMock } = vi.hoisted(() => ({
+const { backendRequestMock, openLasCsvSaveDialogMock, openLasFileDialogMock, getBackendResultMetaMock } = vi.hoisted(() => ({
   backendRequestMock: vi.fn(),
+  openLasCsvSaveDialogMock: vi.fn(),
   openLasFileDialogMock: vi.fn(),
   getBackendResultMetaMock: vi.fn(() => ({
     requestId: 'req-1',
@@ -15,6 +16,7 @@ const { backendRequestMock, openLasFileDialogMock, getBackendResultMetaMock } = 
 
 vi.mock('@/composables/useBackendClient.js', () => ({
   backendRequest: backendRequestMock,
+  openLasCsvSaveDialog: openLasCsvSaveDialogMock,
   openLasFileDialog: openLasFileDialogMock,
   getBackendResultMeta: getBackendResultMetaMock,
 }));
@@ -25,6 +27,7 @@ describe('lasStore IPC payload safety', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     backendRequestMock.mockReset();
+    openLasCsvSaveDialogMock.mockReset();
     openLasFileDialogMock.mockReset();
     getBackendResultMetaMock.mockClear();
     if (typeof window !== 'undefined') {
@@ -85,6 +88,36 @@ describe('lasStore IPC payload safety', () => {
     expect(isProxy(store.activeCurveData.series)).toBe(false);
   });
 
+  it('supports manual session index-curve overrides for payload filtering', async () => {
+    backendRequestMock.mockResolvedValue({
+      series: [
+        {
+          mnemonic: 'GR',
+          points: [[0.0, 80], [1.0, 81]],
+        },
+      ],
+      depthRange: { minDepth: 0, maxDepth: 1, totalPoints: 2, returnedPoints: 2, samplingStep: 1 },
+    });
+
+    const store = useLasStore();
+    store.sessions['session-override'] = {
+      sessionId: 'session-override',
+      indexCurve: 'DEPT',
+      selectedIndexCurve: 'DEPT',
+      selectedCurves: [],
+    };
+    store.activeSessionId = 'session-override';
+
+    store.setSessionIndexCurve('BDTI');
+    await store.fetchCurveData(['DEPT', 'BDTI', 'GR']);
+
+    const [, payload] = backendRequestMock.mock.calls[0];
+    expect(payload.indexCurve).toBe('BDTI');
+    expect(payload.curveMnemonics).toEqual(['DEPT', 'GR']);
+    expect(store.sessions['session-override'].selectedIndexCurve).toBe('BDTI');
+    expect(store.sessions['session-override'].selectedCurves).toEqual(['DEPT', 'GR']);
+  });
+
   it('sends plain curve arrays for statistics task payloads', async () => {
     backendRequestMock.mockResolvedValue({
       sessionId: 'session-3',
@@ -110,6 +143,59 @@ describe('lasStore IPC payload safety', () => {
     expect(isProxy(payload.curveMnemonics)).toBe(false);
   });
 
+  it('sends depth query payload for authoritative depth value lookup', async () => {
+    backendRequestMock.mockResolvedValue({
+      sessionId: 'session-depth',
+      depth: 1010,
+      rows: [
+        { mnemonic: 'GR', value: 90, status: 'exact' },
+      ],
+    });
+
+    const store = useLasStore();
+    store.sessions['session-depth'] = {
+      sessionId: 'session-depth',
+      indexCurve: 'DEPT',
+      selectedCurves: [],
+    };
+    store.activeSessionId = 'session-depth';
+
+    await store.fetchCurveValuesAtDepth(1010, ['DEPT', 'GR']);
+
+    expect(backendRequestMock).toHaveBeenCalledTimes(1);
+    const [task, payload] = backendRequestMock.mock.calls[0];
+    expect(task).toBe('las.get_curve_values_at_depth');
+    expect(payload.depth).toBe(1010);
+    expect(payload.curveMnemonics).toEqual(['GR']);
+    expect(isProxy(payload.curveMnemonics)).toBe(false);
+  });
+
+  it('uses manual session index-curve override for depth lookup payloads', async () => {
+    backendRequestMock.mockResolvedValue({
+      sessionId: 'session-depth-override',
+      depth: 1010,
+      rows: [
+        { mnemonic: 'GR', value: 90, status: 'exact' },
+      ],
+    });
+
+    const store = useLasStore();
+    store.sessions['session-depth-override'] = {
+      sessionId: 'session-depth-override',
+      indexCurve: 'DEPT',
+      selectedIndexCurve: 'DEPT',
+      selectedCurves: [],
+    };
+    store.activeSessionId = 'session-depth-override';
+
+    store.setSessionIndexCurve('BDTI');
+    await store.fetchCurveValuesAtDepth(1010, ['BDTI', 'GR']);
+
+    const [, payload] = backendRequestMock.mock.calls[0];
+    expect(payload.indexCurve).toBe('BDTI');
+    expect(payload.curveMnemonics).toEqual(['GR']);
+  });
+
   it('sends plain curve arrays for correlation task payloads', async () => {
     backendRequestMock.mockResolvedValue({
       sessionId: 'session-4',
@@ -133,6 +219,63 @@ describe('lasStore IPC payload safety', () => {
     expect(task).toBe('las.get_correlation_matrix');
     expect(payload.curveMnemonics).toEqual(['GR', 'RHOB']);
     expect(isProxy(payload.curveMnemonics)).toBe(false);
+  });
+
+  it('exports selected curves to CSV via backend task after resolving save path', async () => {
+    openLasCsvSaveDialogMock.mockResolvedValue({
+      canceled: false,
+      filePath: 'C:/exports/well-a-selected.csv',
+      fileName: 'well-a-selected.csv',
+    });
+    backendRequestMock.mockResolvedValue({
+      outputFilePath: 'C:/exports/well-a-selected.csv',
+      fileName: 'well-a-selected.csv',
+      curveMnemonics: ['GR', 'RHOB'],
+    });
+
+    const store = useLasStore();
+    store.sessions['session-export'] = {
+      sessionId: 'session-export',
+      wellName: 'Well A',
+      fileName: 'well-a.las',
+      indexCurve: 'DEPT',
+      selectedCurves: [],
+    };
+    store.activeSessionId = 'session-export';
+
+    const result = await store.exportCurveDataCsv(['DEPT', 'GR', 'RHOB'], { scope: 'selected' });
+
+    expect(openLasCsvSaveDialogMock).toHaveBeenCalledTimes(1);
+    expect(backendRequestMock).toHaveBeenCalledWith('las.export_curve_data_csv', {
+      sessionId: 'session-export',
+      curveMnemonics: ['GR', 'RHOB'],
+      outputFilePath: 'C:/exports/well-a-selected.csv',
+    });
+    expect(result).toMatchObject({
+      canceled: false,
+      outputFilePath: 'C:/exports/well-a-selected.csv',
+      fileName: 'well-a-selected.csv',
+    });
+  });
+
+  it('does not call backend export task when CSV save dialog is canceled', async () => {
+    openLasCsvSaveDialogMock.mockResolvedValue({ canceled: true });
+
+    const store = useLasStore();
+    store.sessions['session-export-cancel'] = {
+      sessionId: 'session-export-cancel',
+      wellName: 'Well A',
+      fileName: 'well-a.las',
+      indexCurve: 'DEPT',
+      selectedCurves: [],
+    };
+    store.activeSessionId = 'session-export-cancel';
+
+    const result = await store.exportCurveDataCsv(['GR'], { scope: 'selected' });
+
+    expect(openLasCsvSaveDialogMock).toHaveBeenCalledTimes(1);
+    expect(backendRequestMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ canceled: true });
   });
 
   it('sets a large-file warning when selected LAS file is bigger than 25MB', async () => {

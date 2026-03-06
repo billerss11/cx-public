@@ -44,6 +44,44 @@ class LasGetCurveDataValidationTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, "INDEX_CURVE_NOT_ALLOWED")
 
+    def test_allows_parsed_index_curve_as_plotted_curve_when_request_overrides_index_curve(self) -> None:
+        import pandas as pd
+
+        session_store = InMemorySessionStore(ttl_seconds=60, max_sessions=5)
+        session = ParsedLasSession(
+            file_name="example.las",
+            well_name="Well A",
+            index_curve="DEPT",
+            depth_unit="m",
+            row_count=3,
+            curve_count=3,
+            valid_curves=["GR", "BDTI"],
+            curves=[],
+            preview_rows=[],
+            numeric_df=pd.DataFrame(
+                {
+                    "DEPT": [1000.0, 1000.5, 1001.0],
+                    "BDTI": [0.0, 0.2, 0.4],
+                    "GR": [80.0, 81.0, 79.0],
+                }
+            ),
+            curve_meta={"DEPT": ("m", "Depth"), "BDTI": ("h", "Bit Time"), "GR": ("gAPI", "Gamma Ray")},
+        )
+        session_id = session_store.create(session)
+        task = make_las_get_curve_data_task(session_store=session_store)
+
+        with patch("cx_backend.features.las.parser.load_las_dependencies", return_value=(object(), pd)):
+            result = task(
+                {
+                    "sessionId": session_id,
+                    "indexCurve": "BDTI",
+                    "curveMnemonics": ["DEPT", "GR"],
+                }
+            )
+
+        self.assertEqual(result["indexCurve"], "BDTI")
+        self.assertEqual(sorted([series["mnemonic"] for series in result["series"]]), ["DEPT", "GR"])
+
 
 if __name__ == "__main__":
     unittest.main()

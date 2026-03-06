@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cx-backend/tasks/las.export_curve_data_csv.payload.v1.json",
+  "type": "object",
+  "required": ["sessionId", "curveMnemonics", "outputFilePath"],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "curveMnemonics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "outputFilePath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "indexCurve": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

@@ -109,3 +109,14 @@ export async function openLasFileDialog() {
 
     return window.cxApp.openLasFileDialog();
 }
+
+export async function openLasCsvSaveDialog(options = {}) {
+    if (!isElectronEnvironment()) {
+        throw createBackendRequestError(
+            'File dialogs are only available in the Electron desktop app.',
+            'NOT_ELECTRON'
+        );
+    }
+
+    return window.cxApp.openLasCsvSaveDialog(options);
+}

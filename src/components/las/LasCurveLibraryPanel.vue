@@ -31,6 +31,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canExportAllCurves: {
+    type: Boolean,
+    default: false,
+  },
   isLoading: {
     type: Boolean,
     default: false,
@@ -40,6 +44,8 @@ const props = defineProps({
 const emit = defineEmits([
   'clear-selection',
   'close',
+  'export-all-csv',
+  'export-selected-csv',
   'plot-selected',
   'show-correlation',
   'show-statistics',
@@ -143,6 +149,26 @@ function selectVisibleCurves() {
           :disabled="!canCorrelate"
           :loading="isLoading"
           @click="emit('show-correlation')"
+        />
+      </div>
+      <div class="las-curve-library__actions las-curve-library__actions--export">
+        <Button
+          label="Export Selected CSV"
+          icon="pi pi-download"
+          severity="secondary"
+          text
+          :disabled="!canPlot"
+          :loading="isLoading"
+          @click="emit('export-selected-csv')"
+        />
+        <Button
+          label="Export All CSV"
+          icon="pi pi-download"
+          severity="secondary"
+          text
+          :disabled="!canExportAllCurves"
+          :loading="isLoading"
+          @click="emit('export-all-csv')"
         />
       </div>
     </footer>
@@ -278,5 +304,9 @@ function selectVisibleCurves() {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+}
+
+.las-curve-library__actions--export {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 </style>

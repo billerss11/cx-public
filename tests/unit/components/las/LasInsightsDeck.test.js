@@ -20,7 +20,6 @@ function mountInsightsDeck(props = {}) {
         shape: [3, 2],
         head: [{ DEPT: 1000, GR: 50 }],
       },
-      hasStatistics: false,
       overview: {
         indexDtype: 'float64',
         indexMin: 1000,
@@ -29,8 +28,6 @@ function mountInsightsDeck(props = {}) {
       },
       previewColumns: ['DEPT', 'GR'],
       selectedWellSectionName: 'WELL',
-      statisticsColumns: [],
-      statisticsRows: [],
       wellSectionOptions: [{ value: 'WELL', label: 'WELL' }],
       wellSectionRows: [{ mnemonic: 'WELL', value: 'A-1', unit: '', description: 'Well name' }],
       ...props,
@@ -76,20 +73,14 @@ describe('LasInsightsDeck', () => {
     expect(tables[0].attributes('data-rows')).toBe('12');
   });
 
-  it('shows statistics in a bounded panel inside the analytics tab', () => {
+  it('renders the well information tab in isolation from overview and curve panels', () => {
     const wrapper = mountInsightsDeck({
-      activeInsightsTab: 'analytics',
-      hasStatistics: true,
-      statisticsColumns: ['GR', 'RHOB', 'NPHI'],
-      statisticsRows: [
-        {
-          metricLabel: 'Mean',
-          values: { GR: '68.4', RHOB: '2.43', NPHI: '0.22' },
-        },
-      ],
+      activeInsightsTab: 'well',
     });
 
-    expect(wrapper.findAll('.las-insights__panel')).toHaveLength(1);
+    expect(wrapper.text()).toContain('Well Information');
+    expect(wrapper.text()).not.toContain('Dataset Overview');
+    expect(wrapper.text()).not.toContain('Curve Details');
     expect(wrapper.find('.data-table-stub').exists()).toBe(true);
   });
 

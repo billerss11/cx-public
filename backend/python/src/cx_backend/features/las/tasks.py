@@ -9,6 +9,8 @@ from cx_backend.features.las.models import ParsedLasSession
 from cx_backend.features.las.parser import (
     build_correlation_matrix_response,
     build_curve_data_response,
+    build_curve_data_csv_export_response,
+    build_curve_values_at_depth_response,
     build_curve_statistics_response,
     build_parse_response,
     parse_las_file_content,
@@ -29,6 +31,27 @@ def resolve_file_path(value: object, allowed_roots: Sequence[Path]) -> Path:
         raise TaskValidationError("Only .las files are supported.", code="UNSUPPORTED_FILE_EXTENSION")
     if not is_path_allowed(file_path, allowed_roots):
         raise TaskValidationError("File path is outside allowed backend roots.", code="FILE_PATH_NOT_ALLOWED")
+    return file_path
+
+
+def resolve_csv_output_path(value: object, allowed_roots: Sequence[Path]) -> Path:
+    file_path_raw = str(value or "").strip()
+    if not file_path_raw:
+        raise TaskValidationError("'outputFilePath' is required.", code="MISSING_OUTPUT_FILE_PATH")
+
+    candidate = Path(file_path_raw).expanduser()
+    if candidate.suffix.lower() != ".csv":
+        candidate = candidate.with_suffix(".csv")
+    file_path = candidate.resolve()
+
+    parent = file_path.parent
+    if not parent.exists() or not parent.is_dir():
+        raise TaskValidationError(
+            f"Output directory does not exist: {parent}",
+            code="OUTPUT_DIRECTORY_NOT_FOUND",
+        )
+    if not is_path_allowed(file_path, allowed_roots):
+        raise TaskValidationError("Output path is outside allowed backend roots.", code="OUTPUT_PATH_NOT_ALLOWED")
     return file_path
 
 
@@ -88,6 +111,46 @@ def make_las_get_curve_data_task(
         return build_curve_data_response(parsed=parsed, request=payload, session_id=session_id)
 
     return task_las_get_curve_data
+
+
+def make_las_export_curve_data_csv_task(
+    session_store: InMemorySessionStore[ParsedLasSession],
+    allowed_roots: Sequence[Path],
+) -> Callable[[dict[str, object]], dict[str, object]]:
+    """Create the curve-data CSV export task bound to the session store."""
+
+    def task_las_export_curve_data_csv(payload: dict[str, object]) -> dict[str, object]:
+        session_id = str(payload.get("sessionId") or "").strip()
+        if not session_id:
+            raise TaskValidationError("'sessionId' is required.", code="MISSING_SESSION_ID")
+        parsed = session_store.get(session_id)
+        output_file_path = resolve_csv_output_path(payload.get("outputFilePath"), allowed_roots=allowed_roots)
+        try:
+            return build_curve_data_csv_export_response(
+                parsed=parsed,
+                request=payload,
+                session_id=session_id,
+                output_file_path=output_file_path,
+            )
+        except OSError as exc:
+            raise TaskExecutionError(f"Unable to write CSV file: {exc}", code="CSV_WRITE_FAILED") from exc
+
+    return task_las_export_curve_data_csv
+
+
+def make_las_get_curve_values_at_depth_task(
+    session_store: InMemorySessionStore[ParsedLasSession],
+) -> Callable[[dict[str, object]], dict[str, object]]:
+    """Create the depth-value task bound to the session store."""
+
+    def task_las_get_curve_values_at_depth(payload: dict[str, object]) -> dict[str, object]:
+        session_id = str(payload.get("sessionId") or "").strip()
+        if not session_id:
+            raise TaskValidationError("'sessionId' is required.", code="MISSING_SESSION_ID")
+        parsed = session_store.get(session_id)
+        return build_curve_values_at_depth_response(parsed=parsed, request=payload, session_id=session_id)
+
+    return task_las_get_curve_values_at_depth
 
 
 def make_las_get_curve_statistics_task(

@@ -52,6 +52,81 @@ class LasEnhancedParseResponseTests(unittest.TestCase):
         self.assertIn("curveRanges", result)
         self.assertIn("dataPreview", result)
 
+    def test_parse_response_reports_first_curve_numeric_parse_diagnostics(self) -> None:
+        parsed = ParsedLasSession(
+            file_name="example.las",
+            well_name="Well A",
+            index_curve="TIME",
+            depth_unit="ms",
+            row_count=3,
+            curve_count=3,
+            valid_curves=["GR"],
+            curves=[
+                {
+                    "mnemonic": "TIME",
+                    "unit": "ms",
+                    "description": "Clock Time",
+                    "dataPoints": 3,
+                    "minValue": None,
+                    "maxValue": None,
+                    "isNumeric": False,
+                    "rawNonNullCount": 3,
+                    "numericNonNullCount": 0,
+                    "numericParseRatio": 0.0,
+                },
+                {
+                    "mnemonic": "BDTI",
+                    "unit": "h",
+                    "description": "Bit time",
+                    "dataPoints": 3,
+                    "minValue": 0.0,
+                    "maxValue": 1.0,
+                    "isNumeric": True,
+                    "rawNonNullCount": 3,
+                    "numericNonNullCount": 3,
+                    "numericParseRatio": 1.0,
+                },
+                {
+                    "mnemonic": "GR",
+                    "unit": "gAPI",
+                    "description": "Gamma Ray",
+                    "dataPoints": 3,
+                    "minValue": 80.0,
+                    "maxValue": 90.0,
+                    "isNumeric": True,
+                    "rawNonNullCount": 3,
+                    "numericNonNullCount": 3,
+                    "numericParseRatio": 1.0,
+                },
+            ],
+            preview_rows=[{"TIME": "00:00:00.000", "BDTI": 0.0, "GR": 80.0}],
+            numeric_df=pd.DataFrame(
+                {
+                    "TIME": [None, None, None],
+                    "BDTI": [0.0, 0.5, 1.0],
+                    "GR": [80.0, 85.0, 90.0],
+                }
+            ),
+            curve_meta={"TIME": ("ms", "Clock Time"), "BDTI": ("h", "Bit time"), "GR": ("gAPI", "Gamma Ray")},
+            first_curve_raw_head_sample=["", "", ""],
+            first_curve_raw_non_null_sample=[],
+            first_curve_numeric_head_sample=[None, None, None],
+        )
+
+        result = build_parse_response(session_id="session-1", parsed=parsed)
+        diagnostics = result["indexSelectionDiagnostics"]
+
+        self.assertEqual(diagnostics["selectedIndexCurve"], "TIME")
+        self.assertEqual(diagnostics["firstCurve"]["mnemonic"], "TIME")
+        self.assertFalse(diagnostics["firstCurveRejected"])
+        self.assertEqual(diagnostics["firstCurve"]["numericParseRatio"], 0.0)
+        self.assertEqual(diagnostics["firstCurve"]["numericNonNullCount"], 0)
+        self.assertEqual(diagnostics["firstCurve"]["rawHeadSample"], ["", "", ""])
+        self.assertEqual(diagnostics["firstCurve"]["rawNonNullSample"], [])
+        self.assertEqual(diagnostics["firstCurve"]["numericHeadSample"], [None, None, None])
+        self.assertIsNone(diagnostics["indexNormalization"])
+        self.assertEqual(diagnostics["rejectionReasonCode"], "NOT_REJECTED")
+
 
 if __name__ == "__main__":
     unittest.main()

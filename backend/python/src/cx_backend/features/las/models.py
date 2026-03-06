@@ -25,3 +25,7 @@ class ParsedLasSession:
     well_information: dict[str, object] | None = None
     curve_ranges: list[dict[str, object]] | None = None
     data_preview: dict[str, object] | None = None
+    index_normalization: dict[str, object] | None = None
+    first_curve_raw_head_sample: list[object] | None = None
+    first_curve_raw_non_null_sample: list[object] | None = None
+    first_curve_numeric_head_sample: list[object] | None = None

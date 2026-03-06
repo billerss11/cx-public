@@ -9,12 +9,18 @@ import LasCorrelationHeatmap from '@/components/las/LasCorrelationHeatmap.vue';
 import LasCurveLibraryPanel from '@/components/las/LasCurveLibraryPanel.vue';
 import LasInsightsDeck from '@/components/las/LasInsightsDeck.vue';
 import LasPlotStage from '@/components/las/LasPlotStage.vue';
+import LasStatisticsPanel from '@/components/las/LasStatisticsPanel.vue';
 import LasWorkspaceHeader from '@/components/las/LasWorkspaceHeader.vue';
 import { useFeatureTiming } from '@/composables/useFeatureTiming.js';
 import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
 import { useLasStore } from '@/stores/lasStore.js';
 import { clamp } from '@/utils/general.js';
 import { detectLasIndexType } from '@/utils/lasIndexType.js';
+import {
+  buildLasTimeAxisContext,
+  TIME_DISPLAY_MODES,
+  TIMEZONE_MODES,
+} from '@/utils/lasTimeAxis.js';
 
 const lasStore = useLasStore();
 const { timeFeature } = useFeatureTiming();
@@ -24,9 +30,11 @@ const curveFilterText = shallowRef('');
 const selectedWellSectionName = shallowRef(null);
 const activeInsightsTab = shallowRef('overview');
 const isCurveLibraryOpen = shallowRef(true);
+const isStatisticsDialogOpen = shallowRef(false);
 const isCorrelationDialogOpen = shallowRef(false);
 const plotError = shallowRef(null);
 const workspaceBodyRef = ref(null);
+const pendingIndexCurve = shallowRef('');
 
 const LEFT_PANEL_MIN_WIDTH = 300;
 const RIGHT_PANEL_MIN_WIDTH = 320;
@@ -35,9 +43,49 @@ const RIGHT_PANEL_DEFAULT_WIDTH = 360;
 const SPLITTER_WIDTH = 12;
 const LEFT_FLOATING_DEFAULT_WIDTH = 520;
 const RIGHT_FLOATING_DEFAULT_WIDTH = 560;
+const STATISTICS_FLOATING_DEFAULT_WIDTH = 620;
+const STATISTICS_FLOATING_DEFAULT_HEIGHT = 580;
 const CORRELATION_FLOATING_DEFAULT_WIDTH = 620;
 const CORRELATION_FLOATING_DEFAULT_HEIGHT = 580;
 const FLOATING_DEFAULT_HEIGHT = 620;
+
+function normalizeCurveMnemonic(value) {
+  const token = String(value ?? '').trim();
+  return token || '';
+}
+
+function resolveSessionIndexCurve(session) {
+  const selected = normalizeCurveMnemonic(session?.selectedIndexCurve);
+  if (selected) return selected;
+  return normalizeCurveMnemonic(session?.indexCurve);
+}
+
+function resolveCurveUnit(session, curveMnemonic) {
+  const targetCurve = normalizeCurveMnemonic(curveMnemonic);
+  if (!targetCurve) return '';
+  const curves = Array.isArray(session?.curves) ? session.curves : [];
+  const matched = curves.find((curve) => normalizeCurveMnemonic(curve?.mnemonic) === targetCurve);
+  return String(matched?.unit ?? '').trim();
+}
+
+function hasManualIndexCurveOverride(session, resolvedIndexCurve) {
+  const defaultCurve = normalizeCurveMnemonic(session?.indexCurve);
+  const activeCurve = normalizeCurveMnemonic(resolvedIndexCurve);
+  return Boolean(defaultCurve && activeCurve && defaultCurve !== activeCurve);
+}
+
+function buildIndexCurveOptions(session) {
+  const curves = Array.isArray(session?.curves) ? session.curves : [];
+  return curves
+    .map((curve) => {
+      const mnemonic = normalizeCurveMnemonic(curve?.mnemonic);
+      if (!mnemonic) return null;
+      const unit = String(curve?.unit ?? '').trim();
+      const label = unit ? `${mnemonic} (${unit})` : mnemonic;
+      return { value: mnemonic, label };
+    })
+    .filter((option) => option !== null);
+}
 
 const leftPanelWidth = shallowRef(LEFT_PANEL_DEFAULT_WIDTH);
 const rightPanelWidth = shallowRef(RIGHT_PANEL_DEFAULT_WIDTH);
@@ -70,14 +118,27 @@ const isLeftPanelDockedVisible = computed(() => isLeftPanelFloating.value !== tr
 const isRightPanelDockedVisible = computed(() => isRightPanelFloating.value !== true);
 const leftSplitterVisible = computed(() => isLeftPanelDockedVisible.value === true);
 const rightSplitterVisible = computed(() => isRightPanelDockedVisible.value === true);
+const activeIndexCurve = computed(() => {
+  const pendingCurve = normalizeCurveMnemonic(pendingIndexCurve.value);
+  if (pendingCurve) return pendingCurve;
+  return resolveSessionIndexCurve(activeSession.value);
+});
+const activeIndexCurveUnit = computed(() => {
+  const explicitUnit = resolveCurveUnit(activeSession.value, activeIndexCurve.value);
+  if (explicitUnit) return explicitUnit;
+  return String(activeSession.value?.depthUnit ?? '').trim();
+});
+const indexCurveOptions = computed(() => buildIndexCurveOptions(activeSession.value));
+const indexSelectionDiagnostics = computed(() => activeSession.value?.indexSelectionDiagnostics ?? null);
 
 const curveOptions = computed(() => {
   const session = activeSession.value;
   if (!session?.curves) return [];
   const validCurveSet = new Set(Array.isArray(session.validCurves) ? session.validCurves : []);
+  const resolvedIndexCurve = activeIndexCurve.value;
 
   return session.curves
-    .filter((curve) => curve.mnemonic !== session.indexCurve)
+    .filter((curve) => normalizeCurveMnemonic(curve?.mnemonic) !== resolvedIndexCurve)
     .filter((curve) => validCurveSet.size === 0 || validCurveSet.has(curve.mnemonic))
     .map((curve) => ({
       mnemonic: curve.mnemonic,
@@ -86,6 +147,11 @@ const curveOptions = computed(() => {
       label: curve.unit ? `${curve.mnemonic} (${curve.unit})` : curve.mnemonic,
     }));
 });
+
+const allCurveMnemonics = computed(() =>
+  normalizeCurveSelection(curveOptions.value.map((curve) => curve?.mnemonic))
+);
+const canExportAllCurves = computed(() => allCurveMnemonics.value.length > 0);
 
 const filteredCurveOptions = computed(() => {
   const keyword = String(curveFilterText.value || '').trim().toLowerCase();
@@ -107,8 +173,30 @@ const sessionOptions = computed(() =>
 
 const overview = computed(() => activeSession.value?.overview ?? null);
 const indexType = computed(() =>
-  detectLasIndexType(activeSession.value?.indexCurve, activeSession.value?.depthUnit)
+  detectLasIndexType(activeIndexCurve.value, activeIndexCurveUnit.value)
 );
+const timeAxisSettings = computed(() => activeSession.value?.timeAxisSettings ?? null);
+const timeDisplayModeOptions = Object.freeze([
+  { label: 'Elapsed', value: TIME_DISPLAY_MODES.ELAPSED },
+  { label: 'Clock Time', value: TIME_DISPLAY_MODES.CLOCK },
+]);
+const timeDisplayTimezoneOptions = Object.freeze([
+  { label: 'UTC', value: TIMEZONE_MODES.UTC },
+  { label: 'Local', value: TIMEZONE_MODES.LOCAL },
+]);
+const timeAxisContext = computed(() => buildLasTimeAxisContext({
+  session: activeSession.value,
+  curveData: curveData.value,
+  indexType: indexType.value,
+  settings: timeAxisSettings.value,
+}));
+const plotStageData = computed(() => {
+  if (!curveData.value || typeof curveData.value !== 'object') return curveData.value;
+  return {
+    ...curveData.value,
+    timeAxis: timeAxisContext.value,
+  };
+});
 const curveRanges = computed(() => activeSession.value?.curveRanges ?? []);
 const dataPreview = computed(() => activeSession.value?.dataPreview ?? null);
 const previewColumns = computed(() => {
@@ -181,6 +269,21 @@ const {
 });
 
 const {
+  dialogSize: statisticsFloatingSize,
+  reconcileDialogSize: reconcileStatisticsFloatingSize,
+  startDialogResize: startStatisticsFloatingResize,
+  stopDialogResize: stopStatisticsFloatingResize
+} = useFloatingDialogResize({
+  minWidth: 420,
+  minHeight: 360,
+  defaultWidth: STATISTICS_FLOATING_DEFAULT_WIDTH,
+  defaultHeight: STATISTICS_FLOATING_DEFAULT_HEIGHT,
+  maxViewportWidthRatio: 0.92,
+  maxViewportHeightRatio: 0.88,
+  cursorClass: 'resizing-both'
+});
+
+const {
   dialogSize: correlationFloatingSize,
   reconcileDialogSize: reconcileCorrelationFloatingSize,
   startDialogResize: startCorrelationFloatingResize,
@@ -199,6 +302,18 @@ const correlationDialogVisible = computed({
   get: () => isCorrelationDialogOpen.value,
   set: (visible) => { isCorrelationDialogOpen.value = visible === true; },
 });
+
+const statisticsDialogVisible = computed({
+  get: () => isStatisticsDialogOpen.value,
+  set: (visible) => { isStatisticsDialogOpen.value = visible === true; },
+});
+
+const statisticsDialogStyle = computed(() => ({
+  width: `${statisticsFloatingSize.value.width}px`,
+  height: `${statisticsFloatingSize.value.height}px`,
+  maxWidth: '94vw',
+  maxHeight: '90vh'
+}));
 
 const correlationDialogStyle = computed(() => ({
   width: `${correlationFloatingSize.value.width}px`,
@@ -262,14 +377,26 @@ const backendErrorContext = computed(() => {
 watch(
   activeSession,
   (session) => {
+    pendingIndexCurve.value = '';
     const persisted = Array.isArray(session?.selectedCurves) ? session.selectedCurves : [];
-    selectedCurveNames.value = [...persisted];
+    const resolvedIndexCurve = resolveSessionIndexCurve(session);
+    selectedCurveNames.value = normalizeCurveSelection(persisted)
+      .filter((curveMnemonic) => curveMnemonic !== resolvedIndexCurve);
     curveFilterText.value = '';
     activeInsightsTab.value = 'overview';
     isCurveLibraryOpen.value = Boolean(session);
   },
   { immediate: true }
 );
+
+watch(activeIndexCurve, (indexCurve) => {
+  const normalizedIndexCurve = normalizeCurveMnemonic(indexCurve);
+  if (!normalizedIndexCurve) return;
+  const nextSelectedCurves = normalizeCurveSelection(selectedCurveNames.value)
+    .filter((curveMnemonic) => curveMnemonic !== normalizedIndexCurve);
+  if (nextSelectedCurves.length === selectedCurveNames.value.length) return;
+  updateSelectedCurves(nextSelectedCurves);
+});
 
 watch(
   wellSectionOptions,
@@ -306,6 +433,7 @@ onMounted(() => {
   reconcilePanelWidths();
   reconcileLeftFloatingSize();
   reconcileRightFloatingSize();
+  reconcileStatisticsFloatingSize();
   reconcileCorrelationFloatingSize();
 
   if (typeof window === 'undefined') return;
@@ -314,6 +442,7 @@ onMounted(() => {
     reconcilePanelWidths();
     reconcileLeftFloatingSize();
     reconcileRightFloatingSize();
+    reconcileStatisticsFloatingSize();
     reconcileCorrelationFloatingSize();
   };
 
@@ -328,6 +457,7 @@ onBeforeUnmount(() => {
   stopRightPanelResize();
   stopLeftFloatingResize();
   stopRightFloatingResize();
+  stopStatisticsFloatingResize();
   stopCorrelationFloatingResize();
   detachGlobalResizeListener?.();
   detachGlobalResizeListener = null;
@@ -369,6 +499,38 @@ function runTimedLasAction(featureKey, executor) {
     resolveMeta: () => resolveLasTimingMeta(),
     resolveErrorMeta: (error) => resolveLasTimingMeta(error),
   });
+}
+
+function resolveIndexCurveFetchOptions(explicitIndexCurve = null) {
+  const session = activeSession.value;
+  if (!session) return null;
+
+  const candidate = normalizeCurveMnemonic(explicitIndexCurve) || activeIndexCurve.value;
+  if (!candidate) return null;
+  return hasManualIndexCurveOverride(session, candidate) ? { indexCurve: candidate } : null;
+}
+
+function handleUpdateSelectedIndexCurve(indexCurve) {
+  const resolved = lasStore.setSessionIndexCurve(indexCurve);
+  if (!resolved) return;
+  pendingIndexCurve.value = resolved;
+
+  const nextSelectedCurves = normalizeCurveSelection(selectedCurveNames.value)
+    .filter((curveMnemonic) => curveMnemonic !== resolved);
+  if (nextSelectedCurves.length === selectedCurveNames.value.length) return;
+  updateSelectedCurves(nextSelectedCurves);
+}
+
+function handleUpdateTimeDisplayMode(mode) {
+  lasStore.setSessionTimeAxisSettings?.({ displayMode: mode });
+}
+
+function handleUpdateTimeDisplayTimezone(timezone) {
+  lasStore.setSessionTimeAxisSettings?.({ timezone });
+}
+
+function handleUpdateTimeDisplayManualStart(manualStartIso) {
+  lasStore.setSessionTimeAxisSettings?.({ manualStartIso });
 }
 
 function clampLeftPanelWidth(value, fallback = LEFT_PANEL_DEFAULT_WIDTH) {
@@ -498,14 +660,47 @@ async function handleOpenFile() {
 async function handlePlotSelected() {
   if (!canPlot.value) return;
   plotError.value = null;
+  const selectedCurves = [...selectedCurveNames.value];
+  const indexCurveOptions = resolveIndexCurveFetchOptions();
   try {
     await runTimedLasAction(
       'las.fetch_curve_data',
-      () => lasStore.fetchCurveData([...selectedCurveNames.value])
+      () => (indexCurveOptions
+        ? lasStore.fetchCurveData(selectedCurves, indexCurveOptions)
+        : lasStore.fetchCurveData(selectedCurves))
+    );
+    await refreshPlotAnalytics(selectedCurves);
+  } catch (err) {
+    plotError.value = err?.message || 'Failed to refresh LAS analytics.';
+  }
+}
+
+async function refreshPlotAnalytics(curveNames) {
+  const normalizedCurveNames = normalizeCurveSelection(curveNames);
+  if (normalizedCurveNames.length === 0) return;
+
+  let firstError = null;
+  try {
+    await runTimedLasAction(
+      'las.fetch_curve_statistics',
+      () => lasStore.fetchCurveStatistics([...normalizedCurveNames])
     );
   } catch (err) {
-    plotError.value = err?.message || 'Failed to fetch curve data.';
+    firstError ||= err;
   }
+
+  if (normalizedCurveNames.length > 1) {
+    try {
+      await runTimedLasAction(
+        'las.fetch_correlation_matrix',
+        () => lasStore.fetchCorrelationMatrix([...normalizedCurveNames])
+      );
+    } catch (err) {
+      firstError ||= err;
+    }
+  }
+
+  if (firstError) throw firstError;
 }
 
 async function handleShowStatistics() {
@@ -516,7 +711,8 @@ async function handleShowStatistics() {
       'las.fetch_curve_statistics',
       () => lasStore.fetchCurveStatistics([...selectedCurveNames.value])
     );
-    activeInsightsTab.value = 'analytics';
+    reconcileStatisticsFloatingSize();
+    isStatisticsDialogOpen.value = true;
   } catch (err) {
     plotError.value = err?.message || 'Failed to calculate curve statistics.';
   }
@@ -537,6 +733,43 @@ async function handleShowCorrelation() {
   }
 }
 
+async function handleExportSelectedCsv() {
+  if (!canPlot.value) return;
+  await handleExportCurveCsv({
+    scope: 'selected',
+    curveNames: [...selectedCurveNames.value],
+  });
+}
+
+async function handleExportAllCsv() {
+  if (!canExportAllCurves.value) return;
+  await handleExportCurveCsv({
+    scope: 'all',
+    curveNames: [...allCurveMnemonics.value],
+  });
+}
+
+async function handleExportCurveCsv(payload = {}) {
+  const scope = String(payload?.scope || 'selected');
+  const curveNames = normalizeCurveSelection(payload?.curveNames);
+  if (curveNames.length === 0) return;
+
+  plotError.value = null;
+  const indexCurveOptions = resolveIndexCurveFetchOptions();
+  try {
+    const result = await runTimedLasAction(
+      'las.export_curve_data_csv',
+      () => lasStore.exportCurveDataCsv(curveNames, {
+        scope,
+        ...(indexCurveOptions ?? {}),
+      })
+    );
+    if (result?.canceled) return;
+  } catch (err) {
+    plotError.value = err?.message || 'Failed to export curve CSV.';
+  }
+}
+
 async function handleCloseSession() {
   await lasStore.deleteSession();
   selectedCurveNames.value = [];
@@ -547,6 +780,27 @@ async function handleCloseSession() {
 
 function toggleCurveLibrary() {
   isCurveLibraryOpen.value = !isCurveLibraryOpen.value;
+}
+
+async function handleResolveExactValuesAtDepth(payload = {}) {
+  const depth = Number(payload?.depth);
+  if (!Number.isFinite(depth)) return null;
+
+  const curveNames = normalizeCurveSelection(payload?.curveNames);
+  if (curveNames.length === 0) return null;
+
+  const payloadIndexCurve = normalizeCurveMnemonic(payload?.indexCurve);
+  const indexCurveOptions = resolveIndexCurveFetchOptions(payloadIndexCurve);
+  try {
+    return await runTimedLasAction(
+      'las.fetch_curve_values_at_depth',
+      () => (indexCurveOptions
+        ? lasStore.fetchCurveValuesAtDepth(depth, curveNames, indexCurveOptions)
+        : lasStore.fetchCurveValuesAtDepth(depth, curveNames))
+    );
+  } catch {
+    return null;
+  }
 }
 </script>
 
@@ -581,13 +835,24 @@ function toggleCurveLibrary() {
       :active-session="activeSession"
       :session-options="sessionOptions"
       :active-session-id="activeSessionIdModel"
+      :selected-index-curve="activeIndexCurve"
+      :index-curve-options="indexCurveOptions"
+      :index-selection-diagnostics="indexSelectionDiagnostics"
       :overview="overview"
       :index-type="indexType"
       :selected-curve-count="selectedCurveCount"
+      :time-axis-settings="timeAxisSettings"
+      :time-axis-context="timeAxisContext"
+      :time-display-mode-options="timeDisplayModeOptions"
+      :time-display-timezone-options="timeDisplayTimezoneOptions"
       :is-loading="isLoading"
       @open-file="handleOpenFile"
       @close-session="handleCloseSession"
       @update:active-session-id="activeSessionIdModel = $event"
+      @update:selected-index-curve="handleUpdateSelectedIndexCurve"
+      @update:time-display-mode="handleUpdateTimeDisplayMode"
+      @update:time-display-timezone="handleUpdateTimeDisplayTimezone"
+      @update:time-display-manual-start="handleUpdateTimeDisplayManualStart"
     />
 
     <div v-if="isLoading && !activeSession" class="las-workspace__splash">
@@ -633,6 +898,7 @@ function toggleCurveLibrary() {
           :selected-curve-count="selectedCurveCount"
           :can-plot="canPlot"
           :can-correlate="canCorrelate"
+          :can-export-all-curves="canExportAllCurves"
           :is-loading="isLoading"
           @update:curve-filter-text="curveFilterText = $event"
           @update:selected-curve-names="updateSelectedCurves"
@@ -641,6 +907,8 @@ function toggleCurveLibrary() {
           @plot-selected="handlePlotSelected"
           @show-statistics="handleShowStatistics"
           @show-correlation="handleShowCorrelation"
+          @export-selected-csv="handleExportSelectedCsv"
+          @export-all-csv="handleExportAllCsv"
         />
       </aside>
 
@@ -658,9 +926,10 @@ function toggleCurveLibrary() {
         <LasPlotStage
           :active-session="activeSession"
           :curve-library-open="isCurveLibraryOpen"
-          :data="curveData"
+          :data="plotStageData"
           :has-data="hasData"
           :is-loading="isLoading"
+          :resolve-exact-values-at-depth="handleResolveExactValuesAtDepth"
           :selected-curve-count="selectedCurveCount"
           :selected-curve-names="selectedCurveNames"
           @toggle-library="toggleCurveLibrary"
@@ -697,12 +966,9 @@ function toggleCurveLibrary() {
             :active-insights-tab="activeInsightsTab"
             :curve-ranges="curveRanges"
             :data-preview="dataPreview"
-            :has-statistics="hasStatistics"
             :overview="overview"
             :preview-columns="previewColumns"
             :selected-well-section-name="selectedWellSectionName"
-            :statistics-columns="statisticsColumns"
-            :statistics-rows="statisticsRows"
             :well-section-options="wellSectionOptions"
             :well-section-rows="wellSectionRows"
             @update:active-insights-tab="activeInsightsTab = $event"
@@ -744,6 +1010,7 @@ function toggleCurveLibrary() {
           :selected-curve-count="selectedCurveCount"
           :can-plot="canPlot"
           :can-correlate="canCorrelate"
+          :can-export-all-curves="canExportAllCurves"
           :is-loading="isLoading"
           @update:curve-filter-text="curveFilterText = $event"
           @update:selected-curve-names="updateSelectedCurves"
@@ -752,6 +1019,8 @@ function toggleCurveLibrary() {
           @plot-selected="handlePlotSelected"
           @show-statistics="handleShowStatistics"
           @show-correlation="handleShowCorrelation"
+          @export-selected-csv="handleExportSelectedCsv"
+          @export-all-csv="handleExportAllCsv"
         />
         <span class="las-workspace__floating-resizer" @pointerdown="startLeftFloatingResize"></span>
       </div>
@@ -786,12 +1055,9 @@ function toggleCurveLibrary() {
             :active-insights-tab="activeInsightsTab"
             :curve-ranges="curveRanges"
             :data-preview="dataPreview"
-            :has-statistics="hasStatistics"
             :overview="overview"
             :preview-columns="previewColumns"
             :selected-well-section-name="selectedWellSectionName"
-            :statistics-columns="statisticsColumns"
-            :statistics-rows="statisticsRows"
             :well-section-options="wellSectionOptions"
             :well-section-rows="wellSectionRows"
             @update:active-insights-tab="activeInsightsTab = $event"
@@ -799,6 +1065,33 @@ function toggleCurveLibrary() {
           />
         </div>
         <span class="las-workspace__floating-resizer" @pointerdown="startRightFloatingResize"></span>
+      </div>
+    </Dialog>
+
+    <Dialog
+      v-if="isStatisticsDialogOpen"
+      v-model:visible="statisticsDialogVisible"
+      class="las-workspace__floating-dialog las-workspace__statistics-dialog"
+      :modal="false"
+      :draggable="true"
+      :style="statisticsDialogStyle"
+    >
+      <template #header>
+        <div class="las-workspace__floating-header">
+          <span>Curve Statistics</span>
+          <span v-if="selectedCurveCount > 0" class="las-workspace__statistics-meta">
+            Curves: {{ selectedCurveCount.toLocaleString() }}
+          </span>
+        </div>
+      </template>
+
+      <div class="las-workspace__floating-content las-workspace__statistics-content" data-testid="las-statistics-dialog">
+        <LasStatisticsPanel
+          :has-statistics="hasStatistics"
+          :statistics-columns="statisticsColumns"
+          :statistics-rows="statisticsRows"
+        />
+        <span class="las-workspace__floating-resizer" @pointerdown="startStatisticsFloatingResize"></span>
       </div>
     </Dialog>
 
@@ -819,7 +1112,7 @@ function toggleCurveLibrary() {
         </div>
       </template>
 
-      <div class="las-workspace__floating-content las-workspace__correlation-content">
+      <div class="las-workspace__floating-content las-workspace__correlation-content" data-testid="las-correlation-dialog">
         <LasCorrelationHeatmap v-if="hasCorrelation" :data="correlationMatrix" />
         <div v-else class="las-workspace__correlation-empty">
           No correlation data available.
@@ -977,6 +1270,16 @@ function toggleCurveLibrary() {
   font-size: 0.78rem;
   color: var(--muted);
   font-weight: 400;
+}
+
+.las-workspace__statistics-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.las-workspace__statistics-content {
+  overflow: hidden;
 }
 
 .las-workspace__correlation-content {

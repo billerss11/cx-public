@@ -11,6 +11,7 @@ const mockState = vi.hoisted(() => {
         fileName: 'demo.las',
         wellName: 'Well-A',
         indexCurve: 'DEPT',
+        selectedIndexCurve: 'DEPT',
         depthUnit: 'm',
         rowCount: 1200,
         curveCount: 4,
@@ -18,11 +19,12 @@ const mockState = vi.hoisted(() => {
         selectedCurves: ['GR', 'RHOB'],
         curves: [
           { mnemonic: 'DEPT', unit: 'm', description: 'Depth' },
+          { mnemonic: 'BDTI', unit: 'h', description: 'Bit time' },
           { mnemonic: 'GR', unit: 'api', description: 'Gamma Ray' },
           { mnemonic: 'RHOB', unit: 'g/cc', description: 'Bulk Density' },
           { mnemonic: 'NPHI', unit: 'v/v', description: 'Neutron Porosity' },
         ],
-        validCurves: ['GR', 'RHOB', 'NPHI'],
+        validCurves: ['BDTI', 'GR', 'RHOB', 'NPHI'],
         overview: {
           dataPoints: 4800,
           indexRangeDisplay: '1000 - 2200 m',
@@ -90,8 +92,19 @@ const mockState = vi.hoisted(() => {
     fetchCurveData: vi.fn().mockResolvedValue({}),
     fetchCurveStatistics: vi.fn().mockResolvedValue({}),
     fetchCorrelationMatrix: vi.fn().mockResolvedValue({}),
+    exportCurveDataCsv: vi.fn().mockResolvedValue({
+      canceled: false,
+      outputFilePath: 'C:/exports/demo.csv',
+      fileName: 'demo.csv',
+    }),
     deleteSession: vi.fn().mockResolvedValue(undefined),
     setActiveSession: vi.fn(),
+    setSessionIndexCurve: vi.fn((indexCurve) => {
+      const session = store.sessions[store.activeSessionId];
+      if (!session) return null;
+      session.selectedIndexCurve = indexCurve;
+      return indexCurve;
+    }),
     clearWarning: vi.fn(),
     clearError: vi.fn(),
   };
@@ -156,17 +169,29 @@ function mountWorkspace() {
         TabPanels: true,
         LasWorkspaceHeader: {
           name: 'LasWorkspaceHeader',
-          template: '<div data-testid="las-workspace-header" />',
+          emits: ['update:selected-index-curve'],
+          template: `
+            <div data-testid="las-workspace-header">
+              <button
+                data-testid="las-header-index-curve-update"
+                @click="$emit('update:selected-index-curve', 'BDTI')"
+              >
+                set index curve
+              </button>
+            </div>
+          `,
         },
         LasCurveLibraryPanel: {
           name: 'LasCurveLibraryPanel',
-          emits: ['update:selectedCurveNames', 'plot-selected', 'show-statistics', 'show-correlation'],
+          emits: ['update:selectedCurveNames', 'plot-selected', 'show-statistics', 'show-correlation', 'export-selected-csv', 'export-all-csv'],
           template: `
             <div data-testid="las-curve-library">
               <button class="curve-library-update" @click="$emit('update:selectedCurveNames', ['GR', 'RHOB'])">update</button>
               <button class="curve-library-plot" @click="$emit('plot-selected')">plot</button>
               <button class="curve-library-stats" @click="$emit('show-statistics')">stats</button>
               <button class="curve-library-correlation" @click="$emit('show-correlation')">corr</button>
+              <button class="curve-library-export-selected" @click="$emit('export-selected-csv')">export selected</button>
+              <button class="curve-library-export-all" @click="$emit('export-all-csv')">export all</button>
             </div>
           `,
         },
@@ -190,14 +215,22 @@ function mountWorkspace() {
   });
 }
 
+async function flushViewAsync(wrapper) {
+  await Promise.resolve();
+  await Promise.resolve();
+  await wrapper.vm.$nextTick();
+}
+
 describe('LasWorkspace redesigned layout', () => {
   beforeEach(() => {
     mockState.store.openAndParseFile.mockReset();
     mockState.store.fetchCurveData.mockClear();
     mockState.store.fetchCurveStatistics.mockClear();
     mockState.store.fetchCorrelationMatrix.mockClear();
+    mockState.store.exportCurveDataCsv.mockClear();
     mockState.store.deleteSession.mockClear();
     mockState.store.setActiveSession.mockClear();
+    mockState.store.setSessionIndexCurve.mockClear();
     mockState.store.clearWarning.mockClear();
     mockState.store.clearError.mockClear();
     mockState.store.warning = null;
@@ -238,24 +271,37 @@ describe('LasWorkspace redesigned layout', () => {
     expect(wrapper.find('[data-testid="las-right-floating-panel"]').exists()).toBe(false);
   });
 
-  it('routes curve library actions through the las store and switches the insights deck', async () => {
+  it('routes curve library actions through the las store and opens floating analysis dialogs', async () => {
     const wrapper = mountWorkspace();
 
     await wrapper.get('.curve-library-update').trigger('click');
     await wrapper.get('.curve-library-plot').trigger('click');
+    await flushViewAsync(wrapper);
     expect(mockState.store.fetchCurveData).toHaveBeenCalledWith(['GR', 'RHOB']);
-
-    await wrapper.get('.curve-library-stats').trigger('click');
-    await Promise.resolve();
-    await wrapper.vm.$nextTick();
     expect(mockState.store.fetchCurveStatistics).toHaveBeenCalledWith(['GR', 'RHOB']);
-    expect(wrapper.find('[data-testid="las-insights-deck"]').attributes('data-active-tab')).toBe('analytics');
+    expect(mockState.store.fetchCorrelationMatrix).toHaveBeenCalledWith(['GR', 'RHOB']);
+
+    mockState.store.fetchCurveStatistics.mockClear();
+    mockState.store.fetchCorrelationMatrix.mockClear();
+    await wrapper.get('.curve-library-stats').trigger('click');
+    await flushViewAsync(wrapper);
+    expect(mockState.store.fetchCurveStatistics).toHaveBeenCalledWith(['GR', 'RHOB']);
+    expect(wrapper.find('[data-testid="las-statistics-dialog"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="las-insights-deck"]').attributes('data-active-tab')).toBe('overview');
 
     await wrapper.get('.curve-library-correlation').trigger('click');
-    await Promise.resolve();
-    await wrapper.vm.$nextTick();
+    await flushViewAsync(wrapper);
     expect(mockState.store.fetchCorrelationMatrix).toHaveBeenCalledWith(['GR', 'RHOB']);
-    expect(wrapper.find('[data-testid="las-insights-deck"]').attributes('data-active-tab')).toBe('analytics');
+    expect(wrapper.find('[data-testid="las-correlation-dialog"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="las-insights-deck"]').attributes('data-active-tab')).toBe('overview');
+
+    await wrapper.get('.curve-library-export-selected').trigger('click');
+    await flushViewAsync(wrapper);
+    expect(mockState.store.exportCurveDataCsv).toHaveBeenCalledWith(['GR', 'RHOB'], { scope: 'selected' });
+
+    await wrapper.get('.curve-library-export-all').trigger('click');
+    await flushViewAsync(wrapper);
+    expect(mockState.store.exportCurveDataCsv).toHaveBeenCalledWith(['BDTI', 'GR', 'RHOB', 'NPHI'], { scope: 'all' });
   });
 
   it('keeps the curve library mounted across hide and show toggles', async () => {
@@ -281,5 +327,17 @@ describe('LasWorkspace redesigned layout', () => {
     const wrapper = mountWorkspace();
     expect(wrapper.find('[data-testid="las-large-file-warning"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Large LAS file selected');
+  });
+
+  it('uses manual index-curve override from header when plotting selected curves', async () => {
+    const wrapper = mountWorkspace();
+
+    await wrapper.get('[data-testid="las-header-index-curve-update"]').trigger('click');
+    await wrapper.get('.curve-library-update').trigger('click');
+    await wrapper.get('.curve-library-plot').trigger('click');
+    await flushViewAsync(wrapper);
+
+    expect(mockState.store.setSessionIndexCurve).toHaveBeenCalledWith('BDTI');
+    expect(mockState.store.fetchCurveData).toHaveBeenCalledWith(['GR', 'RHOB'], { indexCurve: 'BDTI' });
   });
 });

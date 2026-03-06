@@ -1,10 +1,16 @@
 import * as d3 from 'd3';
+import { formatTimeIndexValue } from '@/utils/lasTimeAxis.js';
 
 const MIN_TRACK_WIDTH = 196;
 const HEADER_HEIGHT = 38;
 export const LAS_PLOT_TOTAL_HEIGHT = 400;
 const LAS_PLOT_MIN_TOTAL_HEIGHT = 280;
-const PLOT_MARGIN = Object.freeze({ top: 6, right: 16, bottom: 30, left: 56 });
+const BASE_PLOT_MARGIN = Object.freeze({ top: 6, right: 16, bottom: 30, left: 56 });
+const DEPTH_AXIS_TICK_COUNT = 12;
+const DEPTH_AXIS_FONT_SIZE_PX = 11;
+const DEPTH_AXIS_CHAR_WIDTH_RATIO = 0.62;
+const DEPTH_AXIS_TICK_PADDING_PX = 18;
+const DEPTH_AXIS_LABEL_GUTTER_PX = 8;
 
 export function clearLasSurface(container) {
   if (!container) return;
@@ -15,9 +21,10 @@ export function renderLasPlot(container, data) {
   const availableWidth = resolveAvailablePlotWidth(container);
   const availableHeight = resolveAvailablePlotHeight(container);
   clearLasSurface(container);
-  if (!container || !hasPlotSeries(data)) return;
+  if (!container || !hasPlotSeries(data)) return null;
 
   const dimensions = resolvePlotDimensions(
+    data,
     data.series.length,
     availableWidth,
     availableHeight
@@ -25,9 +32,36 @@ export function renderLasPlot(container, data) {
   const svg = createPlotSvg(container, dimensions);
   const yScale = createDepthScale(data, dimensions);
 
-  renderDepthAxis(svg, yScale, data.indexCurve, data.depthRange?.depthUnit, dimensions);
-  renderTrackSeries(svg, data.series, yScale, dimensions);
+  renderDepthAxis(svg, yScale, data.indexCurve, data.depthRange?.depthUnit, dimensions, data.timeAxis);
+  const tracks = renderTrackSeries(svg, data.series, yScale, dimensions);
   renderTrackBoundary(svg, dimensions.margin.left + data.series.length * dimensions.trackWidth, dimensions);
+
+  const plotTop = dimensions.margin.top + dimensions.headerHeight;
+  const plotBottom = plotTop + dimensions.plotHeight;
+  const plotLeft = dimensions.margin.left;
+  const plotRight = plotLeft + data.series.length * dimensions.trackWidth;
+  const minDepth = Number(data?.depthRange?.minDepth ?? 0);
+  const maxDepth = Number(data?.depthRange?.maxDepth ?? minDepth + 1);
+
+  return {
+    width: dimensions.totalWidth,
+    height: dimensions.totalHeight,
+    plotArea: {
+      left: plotLeft,
+      right: plotRight,
+      top: plotTop,
+      bottom: plotBottom,
+    },
+    depthRange: {
+      minDepth,
+      maxDepth,
+      depthUnit: data?.depthRange?.depthUnit ?? null,
+      samplingStep: Number(data?.depthRange?.samplingStep ?? 1),
+      indexCurve: data?.indexCurve ?? null,
+      timeAxis: data?.timeAxis ?? null,
+    },
+    tracks
+  };
 }
 
 function hasPlotSeries(data) {
@@ -36,8 +70,10 @@ function hasPlotSeries(data) {
 
 function resolveAvailablePlotWidth(container) {
   const measuredWidth = Number(container?.clientWidth ?? 0);
-  if (!Number.isFinite(measuredWidth) || measuredWidth <= 0) return 0;
-  return measuredWidth;
+  if (Number.isFinite(measuredWidth) && measuredWidth > 0) return measuredWidth;
+  const parentWidth = Number(container?.parentElement?.clientWidth ?? 0);
+  if (Number.isFinite(parentWidth) && parentWidth > 0) return parentWidth;
+  return 0;
 }
 
 function resolveAvailablePlotHeight(container) {
@@ -48,17 +84,18 @@ function resolveAvailablePlotHeight(container) {
   return LAS_PLOT_TOTAL_HEIGHT;
 }
 
-function resolvePlotDimensions(trackCount, availableWidth = 0, availableHeight = LAS_PLOT_TOTAL_HEIGHT) {
+function resolvePlotDimensions(data, trackCount, availableWidth = 0, availableHeight = LAS_PLOT_TOTAL_HEIGHT) {
+  const margin = resolvePlotMargin(data);
   const resolvedTotalHeight = resolvePlotTotalHeight(availableHeight);
-  const plotHeight = resolvedTotalHeight - PLOT_MARGIN.top - PLOT_MARGIN.bottom - HEADER_HEIGHT;
-  const usableTrackWidth = resolveTrackWidth(trackCount, availableWidth);
+  const plotHeight = resolvedTotalHeight - margin.top - margin.bottom - HEADER_HEIGHT;
+  const usableTrackWidth = resolveTrackWidth(trackCount, availableWidth, margin);
   return {
-    margin: PLOT_MARGIN,
+    margin,
     headerHeight: HEADER_HEIGHT,
     totalHeight: resolvedTotalHeight,
     plotHeight,
     trackWidth: usableTrackWidth,
-    totalWidth: PLOT_MARGIN.left + trackCount * usableTrackWidth + PLOT_MARGIN.right,
+    totalWidth: margin.left + trackCount * usableTrackWidth + margin.right,
   };
 }
 
@@ -68,10 +105,49 @@ function resolvePlotTotalHeight(availableHeight) {
   return Math.max(LAS_PLOT_MIN_TOTAL_HEIGHT, Math.round(numeric));
 }
 
-function resolveTrackWidth(trackCount, availableWidth) {
+function resolveTrackWidth(trackCount, availableWidth, margin) {
   if (!Number.isFinite(availableWidth) || availableWidth <= 0) return MIN_TRACK_WIDTH;
-  const availableTrackArea = Math.max(availableWidth - PLOT_MARGIN.left - PLOT_MARGIN.right, MIN_TRACK_WIDTH);
+  const availableTrackArea = Math.max(availableWidth - margin.left - margin.right, MIN_TRACK_WIDTH);
   return Math.max(MIN_TRACK_WIDTH, Math.floor(availableTrackArea / Math.max(trackCount, 1)));
+}
+
+function resolvePlotMargin(data) {
+  const minDepth = Number(data?.depthRange?.minDepth ?? 0);
+  const maxDepth = Number(data?.depthRange?.maxDepth ?? minDepth + 1);
+  const timeAxis = data?.timeAxis ?? null;
+  const axisLabel = resolveIndexLabel(data?.indexCurve, data?.depthRange?.depthUnit, timeAxis);
+  const tickLabelWidth = estimateDepthAxisTickLabelWidth(minDepth, maxDepth, DEPTH_AXIS_TICK_COUNT, timeAxis);
+  const axisLabelAllowance = axisLabel ? DEPTH_AXIS_LABEL_GUTTER_PX : 0;
+  const left = Math.max(
+    BASE_PLOT_MARGIN.left,
+    tickLabelWidth + DEPTH_AXIS_TICK_PADDING_PX + axisLabelAllowance
+  );
+  return {
+    ...BASE_PLOT_MARGIN,
+    left
+  };
+}
+
+function estimateDepthAxisTickLabelWidth(minDepth, maxDepth, tickCount, timeAxis = null) {
+  const [domainStart, domainEnd] = normalizeDepthDomain(minDepth, maxDepth);
+  const formatTick = resolveDepthTickFormatter(domainStart, domainEnd, tickCount, timeAxis);
+  const tickValues = d3.ticks(domainStart, domainEnd, tickCount);
+  const sampledTicks = tickValues.length > 0 ? tickValues : [domainStart, domainEnd];
+  const maxTickLength = sampledTicks.reduce((longest, tickValue) => {
+    const label = String(formatTick(tickValue));
+    return Math.max(longest, label.length);
+  }, 0);
+  return Math.ceil(maxTickLength * DEPTH_AXIS_FONT_SIZE_PX * DEPTH_AXIS_CHAR_WIDTH_RATIO);
+}
+
+function normalizeDepthDomain(minDepth, maxDepth) {
+  const hasMin = Number.isFinite(minDepth);
+  const hasMax = Number.isFinite(maxDepth);
+  if (!hasMin && !hasMax) return [0, 1];
+  if (!hasMin) return [maxDepth - 1, maxDepth];
+  if (!hasMax) return [minDepth, minDepth + 1];
+  if (minDepth === maxDepth) return [minDepth, minDepth + 1];
+  return minDepth < maxDepth ? [minDepth, maxDepth] : [maxDepth, minDepth];
 }
 
 function createPlotSvg(container, dimensions) {
@@ -99,8 +175,22 @@ function createDepthScale(data, dimensions) {
     ]);
 }
 
-function renderDepthAxis(svg, yScale, indexCurve, depthUnit, dimensions) {
-  const axis = d3.axisLeft(yScale).ticks(12);
+function resolveDepthTickFormatter(domainStart, domainEnd, tickCount, timeAxis = null) {
+  if (String(timeAxis?.mode || '').trim() === 'clock' && String(timeAxis?.status || '').trim() === 'ready') {
+    return (value) => formatTimeIndexValue(value, timeAxis, { includeMilliseconds: false });
+  }
+  return d3.tickFormat(domainStart, domainEnd, tickCount);
+}
+
+function renderDepthAxis(svg, yScale, indexCurve, depthUnit, dimensions, timeAxis = null) {
+  const [domainStart, domainEnd] = normalizeDepthDomain(
+    Number(yScale.domain()?.[0]),
+    Number(yScale.domain()?.[1])
+  );
+  const axis = d3
+    .axisLeft(yScale)
+    .ticks(DEPTH_AXIS_TICK_COUNT)
+    .tickFormat(resolveDepthTickFormatter(domainStart, domainEnd, DEPTH_AXIS_TICK_COUNT, timeAxis));
   svg
     .append('g')
     .attr('transform', `translate(${dimensions.margin.left}, 0)`)
@@ -118,32 +208,50 @@ function renderDepthAxis(svg, yScale, indexCurve, depthUnit, dimensions) {
     .style('font-size', '12px')
     .style('font-weight', '700')
     .style('fill', 'var(--p-text-color, #25324a)')
-    .text(resolveIndexLabel(indexCurve, depthUnit));
+    .text(resolveIndexLabel(indexCurve, depthUnit, timeAxis));
 }
 
-function resolveIndexLabel(indexCurve, depthUnit) {
+function resolveIndexLabel(indexCurve, depthUnit, timeAxis = null) {
+  if (String(timeAxis?.mode || '').trim() === 'clock') {
+    const timezone = String(timeAxis?.timezone || '').trim() || 'UTC';
+    const prefix = String(indexCurve ?? '').trim() || 'TIME';
+    return `${prefix} (clock, ${timezone})`;
+  }
   if (!depthUnit) return indexCurve ?? '';
   return `${indexCurve ?? ''} (${depthUnit})`;
 }
 
 function renderTrackSeries(svg, series, yScale, dimensions) {
   const colors = d3.schemeTableau10;
-  series.forEach((entry, index) => {
-    renderTrack(svg, entry, index, yScale, colors[index % colors.length], dimensions);
-  });
+  return series.map((entry, index) =>
+    renderTrack(svg, entry, index, yScale, colors[index % colors.length], dimensions)
+  );
 }
 
 function renderTrack(svg, entry, index, yScale, color, dimensions) {
   const trackX = dimensions.margin.left + index * dimensions.trackWidth;
   renderTrackBoundary(svg, trackX, dimensions);
   renderTrackHeader(svg, entry, trackX, color, dimensions);
+  const points = Array.isArray(entry?.points) ? entry.points : [];
 
-  const values = extractTrackValues(entry?.points);
-  if (values.length === 0) return;
+  const values = extractTrackValues(points);
+  if (values.length === 0) {
+    return {
+      mnemonic: entry?.mnemonic ?? '',
+      unit: entry?.unit ?? '',
+      points
+    };
+  }
 
   const xScale = createTrackScale(values, trackX, dimensions.trackWidth);
-  renderTrackLine(svg, entry?.points ?? [], xScale, yScale, color);
+  renderTrackLine(svg, points, xScale, yScale, color);
   renderTrackAxis(svg, xScale, dimensions);
+
+  return {
+    mnemonic: entry?.mnemonic ?? '',
+    unit: entry?.unit ?? '',
+    points
+  };
 }
 
 function renderTrackBoundary(svg, xPosition, dimensions) {

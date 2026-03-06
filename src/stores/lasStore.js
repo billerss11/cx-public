@@ -1,6 +1,7 @@
 import { markRaw } from 'vue';
 import { defineStore } from 'pinia';
-import { backendRequest, getBackendResultMeta, openLasFileDialog } from '@/composables/useBackendClient.js';
+import { backendRequest, getBackendResultMeta, openLasCsvSaveDialog, openLasFileDialog } from '@/composables/useBackendClient.js';
+import { normalizeLasTimeAxisSettings } from '@/utils/lasTimeAxis.js';
 
 const LARGE_LAS_FILE_THRESHOLD_BYTES = 25 * 1024 * 1024;
 
@@ -108,6 +109,66 @@ function emitLargeLasFileWarningLog(warning = null) {
     });
 }
 
+function normalizeCurveMnemonic(value) {
+    const token = String(value ?? '').trim();
+    return token || null;
+}
+
+function curveExistsInSession(session = {}, curveMnemonic = null) {
+    const normalizedCurveMnemonic = normalizeCurveMnemonic(curveMnemonic);
+    if (!normalizedCurveMnemonic) return false;
+
+    const curves = Array.isArray(session?.curves) ? session.curves : null;
+    if (!curves || curves.length === 0) return true;
+    return curves.some((curve) => normalizeCurveMnemonic(curve?.mnemonic) === normalizedCurveMnemonic);
+}
+
+function resolveSessionIndexCurve(session = {}, explicitIndexCurve = null) {
+    const explicit = normalizeCurveMnemonic(explicitIndexCurve);
+    if (explicit && curveExistsInSession(session, explicit)) return explicit;
+
+    const selected = normalizeCurveMnemonic(session?.selectedIndexCurve);
+    if (selected && curveExistsInSession(session, selected)) return selected;
+
+    const fallback = normalizeCurveMnemonic(session?.indexCurve);
+    if (fallback && curveExistsInSession(session, fallback)) return fallback;
+    return explicit || selected || fallback;
+}
+
+function hasIndexCurveOverride(session = {}, effectiveIndexCurve = null) {
+    const normalizedEffective = normalizeCurveMnemonic(effectiveIndexCurve);
+    const normalizedDefault = normalizeCurveMnemonic(session?.indexCurve);
+    return Boolean(normalizedEffective && normalizedDefault && normalizedEffective !== normalizedDefault);
+}
+
+function normalizeTaskOptions(options = {}) {
+    const source = options && typeof options === 'object' ? options : {};
+    const next = { ...source };
+    delete next.indexCurve;
+    return next;
+}
+
+function resolveSessionTimeAxisSettings(session = {}) {
+    return normalizeLasTimeAxisSettings(session?.timeAxisSettings);
+}
+
+function buildSafeCsvFileToken(value, fallback = 'las-curves') {
+    const raw = String(value ?? '').trim();
+    if (!raw) return fallback;
+    const normalized = raw
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^a-z0-9]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+    return normalized || fallback;
+}
+
+function buildCurveCsvDefaultFileName(session = {}, scope = 'selected') {
+    const baseToken = buildSafeCsvFileToken(session?.wellName || session?.fileName, 'las-curves');
+    const scopeToken = scope === 'all' ? 'all-curves' : 'selected-curves';
+    return `${baseToken}-${scopeToken}.csv`;
+}
+
 export const useLasStore = defineStore('las', {
     state: () => ({
         sessions: {},
@@ -196,6 +257,8 @@ export const useLasStore = defineStore('las', {
                 this.sessions[sessionId] = {
                     ...result,
                     filePath,
+                    timeAxisSettings: resolveSessionTimeAxisSettings(result),
+                    selectedIndexCurve: resolveSessionIndexCurve(result, result?.indexCurve),
                     selectedCurves: [],
                 };
                 this.activeSessionId = sessionId;
@@ -212,7 +275,8 @@ export const useLasStore = defineStore('las', {
         async fetchCurveData(curveNames, options = {}) {
             const session = this.activeSession;
             if (!session) throw new Error('No active LAS session.');
-            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, session.indexCurve);
+            const indexCurve = resolveSessionIndexCurve(session, options?.indexCurve);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
             if (!selectedCurveNames.length) {
                 throw new Error('Select at least one non-index curve.');
             }
@@ -220,17 +284,22 @@ export const useLasStore = defineStore('las', {
             this.loading = true;
             this.clearBackendStatus();
             try {
+                const payloadOptions = normalizeTaskOptions(options);
                 const payload = {
                     sessionId: session.sessionId,
                     curveMnemonics: [...selectedCurveNames],
-                    ...options,
+                    ...payloadOptions,
                 };
+                if (hasIndexCurveOverride(session, indexCurve)) {
+                    payload.indexCurve = indexCurve;
+                }
                 const result = await backendRequest('las.get_curve_data', payload);
                 this.curveData[session.sessionId] = markRaw(result);
                 this.setLastRequestMetaFromResult(result, 'las.get_curve_data');
 
                 this.sessions[session.sessionId] = {
                     ...this.sessions[session.sessionId],
+                    selectedIndexCurve: indexCurve ?? resolveSessionIndexCurve(session),
                     selectedCurves: [...selectedCurveNames],
                 };
 
@@ -243,10 +312,46 @@ export const useLasStore = defineStore('las', {
             }
         },
 
+        async fetchCurveValuesAtDepth(depth, curveNames, options = {}) {
+            const session = this.activeSession;
+            if (!session) throw new Error('No active LAS session.');
+            const indexCurve = resolveSessionIndexCurve(session, options?.indexCurve);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
+            if (!selectedCurveNames.length) {
+                throw new Error('Select at least one non-index curve.');
+            }
+
+            const numericDepth = Number(depth);
+            if (!Number.isFinite(numericDepth)) {
+                throw new Error('Depth must be a finite number.');
+            }
+
+            this.clearBackendStatus();
+            try {
+                const payloadOptions = normalizeTaskOptions(options);
+                const payload = {
+                    sessionId: session.sessionId,
+                    depth: numericDepth,
+                    curveMnemonics: [...selectedCurveNames],
+                    ...payloadOptions,
+                };
+                if (hasIndexCurveOverride(session, indexCurve)) {
+                    payload.indexCurve = indexCurve;
+                }
+                const result = await backendRequest('las.get_curve_values_at_depth', payload);
+                this.setLastRequestMetaFromResult(result, 'las.get_curve_values_at_depth');
+                return result;
+            } catch (err) {
+                this.applyBackendError(err, 'Failed to fetch curve values at depth.', 'las.get_curve_values_at_depth');
+                throw err;
+            }
+        },
+
         async fetchCurveStatistics(curveNames) {
             const session = this.activeSession;
             if (!session) throw new Error('No active LAS session.');
-            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, session.indexCurve);
+            const indexCurve = resolveSessionIndexCurve(session);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
             if (!selectedCurveNames.length) {
                 throw new Error('Select at least one non-index curve.');
             }
@@ -273,7 +378,8 @@ export const useLasStore = defineStore('las', {
         async fetchCorrelationMatrix(curveNames, options = {}) {
             const session = this.activeSession;
             if (!session) throw new Error('No active LAS session.');
-            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, session.indexCurve);
+            const indexCurve = resolveSessionIndexCurve(session);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
             if (selectedCurveNames.length < 2) {
                 throw new Error('Select at least two non-index curves.');
             }
@@ -292,6 +398,55 @@ export const useLasStore = defineStore('las', {
                 return result;
             } catch (err) {
                 this.applyBackendError(err, 'Failed to calculate correlation matrix.', 'las.get_correlation_matrix');
+                throw err;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async exportCurveDataCsv(curveNames, options = {}) {
+            const session = this.activeSession;
+            if (!session) throw new Error('No active LAS session.');
+            const indexCurve = resolveSessionIndexCurve(session, options?.indexCurve);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
+            if (!selectedCurveNames.length) {
+                throw new Error('Select at least one non-index curve.');
+            }
+
+            this.loading = true;
+            this.clearBackendStatus();
+            try {
+                const scope = String(options?.scope || 'selected').trim().toLowerCase() === 'all'
+                    ? 'all'
+                    : 'selected';
+                const dialogResult = await openLasCsvSaveDialog({
+                    defaultFileName: buildCurveCsvDefaultFileName(session, scope),
+                });
+                if (dialogResult?.canceled) return { canceled: true };
+
+                const filePath = String(dialogResult?.filePath ?? '').trim();
+                if (!filePath) {
+                    throw new Error('Failed to resolve CSV export path.');
+                }
+
+                const payload = {
+                    sessionId: session.sessionId,
+                    curveMnemonics: [...selectedCurveNames],
+                    outputFilePath: filePath,
+                };
+                if (hasIndexCurveOverride(session, indexCurve)) {
+                    payload.indexCurve = indexCurve;
+                }
+                const result = await backendRequest('las.export_curve_data_csv', payload);
+                this.setLastRequestMetaFromResult(result, 'las.export_curve_data_csv');
+                return {
+                    canceled: false,
+                    ...result,
+                    outputFilePath: result?.outputFilePath ?? filePath,
+                    fileName: result?.fileName ?? dialogResult?.fileName ?? null,
+                };
+            } catch (err) {
+                this.applyBackendError(err, 'Failed to export curve CSV.', 'las.export_curve_data_csv');
                 throw err;
             } finally {
                 this.loading = false;
@@ -327,10 +482,47 @@ export const useLasStore = defineStore('las', {
 
         setSelectedCurves(curveNames) {
             if (!this.activeSessionId || !this.sessions[this.activeSessionId]) return;
+            const session = this.sessions[this.activeSessionId];
+            const indexCurve = resolveSessionIndexCurve(session);
+            const selectedCurveNames = normalizeRequestedCurveNames(curveNames, indexCurve);
             this.sessions[this.activeSessionId] = {
-                ...this.sessions[this.activeSessionId],
-                selectedCurves: [...curveNames],
+                ...session,
+                selectedCurves: [...selectedCurveNames],
             };
+        },
+
+        setSessionIndexCurve(indexCurve, sessionId = null) {
+            const id = sessionId || this.activeSessionId;
+            if (!id || !this.sessions[id]) return null;
+
+            const session = this.sessions[id];
+            const resolvedIndexCurve = resolveSessionIndexCurve(session, indexCurve);
+            if (!resolvedIndexCurve) return null;
+
+            const selectedCurves = normalizeRequestedCurveNames(session.selectedCurves, resolvedIndexCurve);
+            this.sessions[id] = {
+                ...session,
+                selectedIndexCurve: resolvedIndexCurve,
+                selectedCurves: [...selectedCurves],
+            };
+
+            return resolvedIndexCurve;
+        },
+
+        setSessionTimeAxisSettings(patch = {}, sessionId = null) {
+            const id = sessionId || this.activeSessionId;
+            if (!id || !this.sessions[id]) return null;
+
+            const session = this.sessions[id];
+            const nextSettings = normalizeLasTimeAxisSettings({
+                ...resolveSessionTimeAxisSettings(session),
+                ...(patch && typeof patch === 'object' ? patch : {}),
+            });
+            this.sessions[id] = {
+                ...session,
+                timeAxisSettings: nextSettings,
+            };
+            return nextSettings;
         },
 
         clearError() {
@@ -341,9 +533,12 @@ export const useLasStore = defineStore('las', {
 
 function normalizeRequestedCurveNames(curveNames, indexCurve) {
     const requestedCurveNames = Array.isArray(curveNames)
-        ? curveNames.map((curve) => String(curve).trim()).filter((curve) => curve.length > 0)
+        ? curveNames
+            .map((curve) => normalizeCurveMnemonic(curve))
+            .filter((curve) => Boolean(curve))
         : [];
     const uniqueCurveNames = [...new Set(requestedCurveNames)];
-    if (!indexCurve) return uniqueCurveNames;
-    return uniqueCurveNames.filter((curve) => curve !== indexCurve);
+    const normalizedIndexCurve = normalizeCurveMnemonic(indexCurve);
+    if (!normalizedIndexCurve) return uniqueCurveNames;
+    return uniqueCurveNames.filter((curve) => curve !== normalizedIndexCurve);
 }

@@ -32,6 +32,18 @@
       "taskType": "session",
       "payloadSchema": "schemas/tasks/las.get_curve_data.payload.v1.json"
     },
+    "las.export_curve_data_csv": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.export_curve_data_csv.payload.v1.json"
+    },
+    "las.get_curve_values_at_depth": {
+      "taskVersion": "1.0",
+      "resultModelVersion": "1.0",
+      "taskType": "session",
+      "payloadSchema": "schemas/tasks/las.get_curve_values_at_depth.payload.v1.json"
+    },
     "las.get_curve_statistics": {
       "taskVersion": "1.0",
       "resultModelVersion": "1.0",

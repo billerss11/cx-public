@@ -42,6 +42,8 @@ class TaskRegistryContractTests(unittest.TestCase):
         self.assertIn("backend.shutdown", registry)
         self.assertIn("las.parse_file", registry)
         self.assertIn("las.get_curve_data", registry)
+        self.assertIn("las.export_curve_data_csv", registry)
+        self.assertIn("las.get_curve_values_at_depth", registry)
         self.assertIn("las.get_curve_statistics", registry)
         self.assertIn("las.get_correlation_matrix", registry)
         self.assertIn("las.delete_session", registry)
@@ -57,6 +59,7 @@ class TaskRegistryContractTests(unittest.TestCase):
         self.assertIn("taskVersions", result)
         self.assertEqual(result["taskVersions"]["backend.health"], "1.0")
         self.assertEqual(result["taskVersions"]["las.parse_file"], "1.0")
+        self.assertEqual(result["taskVersions"]["las.export_curve_data_csv"], "1.0")
         self.assertEqual(result["taskVersions"]["las.get_curve_statistics"], "1.0")
 
 

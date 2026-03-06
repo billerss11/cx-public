@@ -10,6 +10,7 @@ import TabList from 'primevue/tablist';
 import TabPanel from 'primevue/tabpanel';
 import TabPanels from 'primevue/tabpanels';
 import Tabs from 'primevue/tabs';
+
 const MAX_PREVIEW_RENDER_ROWS = 12;
 const MAX_PREVIEW_RENDER_COLUMNS = 12;
 
@@ -26,10 +27,6 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-  hasStatistics: {
-    type: Boolean,
-    default: false,
-  },
   overview: {
     type: Object,
     default: null,
@@ -41,14 +38,6 @@ const props = defineProps({
   selectedWellSectionName: {
     type: String,
     default: null,
-  },
-  statisticsColumns: {
-    type: Array,
-    default: () => [],
-  },
-  statisticsRows: {
-    type: Array,
-    default: () => [],
   },
   wellSectionOptions: {
     type: Array,
@@ -128,7 +117,7 @@ const previewLimitSummary = computed(() => {
     <header class="las-insights__header">
       <div>
         <p class="las-insights__eyebrow">Insights Deck</p>
-        <h2 class="las-insights__title">Analytics and file details stay one pane away from the plot</h2>
+        <h2 class="las-insights__title">File details stay one pane away from the plot</h2>
       </div>
     </header>
 
@@ -136,7 +125,6 @@ const previewLimitSummary = computed(() => {
       <TabList>
         <Tab value="overview">Overview</Tab>
         <Tab value="curves">Curves</Tab>
-        <Tab value="analytics">Analytics</Tab>
         <Tab value="well">Well Info</Tab>
         <Tab value="preview">Data Preview</Tab>
       </TabList>
@@ -200,34 +188,6 @@ const previewLimitSummary = computed(() => {
               <Column field="description" header="Description" />
             </DataTable>
             <div v-else class="las-insights__empty">Curve metadata will appear after a session is loaded.</div>
-          </section>
-        </TabPanel>
-
-        <TabPanel value="analytics">
-          <section class="las-insights__panel las-insights__panel--bounded">
-            <h3 class="las-insights__panel-title">Curve Statistics</h3>
-            <p class="las-insights__panel-hint">Distribution and completeness metrics for the selected curves.</p>
-            <div class="las-insights__data-shell">
-              <DataTable
-                v-if="hasStatistics"
-                :value="statisticsRows"
-                size="small"
-                scrollable
-                scroll-height="340px"
-                :rows="10"
-                striped-rows
-              >
-                <Column field="metricLabel" header="Metric" />
-                <Column v-for="columnName in statisticsColumns" :key="columnName" :header="columnName">
-                  <template #body="{ data }">
-                    {{ data.values?.[columnName] ?? 'N/A' }}
-                  </template>
-                </Column>
-              </DataTable>
-              <div v-else class="las-insights__empty">
-                Use <strong>Statistics</strong> in the curve library to populate this panel.
-              </div>
-            </div>
           </section>
         </TabPanel>
 
@@ -384,10 +344,6 @@ const previewLimitSummary = computed(() => {
   gap: 16px;
 }
 
-.las-insights__panel--bounded {
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 65%, transparent);
-}
-
 .las-insights__overview-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -468,21 +424,9 @@ const previewLimitSummary = computed(() => {
   text-align: center;
 }
 
-.las-insights__data-shell {
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface-elevated) 94%, white);
-}
-
-.las-insights__tabs :deep(.p-tabpanels),
-.las-insights__data-shell :deep(.p-datatable-table-container) {
+.las-insights__tabs :deep(.p-tabpanels) {
   max-width: 100%;
   overflow: auto;
-}
-
-.las-insights__data-shell :deep(.p-datatable-table) {
-  min-width: max-content;
 }
 
 @media (max-width: 960px) {

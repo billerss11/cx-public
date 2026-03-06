@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LAS get_curve_values_at_depth payload",
+  "type": "object",
+  "required": [
+    "sessionId",
+    "depth",
+    "curveMnemonics"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "depth": {
+      "type": "number"
+    },
+    "depthEpsilon": {
+      "type": "number",
+      "minimum": 0
+    },
+    "indexCurve": {
+      "type": "string",
+      "minLength": 1
+    },
+    "curveMnemonics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "additionalProperties": true
+}
