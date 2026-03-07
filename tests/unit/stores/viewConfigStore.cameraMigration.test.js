@@ -49,4 +49,30 @@ describe('viewConfigStore camera migration flags contract', () => {
     store.setDirectionalLabelScale(1.35);
     expect(store.config.directionalLabelScale).toBe(1.35);
   });
+
+  it('enables smart labels by default with a persisted setter contract', () => {
+    const store = useViewConfigStore();
+
+    expect(store.config.smartLabelsEnabled).toBe(true);
+    expect(store.setSmartLabelsEnabled).toBeTypeOf('function');
+
+    store.setSmartLabelsEnabled(false);
+    expect(store.config.smartLabelsEnabled).toBe(false);
+  });
+
+  it('normalizes smart label hydration values without breaking existing projects', () => {
+    const store = useViewConfigStore();
+
+    store.updateConfig({ smartLabelsEnabled: false });
+    expect(store.config.smartLabelsEnabled).toBe(false);
+
+    store.updateConfig({ smartLabelsEnabled: undefined });
+    expect(store.config.smartLabelsEnabled).toBe(false);
+
+    store.updateConfig({ smartLabelsEnabled: null });
+    expect(store.config.smartLabelsEnabled).toBe(false);
+
+    store.updateConfig({ smartLabelsEnabled: true });
+    expect(store.config.smartLabelsEnabled).toBe(true);
+  });
 });

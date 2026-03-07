@@ -2,6 +2,10 @@
 import { computed } from 'vue';
 import { COLOR_PALETTES, PHYSICS_CONSTANTS } from '@/constants/index.js';
 import { estimateCasingID, parseOptionalNumber } from '@/utils/general.js';
+import {
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 import { resolveOpenHoleWaveConfig } from '@/utils/openHoleWave.js';
 import { generateWavyPath } from '@/utils/wavyPath.js';
@@ -34,6 +38,10 @@ const props = defineProps({
   diameterScale: {
     type: Number,
     default: 1
+  },
+  smartLabelsEnabled: {
+    type: Boolean,
+    default: true
   },
   colorPalette: {
     type: String,
@@ -160,9 +168,25 @@ function compareSegmentRenderOrder(leftSegment, rightSegment) {
 
 const casingSegments = computed(() => {
   const rows = Array.isArray(props.casingData) ? props.casingData : [];
+  const smartLabelsEnabled = props.smartLabelsEnabled === true;
   const diameterScale = Number.isFinite(Number(props.diameterScale)) && Number(props.diameterScale) > 0
     ? Number(props.diameterScale)
     : 1;
+  const yRange = typeof props.yScale?.range === 'function' ? props.yScale.range() : [];
+  const rawTop = Number(yRange[0]);
+  const rawBottom = Number(yRange[yRange.length - 1]);
+  const plotTop = Math.min(rawTop, rawBottom);
+  const plotBottom = Math.max(rawTop, rawBottom);
+  const availableTrackHeight = Number.isFinite(plotTop) && Number.isFinite(plotBottom)
+    ? Math.max(1, plotBottom - plotTop)
+    : 1;
+  const smartDepthAutoScale = smartLabelsEnabled
+    ? resolveSmartLabelAutoScale({
+      totalPreferredLabelHeight: rows.length * 20,
+      availableTrackHeight
+    })
+    : 1;
+
   return rows
     .map((row, index) => {
       const od = parseOptionalNumber(row?.od);
@@ -213,9 +237,15 @@ const casingSegments = computed(() => {
         ? depthLabelOffsetRaw
         : DEFAULT_DEPTH_LABEL_OFFSET;
       const depthLabelFontSizeRaw = parseOptionalNumber(row?.depthLabelFontSize);
-      const depthLabelFontSize = Number.isFinite(depthLabelFontSizeRaw)
+      const baseDepthLabelFontSize = Number.isFinite(depthLabelFontSizeRaw)
         ? depthLabelFontSizeRaw
         : DEFAULT_DEPTH_LABEL_FONT_SIZE;
+      const depthLabelFontSize = smartLabelsEnabled
+        ? resolveSmartLabelFontSize(baseDepthLabelFontSize, {
+          manualScale: 1,
+          autoScale: smartDepthAutoScale
+        })
+        : baseDepthLabelFontSize;
       const annotations = [];
       const buildAnnotation = (depth) => resolveDepthAnnotationGeometry(
         outerRight,

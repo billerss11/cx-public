@@ -2,6 +2,11 @@
 import { computed } from 'vue';
 import { LAYOUT_CONSTANTS } from '@/constants/index.js';
 import { clamp, parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
+import {
+  applyDeterministicSmartLabelLayout,
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 import { resolveEquipmentTypeSemantics } from './equipmentModelShared.js';
 
 const DEFAULT_PACKER_HEIGHT = 15;
@@ -30,6 +35,10 @@ const props = defineProps({
   xHalf: {
     type: Number,
     required: true
+  },
+  smartLabelsEnabled: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -296,9 +305,20 @@ const equipmentLabels = computed(() => {
     return [];
   }
 
-  const defaultLabelXData = -props.xHalf * LAYOUT_CONSTANTS.DEFAULT_CASING_LABEL_X_RATIO;
+  const smartLabelsEnabled = props.smartLabelsEnabled === true;
+  const defaultLabelXData = smartLabelsEnabled
+    ? (props.xHalf * LAYOUT_CONSTANTS.DEFAULT_RIGHT_LABEL_X_RATIO)
+    : (-props.xHalf * LAYOUT_CONSTANTS.DEFAULT_CASING_LABEL_X_RATIO);
+  const availableTrackHeight = Math.max(1, plotBottom - plotTop);
+  const visibleRows = (Array.isArray(props.equipment) ? props.equipment : []).filter((row) => row?.showLabel !== false);
+  const smartAutoScale = smartLabelsEnabled
+    ? resolveSmartLabelAutoScale({
+      totalPreferredLabelHeight: visibleRows.length * 26,
+      availableTrackHeight
+    })
+    : 1;
 
-  return (Array.isArray(props.equipment) ? props.equipment : [])
+  const labels = (Array.isArray(props.equipment) ? props.equipment : [])
     .map((equipmentRow, index) => {
       if (equipmentRow?.showLabel === false) return null;
 
@@ -323,7 +343,13 @@ const equipmentLabels = computed(() => {
       const anchorY = clamp(props.yScale(anchorDepth), plotTop, plotBottom);
 
       const fontSizeRaw = Number(equipmentRow?.labelFontSize);
-      const fontSize = Number.isFinite(fontSizeRaw) ? clamp(fontSizeRaw, 8, 20) : 11;
+      const baseFontSize = Number.isFinite(fontSizeRaw) ? clamp(fontSizeRaw, 8, 20) : 11;
+      const fontSize = smartLabelsEnabled
+        ? resolveSmartLabelFontSize(baseFontSize, {
+          manualScale: 1,
+          autoScale: smartAutoScale
+        })
+        : baseFontSize;
       const boxWidth = clamp(estimateLineWidth(labelText, fontSize) + 16, 90, 240);
       const boxHeight = clamp(fontSize + 12, 20, 44);
 
@@ -351,10 +377,69 @@ const equipmentLabels = computed(() => {
         textY: boxY + (boxHeight / 2),
         text: labelText,
         fontSize,
+        anchorX,
+        anchorY,
+        isPositionPinned: Number.isFinite(manualDepth) || (manualX !== null && manualX !== undefined),
         arrow
       };
     })
     .filter(Boolean);
+
+  if (!smartLabelsEnabled || labels.length <= 1) return labels;
+  const laidOut = applyDeterministicSmartLabelLayout(
+    labels.map((label) => ({
+      id: label.id,
+      side: 'right',
+      preferredCenterY: label.boxY + (label.boxHeight / 2),
+      centerY: label.boxY + (label.boxHeight / 2),
+      boxY: label.boxY,
+      boxX: label.boxX,
+      boxWidth: label.boxWidth,
+      boxHeight: label.boxHeight,
+      baseFontPx: label.fontSize,
+      fontSize: label.fontSize,
+      isPositionPinned: label.isPositionPinned === true,
+      canSwapSide: false
+    })),
+    {
+      bounds: {
+        top: plotTop,
+        bottom: plotBottom,
+        left: plotLeft,
+        right: plotRight
+      },
+      initialGap: 6,
+      shrinkStep: 0.5,
+      maxMovePasses: 3,
+      maxShrinkPasses: 6
+    }
+  );
+  const layoutById = new Map(laidOut.map((item) => [item.id, item]));
+
+  return labels.map((label) => {
+    const candidate = layoutById.get(label.id);
+    if (!candidate) return label;
+
+    const nextBoxX = clamp(candidate.boxX, plotLeft + 5, plotRight - candidate.boxWidth - 5);
+    const nextBoxY = clamp(candidate.boxY, plotTop, plotBottom - candidate.boxHeight);
+    const nextCenterY = nextBoxY + (candidate.boxHeight / 2);
+    const nextCenterX = nextBoxX + (candidate.boxWidth / 2);
+    const isLabelLeft = nextCenterX <= label.anchorX;
+    const nextArrowStartX = isLabelLeft ? nextBoxX + candidate.boxWidth : nextBoxX;
+    const nextArrow = buildArrowGeometry(nextArrowStartX, nextCenterY, label.anchorX, label.anchorY);
+
+    return {
+      ...label,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: candidate.boxWidth,
+      boxHeight: candidate.boxHeight,
+      textX: nextBoxX + (candidate.boxWidth / 2),
+      textY: nextCenterY,
+      fontSize: candidate.fontSize,
+      arrow: nextArrow || label.arrow
+    };
+  });
 });
 
 </script>

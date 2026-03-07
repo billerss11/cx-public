@@ -142,6 +142,14 @@ const directionalCasingArrowModeModel = computed({
   }
 });
 
+const smartLabelsEnabledModel = computed({
+  get: () => config.smartLabelsEnabled !== false,
+  set: (value) => {
+    viewConfigStore.setSmartLabelsEnabled(value);
+    requestSchematicRender({ immediate: true });
+  }
+});
+
 function handleFigHeightSliderChange(eventOrValue) {
   commitBufferedCustomSlider('figHeight', figHeightModel, eventOrValue, (nextValue) => {
     viewConfigStore.setFigureHeightFromControl(nextValue);
@@ -249,6 +257,18 @@ onBeforeUnmount(() => {
     <template #content>
       <div class="section-title" data-i18n="ui.depth_annotations">Results & Sensitivity Tuning</div>
       <small class="control-helper" data-i18n="ui.plot_settings_helper">Presentation-only controls for annotation clarity and viewport ergonomics.</small>
+      <div class="mb-2 d-flex align-items-start gap-2">
+        <Checkbox
+          input-id="smartLabelsEnabled"
+          v-model="smartLabelsEnabledModel"
+          data-vue-owned="true"
+          binary
+        />
+        <label for="smartLabelsEnabled" class="d-flex flex-column gap-1">
+          <span data-i18n="ui.smart_labels_enabled">Smart Labels</span>
+          <small class="input-hint" data-i18n="ui.smart_labels_enabled_hint">Automatically improve first-look readability while preserving manual label positioning controls.</small>
+        </label>
+      </div>
       <div class="slider-grid">
         <div class="mb-2">
           <label class="form-label">
@@ -350,7 +370,7 @@ onBeforeUnmount(() => {
             v-model="directionalLabelScaleModel"
             data-vue-owned="true"
             :min="0.8"
-            :max="2.0"
+            :max="3.0"
             :step="0.05"
             class="w-100"
             @change="handleDirectionalLabelScaleSliderChange"

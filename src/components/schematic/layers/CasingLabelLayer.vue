@@ -2,6 +2,11 @@
 import { computed } from 'vue';
 import { LAYOUT_CONSTANTS, PHYSICS_CONSTANTS } from '@/constants/index.js';
 import { clamp, estimateCasingID, parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
+import {
+  applyDeterministicSmartLabelLayout,
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 
@@ -37,6 +42,10 @@ const props = defineProps({
   diameterScale: {
     type: Number,
     default: 1
+  },
+  smartLabelsEnabled: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -126,11 +135,16 @@ function buildArrowGeometry(startX, startY, endX, endY) {
   };
 }
 
-function resolveLabelFontSize(row, pipeType) {
+function resolveLabelFontSize(row, pipeType, options = {}) {
   const configured = pipeType === 'casing'
     ? Number(row?.casingLabelFontSize)
     : Number(row?.labelFontSize);
-  return Number.isFinite(configured) ? clamp(configured, 8, 20) : 11;
+  const baseFontSize = Number.isFinite(configured) ? clamp(configured, 8, 20) : 11;
+  if (options.smartEnabled !== true) return baseFontSize;
+  return resolveSmartLabelFontSize(baseFontSize, {
+    manualScale: 1,
+    autoScale: options.autoScale
+  });
 }
 
 function buildPipeLabelLines(currentRow, unitsLabel) {
@@ -207,9 +221,20 @@ const labels = computed(() => {
   const defaultLabelXData = -props.xHalf * LAYOUT_CONSTANTS.DEFAULT_CASING_LABEL_X_RATIO;
   const labelPaddingX = 8;
   const labelPaddingY = 5;
+  const smartLabelsEnabled = props.smartLabelsEnabled === true;
+  const availableTrackHeight = Math.max(1, plotBottom - plotTop);
+  const smartAutoScale = smartLabelsEnabled
+    ? resolveSmartLabelAutoScale({
+      totalPreferredLabelHeight: sortedRows.length * 28,
+      availableTrackHeight
+    })
+    : 1;
 
-  return sortedRows.map((currentRow) => {
-    const labelFontSize = resolveLabelFontSize(currentRow.row, currentRow.pipeType);
+  const labels = sortedRows.map((currentRow) => {
+    const labelFontSize = resolveLabelFontSize(currentRow.row, currentRow.pipeType, {
+      smartEnabled: smartLabelsEnabled,
+      autoScale: smartAutoScale
+    });
     const lineHeight = labelFontSize + 2;
     const midpoint = resolveAutoLabelDepth(currentRow, sortedRows);
     const lines = buildPipeLabelLines(currentRow, props.unitsLabel);
@@ -231,6 +256,7 @@ const labels = computed(() => {
     const manualX = resolveXPosition(currentRow.row?.labelXPos, props.xHalf);
     const labelXData = manualX !== null && manualX !== undefined ? manualX : defaultLabelXData;
     const labelCenterX = props.xScale(labelXData);
+    const isPositionPinned = Number.isFinite(manualDepth) || (manualX !== null && manualX !== undefined);
 
     const maxLineWidth = lines.reduce((max, line) => Math.max(max, estimateLineWidth(line, labelFontSize)), 0);
     const boxWidth = clamp(maxLineWidth + labelPaddingX * 2, 100, 260);
@@ -268,10 +294,82 @@ const labels = computed(() => {
       boxWidth,
       boxHeight,
       fontSize: labelFontSize,
+      labelPaddingY,
+      lineHeight,
+      anchorX: arrowTargetX,
+      anchorY: arrowTargetY,
       textLines,
-      arrow
+      arrow,
+      isPositionPinned
     };
   }).filter(Boolean);
+
+  if (!smartLabelsEnabled || labels.length <= 1) return labels;
+  const laidOut = applyDeterministicSmartLabelLayout(
+    labels.map((label) => ({
+      id: label.id,
+      side: 'left',
+      preferredCenterY: label.boxY + (label.boxHeight / 2),
+      centerY: label.boxY + (label.boxHeight / 2),
+      boxY: label.boxY,
+      boxX: label.boxX,
+      boxWidth: label.boxWidth,
+      boxHeight: label.boxHeight,
+      baseFontPx: label.fontSize,
+      fontSize: label.fontSize,
+      isPositionPinned: label.isPositionPinned === true,
+      canSwapSide: false
+    })),
+    {
+      bounds: {
+        top: plotTop,
+        bottom: plotBottom,
+        left: plotLeft,
+        right: plotRight
+      },
+      initialGap: 6,
+      shrinkStep: 0.5,
+      maxMovePasses: 3,
+      maxShrinkPasses: 6
+    }
+  );
+  const layoutById = new Map(laidOut.map((item) => [item.id, item]));
+
+  return labels.map((label) => {
+    const candidate = layoutById.get(label.id);
+    if (!candidate) return label;
+
+    const nextBoxX = clamp(candidate.boxX, plotLeft + 5, plotRight - candidate.boxWidth - 5);
+    const nextBoxY = clamp(candidate.boxY, plotTop, plotBottom - candidate.boxHeight);
+    const nextLineHeight = candidate.fontSize + 2;
+    const nextTextLines = label.textLines.map((line, lineIndex) => ({
+      ...line,
+      x: nextBoxX + (candidate.boxWidth / 2),
+      y: nextBoxY + label.labelPaddingY + ((lineIndex + 0.7) * nextLineHeight)
+    }));
+    const nextCenterX = nextBoxX + (candidate.boxWidth / 2);
+    const nextCenterY = nextBoxY + (candidate.boxHeight / 2);
+    const nextIsLeft = nextCenterX <= label.anchorX;
+    const nextArrowStartX = nextIsLeft ? nextBoxX + candidate.boxWidth : nextBoxX;
+    const nextArrow = buildArrowGeometry(
+      nextArrowStartX,
+      nextCenterY,
+      label.anchorX,
+      label.anchorY
+    );
+
+    return {
+      ...label,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: candidate.boxWidth,
+      boxHeight: candidate.boxHeight,
+      lineHeight: nextLineHeight,
+      fontSize: candidate.fontSize,
+      textLines: nextTextLines,
+      arrow: nextArrow || label.arrow
+    };
+  });
 });
 </script>
 

@@ -191,198 +191,206 @@ function setAnnotationToolMode(mode) {
 
 <template>
   <section class="canvas-interaction-toolbar" role="toolbar" aria-label="Canvas interaction tools">
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': isMagnifierEnabled }"
-      title="Show magnifier"
-      data-i18n-title="ui.show_magnifier"
-      aria-label="Show magnifier"
-      @click="toggleMagnifier"
-    >
-      <i class="pi pi-search-plus" aria-hidden="true"></i>
-    </button>
-
-    <div v-if="isMagnifierEnabled" class="canvas-interaction-toolbar__magnifier-mode">
-      <Select
-        v-model="magnifierZoomLevelModel"
-        :options="magnifierZoomOptions"
-        option-label="label"
-        option-value="value"
-        class="canvas-interaction-toolbar__magnifier-mode-select"
+    <div class="canvas-interaction-toolbar__group" aria-label="Inspection tools">
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': isMagnifierEnabled }"
+        title="Show magnifier"
+        data-i18n-title="ui.show_magnifier"
+        aria-label="Show magnifier"
+        @click="toggleMagnifier"
       >
-        <template #value="slotProps">
-          <span v-if="selectedMagnifierZoomOption">
-            {{ selectedMagnifierZoomOption.label }}
-          </span>
-          <span v-else>{{ slotProps.placeholder }}</span>
-        </template>
-      </Select>
+        <i class="pi pi-search-plus" aria-hidden="true"></i>
+      </button>
+
+      <div v-if="isMagnifierEnabled" class="canvas-interaction-toolbar__magnifier-mode">
+        <Select
+          v-model="magnifierZoomLevelModel"
+          :options="magnifierZoomOptions"
+          option-label="label"
+          option-value="value"
+          class="canvas-interaction-toolbar__magnifier-mode-select"
+        >
+          <template #value="slotProps">
+            <span v-if="selectedMagnifierZoomOption">
+              {{ selectedMagnifierZoomOption.label }}
+            </span>
+            <span v-else>{{ slotProps.placeholder }}</span>
+          </template>
+        </Select>
+      </div>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': isDepthCursorEnabled }"
+        title="Show depth cursor"
+        data-i18n-title="ui.show_depth_cursor"
+        aria-label="Show depth cursor"
+        @click="toggleDepthCursor"
+      >
+        <i class="pi pi-arrows-h" aria-hidden="true"></i>
+      </button>
+
+      <div
+        v-if="isDirectionalView"
+        class="canvas-interaction-toolbar__depth-mode"
+        :class="{ 'canvas-interaction-toolbar__depth-mode--disabled': !isDepthCursorEnabled }"
+      >
+        <Select
+          v-model="depthCursorDirectionalModeModel"
+          :options="depthCursorModeOptions"
+          option-label="label"
+          option-value="value"
+          class="canvas-interaction-toolbar__depth-mode-select"
+          :disabled="!isDepthCursorEnabled"
+        >
+          <template #value="slotProps">
+            <span
+              v-if="selectedDepthCursorModeOption"
+              :data-i18n="selectedDepthCursorModeOption.i18nKey"
+            >
+              {{ selectedDepthCursorModeOption.label }}
+            </span>
+            <span v-else>{{ slotProps.placeholder }}</span>
+          </template>
+          <template #option="slotProps">
+            <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
+          </template>
+        </Select>
+      </div>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': isCrossSectionEnabled }"
+        title="Show depth cross-section"
+        data-i18n-title="ui.show_depth_cross_section"
+        aria-label="Show depth cross-section"
+        @click="toggleCrossSection"
+      >
+        <i class="pi pi-chart-line" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': isPhysicsDebugEnabled }"
+        title="Debug: Show Physics Intervals"
+        aria-label="Debug: Show Physics Intervals"
+        @click="togglePhysicsDebug"
+      >
+        <i class="pi pi-sliders-h" aria-hidden="true"></i>
+      </button>
     </div>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': isDepthCursorEnabled }"
-      title="Show depth cursor"
-      data-i18n-title="ui.show_depth_cursor"
-      aria-label="Show depth cursor"
-      @click="toggleDepthCursor"
-    >
-      <i class="pi pi-arrows-h" aria-hidden="true"></i>
-    </button>
-
-    <div
-      v-if="isDirectionalView"
-      class="canvas-interaction-toolbar__depth-mode"
-      :class="{ 'canvas-interaction-toolbar__depth-mode--disabled': !isDepthCursorEnabled }"
-    >
-      <Select
-        v-model="depthCursorDirectionalModeModel"
-        :options="depthCursorModeOptions"
-        option-label="label"
-        option-value="value"
-        class="canvas-interaction-toolbar__depth-mode-select"
-        :disabled="!isDepthCursorEnabled"
-      >
-        <template #value="slotProps">
-          <span
-            v-if="selectedDepthCursorModeOption"
-            :data-i18n="selectedDepthCursorModeOption.i18nKey"
-          >
-            {{ selectedDepthCursorModeOption.label }}
-          </span>
-          <span v-else>{{ slotProps.placeholder }}</span>
-        </template>
-        <template #option="slotProps">
-          <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
-        </template>
-      </Select>
-    </div>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': isCrossSectionEnabled }"
-      title="Show depth cross-section"
-      data-i18n-title="ui.show_depth_cross_section"
-      aria-label="Show depth cross-section"
-      @click="toggleCrossSection"
-    >
-      <i class="pi pi-chart-line" aria-hidden="true"></i>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': isPhysicsDebugEnabled }"
-      title="Debug: Show Physics Intervals"
-      aria-label="Debug: Show Physics Intervals"
-      @click="togglePhysicsDebug"
-    >
-      <i class="pi pi-sliders-h" aria-hidden="true"></i>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button canvas-interaction-toolbar__button--camera-toggle"
-      :class="{ 'canvas-interaction-toolbar__button--active': isCameraTransformEnabledForCurrentView }"
-      :title="cameraControlsToggleTitle"
-      :aria-label="cameraControlsToggleAriaLabel"
-      :aria-pressed="isCameraTransformEnabledForCurrentView"
-      @click="toggleCameraTransformForCurrentView"
-    >
-      <i class="pi pi-arrows-alt" aria-hidden="true"></i>
-      <span
-        class="canvas-interaction-toolbar__camera-state"
-        :class="{ 'canvas-interaction-toolbar__camera-state--on': isCameraTransformEnabledForCurrentView }"
-        aria-hidden="true"
-      >
-        {{ cameraControlsStateLabel }}
-      </span>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      title="Zoom in"
-      aria-label="Zoom in"
-      :disabled="!isCameraZoomAvailableForCurrentView"
-      @click="zoomCameraIn"
-    >
-      <i class="pi pi-plus" aria-hidden="true"></i>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      title="Zoom out"
-      aria-label="Zoom out"
-      :disabled="!isCameraZoomAvailableForCurrentView"
-      @click="zoomCameraOut"
-    >
-      <i class="pi pi-minus" aria-hidden="true"></i>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      title="Fit to data"
-      aria-label="Fit to data"
-      :disabled="!isFitToDataAvailableForCurrentView"
-      @click="fitToDataForCurrentView"
-    >
-      <i class="pi pi-expand" aria-hidden="true"></i>
-    </button>
-
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      title="Reset camera view"
-      aria-label="Reset camera view"
-      :disabled="!hasCurrentCameraViewOffset"
-      @click="resetCameraPanForCurrentView"
-    >
-      <i class="pi pi-refresh" aria-hidden="true"></i>
-    </button>
 
     <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
 
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': isDisplayControlsOpen }"
-      title="Display Layers & Colors"
-      data-i18n-title="ui.display_controls_title"
-      aria-label="Display Layers & Colors"
-      @click="toggleDisplayControlsPanel"
-    >
-      <i class="pi pi-palette" aria-hidden="true"></i>
-    </button>
+    <div class="canvas-interaction-toolbar__group" aria-label="Camera tools">
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button canvas-interaction-toolbar__button--camera-toggle"
+        :class="{ 'canvas-interaction-toolbar__button--active': isCameraTransformEnabledForCurrentView }"
+        :title="cameraControlsToggleTitle"
+        :aria-label="cameraControlsToggleAriaLabel"
+        :aria-pressed="isCameraTransformEnabledForCurrentView"
+        @click="toggleCameraTransformForCurrentView"
+      >
+        <i class="pi pi-arrows-alt" aria-hidden="true"></i>
+        <span
+          class="canvas-interaction-toolbar__camera-state"
+          :class="{ 'canvas-interaction-toolbar__camera-state--on': isCameraTransformEnabledForCurrentView }"
+          aria-hidden="true"
+        >
+          {{ cameraControlsStateLabel }}
+        </span>
+      </button>
 
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_SELECT }"
-      title="Select"
-      data-i18n-title="ui.annotation_tool.select"
-      aria-label="Select annotation tool"
-      @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_SELECT)"
-    >
-      <i class="pi pi-check" aria-hidden="true"></i>
-    </button>
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        title="Zoom out"
+        aria-label="Zoom out"
+        :disabled="!isCameraZoomAvailableForCurrentView"
+        @click="zoomCameraOut"
+      >
+        <i class="pi pi-minus" aria-hidden="true"></i>
+      </button>
 
-    <button
-      type="button"
-      class="canvas-interaction-toolbar__button"
-      :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_ADD }"
-      title="Add Note"
-      data-i18n-title="ui.annotation_tool.add_note"
-      aria-label="Add annotation note"
-      @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_ADD)"
-    >
-      <i class="pi pi-file-edit" aria-hidden="true"></i>
-    </button>
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        title="Zoom in"
+        aria-label="Zoom in"
+        :disabled="!isCameraZoomAvailableForCurrentView"
+        @click="zoomCameraIn"
+      >
+        <i class="pi pi-plus" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        title="Fit to data"
+        aria-label="Fit to data"
+        :disabled="!isFitToDataAvailableForCurrentView"
+        @click="fitToDataForCurrentView"
+      >
+        <i class="pi pi-expand" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        title="Reset camera view"
+        aria-label="Reset camera view"
+        :disabled="!hasCurrentCameraViewOffset"
+        @click="resetCameraPanForCurrentView"
+      >
+        <i class="pi pi-refresh" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
+
+    <div class="canvas-interaction-toolbar__group" aria-label="Display and annotation tools">
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': isDisplayControlsOpen }"
+        title="Display Layers & Colors"
+        data-i18n-title="ui.display_controls_title"
+        aria-label="Display Layers & Colors"
+        @click="toggleDisplayControlsPanel"
+      >
+        <i class="pi pi-palette" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_SELECT }"
+        title="Select"
+        data-i18n-title="ui.annotation_tool.select"
+        aria-label="Select annotation tool"
+        @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_SELECT)"
+      >
+        <i class="pi pi-check" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="canvas-interaction-toolbar__button"
+        :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_ADD }"
+        title="Add Note"
+        data-i18n-title="ui.annotation_tool.add_note"
+        aria-label="Add annotation note"
+        @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_ADD)"
+      >
+        <i class="pi pi-file-edit" aria-hidden="true"></i>
+      </button>
+    </div>
 
     <Popover
       ref="displayControlsPopoverRef"
@@ -408,6 +416,14 @@ function setAnnotationToolMode(mode) {
   box-shadow: var(--shadow-canvas-toolbar);
   padding: 4px;
   pointer-events: auto;
+  white-space: nowrap;
+}
+
+.canvas-interaction-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
 }
 
 .canvas-interaction-toolbar__button {
@@ -466,7 +482,7 @@ function setAnnotationToolMode(mode) {
   width: 1px;
   align-self: stretch;
   background: color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
-  margin-inline: 2px;
+  margin-inline: 1px;
 }
 
 .canvas-interaction-toolbar__depth-mode {
@@ -496,5 +512,16 @@ function setAnnotationToolMode(mode) {
 .canvas-interaction-toolbar__popover :deep(.control-group) {
   margin: 0;
   width: min(340px, calc(100vw - 24px));
+}
+
+@media (max-width: 1199px) {
+  .canvas-interaction-toolbar {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .canvas-interaction-toolbar__divider {
+    display: none;
+  }
 }
 </style>

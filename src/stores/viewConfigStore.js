@@ -78,6 +78,7 @@ export function createDefaultViewConfig() {
         viewMode: 'vertical',
         annotationToolMode: USER_ANNOTATION_TOOL_MODE_SELECT,
         topologyUseOpenHoleSource: false,
+        smartLabelsEnabled: true,
         xExaggeration: 1.0,
         directionalLabelScale: DEFAULT_DIRECTIONAL_LABEL_SCALE,
         intervalCalloutStandoffPx: DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX,
@@ -109,6 +110,11 @@ function normalizeAnnotationToolMode(value) {
     return String(value ?? '').trim().toLowerCase() === USER_ANNOTATION_TOOL_MODE_ADD
         ? USER_ANNOTATION_TOOL_MODE_ADD
         : USER_ANNOTATION_TOOL_MODE_SELECT;
+}
+
+function normalizeSmartLabelsEnabled(value, fallback = true) {
+    if (value === undefined || value === null) return fallback === true;
+    return value === true;
 }
 
 function createIdentityCameraState() {
@@ -360,7 +366,9 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         if (!key || !SUPPORTED_VIEW_CONFIG_KEYS.has(key)) return false;
         const normalizedValue = key === 'directionalLabelScale'
             ? normalizeDirectionalLabelScale(value, config.directionalLabelScale)
-            : value;
+            : (key === 'smartLabelsEnabled'
+                ? normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled)
+                : value);
         if (Object.is(config[key], normalizedValue)) return false;
         config[key] = normalizedValue;
         return true;
@@ -545,7 +553,9 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
             if (!SUPPORTED_VIEW_CONFIG_KEYS.has(key)) return;
             const normalizedValue = key === 'directionalLabelScale'
                 ? normalizeDirectionalLabelScale(value, config.directionalLabelScale)
-                : value;
+                : (key === 'smartLabelsEnabled'
+                    ? normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled)
+                    : value);
             if (Object.is(config[key], normalizedValue)) return;
             config[key] = normalizedValue;
             changedKeys.push(key);
@@ -874,6 +884,12 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         return normalized;
     }
 
+    function setSmartLabelsEnabled(value) {
+        const normalized = normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled);
+        setConfigValue('smartLabelsEnabled', normalized);
+        return normalized;
+    }
+
     function setDirectionalLabelScale(value) {
         const normalized = normalizeDirectionalLabelScale(
             value,
@@ -1036,6 +1052,7 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         setVerticalSectionAzimuth,
         setVerticalSectionSelection,
         setViewMode,
+        setSmartLabelsEnabled,
         setXExaggeration,
         setDirectionalLabelScale,
         setIntervalCalloutStandoffPx,

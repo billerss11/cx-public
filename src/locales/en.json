@@ -424,6 +424,8 @@
     "ui.x_exaggeration_hint": "Sensitivity control for horizontal spread in directional mode.",
     "ui.directional_label_scale": "Directional Label Scale:",
     "ui.directional_label_scale_hint": "Global readability multiplier for directional overlay labels. Export uses the same scaled typography.",
+    "ui.smart_labels_enabled": "Smart Labels",
+    "ui.smart_labels_enabled_hint": "Automatically improve first-look readability while preserving manual label positioning controls.",
     "ui.interval_callout_standoff": "Interval Callout Standoff:",
     "ui.interval_callout_standoff_hint": "Global distance between interval callout boxes and the wellbore anchor in both vertical and directional views.",
     "ui.directional_casing_arrow_mode": "Casing Arrow Mode:",

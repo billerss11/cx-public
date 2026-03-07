@@ -351,8 +351,8 @@
     "ui.annotation_toolbar.edit": "编辑文本",
     "ui.annotation_editor.hint": "Ctrl/Cmd + Enter 保存",
     "ui.x_exaggeration_hint": "用于控制定向井模式下水平展开程度的灵敏度。",
-    "ui.directional_label_scale": "\u5b9a\u5411\u6807\u7b7e\u7f29\u653e\uff1a",
-    "ui.directional_label_scale_hint": "\u5168\u5c40\u8c03\u6574\u5b9a\u5411\u53e0\u52a0\u6807\u7b7e\u7684\u53ef\u8bfb\u6027\u500d\u7387\uff0c\u5bfc\u51fa\u65f6\u4f1a\u4f7f\u7528\u76f8\u540c\u7684\u7f29\u653e\u5b57\u4f53\u3002",
+    "ui.directional_label_scale": "定向标签缩放：",
+    "ui.directional_label_scale_hint": "全局调整定向叠加标签的可读性倍率，导出时会使用相同的缩放字体。",
     "ui.interval_callout_standoff": "区间标注间距：",
     "ui.interval_callout_standoff_hint": "全局控制区间标注框与井筒锚点之间的距离，适用于直井和定向井视图。",
     "ui.directional_casing_arrow_mode": "Casing Arrow Mode:",
@@ -670,5 +670,7 @@
     "ui.delete_well_confirm_body": "?????????????{name}??",
     "alert.well_deleted": "?????{name}?",
     "alert.well_delete_failed": "??????",
-    "alert.well_delete_last_well_blocked": "????????????"
+    "alert.well_delete_last_well_blocked": "????????????",
+    "ui.smart_labels_enabled": "智能标签",
+    "ui.smart_labels_enabled_hint": "自动优化首次渲染的标签可读性，同时保留手动调整能力。"
 }

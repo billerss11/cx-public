@@ -9,6 +9,11 @@ import {
   wrapTextToLines
 } from '@/utils/general.js';
 import { LAYOUT_CONSTANTS } from '@/constants/index.js';
+import {
+  applyDeterministicSmartLabelLayout,
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 
 const props = defineProps({
   lines: {
@@ -31,6 +36,10 @@ const props = defineProps({
     type: Number,
     required: true
   },
+  smartLabelsEnabled: {
+    type: Boolean,
+    default: true
+  },
   unitsLabel: {
     type: String,
     default: 'ft'
@@ -41,8 +50,33 @@ const emit = defineEmits(['select-line', 'hover-line', 'leave-line']);
 
 const lineSegments = computed(() => {
   const rows = Array.isArray(props.lines) ? props.lines : [];
+  const xRange = typeof props.xScale?.range === 'function' ? props.xScale.range() : [];
+  const yRange = typeof props.yScale?.range === 'function' ? props.yScale.range() : [];
+  const rawLeft = Number(xRange[0]);
+  const rawRight = Number(xRange[xRange.length - 1]);
+  const rawTop = Number(yRange[0]);
+  const rawBottom = Number(yRange[yRange.length - 1]);
+  const plotLeft = Math.min(rawLeft, rawRight);
+  const plotRight = Math.max(rawLeft, rawRight);
+  const plotTop = Math.min(rawTop, rawBottom);
+  const plotBottom = Math.max(rawTop, rawBottom);
+  if (!Number.isFinite(plotLeft) ||
+    !Number.isFinite(plotRight) ||
+    !Number.isFinite(plotTop) ||
+    !Number.isFinite(plotBottom)) {
+    return [];
+  }
 
-  return rows
+  const smartLabelsEnabled = props.smartLabelsEnabled === true;
+  const visibleRows = rows.filter((row) => row?.show !== false);
+  const smartAutoScale = smartLabelsEnabled
+    ? resolveSmartLabelAutoScale({
+      totalPreferredLabelHeight: visibleRows.length * 24,
+      availableTrackHeight: Math.max(1, plotBottom - plotTop)
+    })
+    : 1;
+
+  const segments = rows
     .map((line, index) => {
       if (line?.show === false) return null;
 
@@ -53,16 +87,28 @@ const lineSegments = computed(() => {
       const lineColor = line.color || 'var(--color-default-line)';
       const fontColor = line.fontColor || lineColor;
       const fontSizeRaw = Number(line.fontSize);
-      const fontSize = Number.isFinite(fontSizeRaw) ? fontSizeRaw : 11;
+      const baseFontSize = Number.isFinite(fontSizeRaw) ? fontSizeRaw : 11;
+      const fontSize = smartLabelsEnabled
+        ? resolveSmartLabelFontSize(baseFontSize, {
+          manualScale: 1,
+          autoScale: smartAutoScale
+        })
+        : baseFontSize;
 
       const depthText = `${formatDepthValue(depthValue)} ${props.unitsLabel}`;
       const displayText = line.label ? `${line.label} ${depthText}` : depthText;
       const manualLabelX = resolveXPosition(line.labelXPos, props.xHalf);
-      const defaultLabelX = props.xHalf * LAYOUT_CONSTANTS.DEFAULT_RIGHT_LABEL_X_RATIO;
+      const defaultLabelX = smartLabelsEnabled
+        ? 0
+        : (props.xHalf * LAYOUT_CONSTANTS.DEFAULT_RIGHT_LABEL_X_RATIO);
       const labelXData = manualLabelX !== null && manualLabelX !== undefined ? manualLabelX : defaultLabelX;
-      let textAnchor = getHorizontalAnchor(labelXData, props.xHalf, 'start');
+      let textAnchor = getHorizontalAnchor(
+        labelXData,
+        props.xHalf,
+        smartLabelsEnabled ? 'middle' : 'start'
+      );
       const labelXPixelRaw = props.xScale(labelXData);
-      const labelXPixel = clamp(labelXPixelRaw, 10, props.width - 10);
+      const labelXPixel = clamp(labelXPixelRaw, plotLeft + 10, plotRight - 10);
       const maxLabelWidth = 220;
       const wrappedLines = wrapTextToLines(displayText, maxLabelWidth, fontSize);
       const lineHeight = fontSize + 6;
@@ -81,8 +127,8 @@ const lineSegments = computed(() => {
         boxXPixel = labelXPixel - 5;
         textAnchor = 'start';
       }
-      boxXPixel = clamp(boxXPixel, 5, props.width - estimatedWidth - 5);
-      const labelY = props.yScale(depthValue);
+      boxXPixel = clamp(boxXPixel, plotLeft + 5, plotRight - estimatedWidth - 5);
+      const labelY = clamp(props.yScale(depthValue), plotTop + 10, plotBottom - 10);
 
       const textX = (() => {
         if (textAnchor === 'end') return boxXPixel + estimatedWidth - 6;
@@ -107,16 +153,84 @@ const lineSegments = computed(() => {
         lineStyle: getLineStyle(line.lineStyle),
         x1: props.xScale(-fullW),
         x2: props.xScale(fullW),
-        y: props.yScale(depthValue),
+        y: clamp(props.yScale(depthValue), plotTop, plotBottom),
         boxX: boxXPixel,
         boxY: labelY - labelHeight / 2,
         boxWidth: estimatedWidth,
         boxHeight: labelHeight,
         textAnchor,
+        fontSize,
+        side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
+        isPositionPinned: manualLabelX !== null && manualLabelX !== undefined,
         textLines
       };
     })
     .filter(Boolean);
+
+  if (!smartLabelsEnabled || segments.length <= 1) return segments;
+  const laidOut = applyDeterministicSmartLabelLayout(
+    segments.map((segment) => ({
+      id: segment.id,
+      side: segment.side,
+      preferredCenterY: segment.boxY + (segment.boxHeight / 2),
+      centerY: segment.boxY + (segment.boxHeight / 2),
+      boxY: segment.boxY,
+      boxX: segment.boxX,
+      boxWidth: segment.boxWidth,
+      boxHeight: segment.boxHeight,
+      baseFontPx: segment.fontSize,
+      fontSize: segment.fontSize,
+      isPositionPinned: segment.isPositionPinned === true,
+      canSwapSide: false
+    })),
+    {
+      bounds: {
+        top: plotTop,
+        bottom: plotBottom,
+        left: plotLeft,
+        right: plotRight
+      },
+      initialGap: 6,
+      shrinkStep: 0.5,
+      maxMovePasses: 3,
+      maxShrinkPasses: 6
+    }
+  );
+  const layoutById = new Map(laidOut.map((item) => [item.id, item]));
+
+  return segments.map((segment) => {
+    const candidate = layoutById.get(segment.id);
+    if (!candidate) return segment;
+
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxX = clamp(candidate.boxX, plotLeft + 5, plotRight - nextBoxWidth - 5);
+    const nextBoxY = clamp(candidate.boxY, plotTop + 5, plotBottom - nextBoxHeight - 5);
+    const nextTextX = segment.textAnchor === 'end'
+      ? nextBoxX + nextBoxWidth - 6
+      : (segment.textAnchor === 'middle' ? nextBoxX + (nextBoxWidth / 2) : nextBoxX + 6);
+    const nextTextY = nextBoxY + (nextBoxHeight / 2);
+    const nextLineHeight = candidate.fontSize + 6;
+    const textSegments = segment.textLines.map((line) => line.text);
+    const firstLineOffset = -((textSegments.length - 1) * nextLineHeight) / 2;
+    const nextTextLines = textSegments.map((text, index) => ({
+      id: segment.textLines[index]?.id ?? `${segment.id}-${index}`,
+      text,
+      x: nextTextX,
+      y: nextTextY + (index === 0 ? firstLineOffset : firstLineOffset + (index * nextLineHeight)),
+      fontSize: candidate.fontSize
+    }));
+
+    return {
+      ...segment,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textLines: nextTextLines
+    };
+  });
 });
 </script>
 

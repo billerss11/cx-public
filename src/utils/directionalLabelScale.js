@@ -1,7 +1,7 @@
 import { clamp } from '@/utils/general.js';
 
 export const MIN_DIRECTIONAL_LABEL_SCALE = 0.8;
-export const MAX_DIRECTIONAL_LABEL_SCALE = 2.0;
+export const MAX_DIRECTIONAL_LABEL_SCALE = 3.0;
 export const DEFAULT_DIRECTIONAL_LABEL_SCALE = 1.0;
 const DEFAULT_DIRECTIONAL_EFFECTIVE_FONT_MIN = 6;
 const DEFAULT_DIRECTIONAL_EFFECTIVE_FONT_MAX = 40;

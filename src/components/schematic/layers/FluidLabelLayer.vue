@@ -3,7 +3,14 @@ import { computed } from 'vue';
 import { getStackAtDepth as getPhysicsStackAtDepth } from '@/composables/usePhysics.js';
 import { LAYOUT_CONSTANTS } from '@/constants/index.js';
 import { clamp, parseOptionalNumber, wrapTextToLines } from '@/utils/general.js';
-import { resolveAnchoredHorizontalCallout } from '@/utils/labelLayout.js';
+import {
+  resolveAnchoredHorizontalCallout,
+} from '@/utils/labelLayout.js';
+import {
+  applyDeterministicSmartLabelLayout,
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 
 const props = defineProps({
   fluids: {
@@ -41,6 +48,10 @@ const props = defineProps({
   diameterScale: {
     type: Number,
     default: 1
+  },
+  smartLabelsEnabled: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -145,8 +156,16 @@ const fluidLabels = computed(() => {
   const diameterScale = Number.isFinite(Number(props.diameterScale)) && Number(props.diameterScale) > 0
     ? Number(props.diameterScale)
     : 1;
+  const smartLabelsEnabled = props.smartLabelsEnabled === true;
+  const visibleRows = fluids.filter((fluid) => fluid?.show !== false);
+  const smartAutoScale = smartLabelsEnabled
+    ? resolveSmartLabelAutoScale({
+      totalPreferredLabelHeight: visibleRows.length * 28,
+      availableTrackHeight: Math.max(1, plotBottom - plotTop)
+    })
+    : 1;
 
-  return fluids.map((fluid, fluidIndex) => {
+  const labels = fluids.map((fluid, fluidIndex) => {
     if (fluid?.show === false) return null;
 
     const label = String(fluid?.label ?? '').trim();
@@ -186,9 +205,15 @@ const fluidLabels = computed(() => {
       return null;
     }
 
-    const fontSize = Number.isFinite(Number(fluid?.fontSize))
+    const baseFontSize = Number.isFinite(Number(fluid?.fontSize))
       ? Number(fluid.fontSize)
       : 11;
+    const fontSize = smartLabelsEnabled
+      ? resolveSmartLabelFontSize(baseFontSize, {
+        manualScale: 1,
+        autoScale: smartAutoScale
+      })
+      : baseFontSize;
     const textColor = fluid?.textColor || 'var(--color-ink-strong)';
     const strokeColor = fluid?.color || 'var(--color-default-fluid-stroke)';
 
@@ -203,14 +228,16 @@ const fluidLabels = computed(() => {
 
     const standoffPx = resolveIntervalCalloutStandoff(plotLeft, plotRight);
     const nudgePx = resolveIntervalCalloutXNudge(fluid?.labelXPos);
-    const preferredSide = resolvePreferredFluidCalloutSide({
-      anchorLeftX,
-      anchorRightX,
-      plotLeft,
-      plotRight,
-      boxWidth: estimatedWidth,
-      standoffPx
-    });
+    const preferredSide = smartLabelsEnabled
+      ? 'right'
+      : resolvePreferredFluidCalloutSide({
+        anchorLeftX,
+        anchorRightX,
+        plotLeft,
+        plotRight,
+        boxWidth: estimatedWidth,
+        standoffPx
+      });
     const calloutPlacement = resolveAnchoredHorizontalCallout({
       preferredSide,
       centerX,
@@ -258,6 +285,7 @@ const fluidLabels = computed(() => {
       textColor,
       fontSize,
       textAnchor,
+      side: calloutPlacement.side,
       boxX,
       boxY,
       boxWidth: estimatedWidth,
@@ -265,9 +293,83 @@ const fluidLabels = computed(() => {
       textX,
       textY,
       textLines,
+      anchorX: targetAnchorX,
+      anchorY,
+      isPositionPinned: Number.isFinite(manualDepth) || Number.isFinite(parseOptionalNumber(fluid?.labelXPos)),
       arrow
     };
   }).filter(Boolean);
+
+  if (!smartLabelsEnabled || labels.length <= 1) return labels;
+  const laidOut = applyDeterministicSmartLabelLayout(
+    labels.map((label) => ({
+      id: label.id,
+      side: label.side === 'left' ? 'left' : 'right',
+      preferredCenterY: label.boxY + (label.boxHeight / 2),
+      centerY: label.boxY + (label.boxHeight / 2),
+      boxY: label.boxY,
+      boxX: label.boxX,
+      boxWidth: label.boxWidth,
+      boxHeight: label.boxHeight,
+      baseFontPx: label.fontSize,
+      fontSize: label.fontSize,
+      isPositionPinned: label.isPositionPinned === true,
+      canSwapSide: false
+    })),
+    {
+      bounds: {
+        top: plotTop,
+        bottom: plotBottom,
+        left: plotLeft,
+        right: plotRight
+      },
+      initialGap: 6,
+      shrinkStep: 0.5,
+      maxMovePasses: 3,
+      maxShrinkPasses: 6
+    }
+  );
+  const layoutById = new Map(laidOut.map((item) => [item.id, item]));
+
+  return labels.map((label) => {
+    const candidate = layoutById.get(label.id);
+    if (!candidate) return label;
+
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxX = clamp(candidate.boxX, plotLeft + 5, plotRight - nextBoxWidth - 5);
+    const nextBoxY = clamp(candidate.boxY, plotTop + 5, plotBottom - nextBoxHeight - 5);
+    const nextTextX = label.textAnchor === 'end'
+      ? nextBoxX + nextBoxWidth - 6
+      : (label.textAnchor === 'middle' ? nextBoxX + (nextBoxWidth / 2) : nextBoxX + 6);
+    const nextTextY = nextBoxY + (nextBoxHeight / 2);
+    const nextLineHeight = candidate.fontSize + 6;
+    const textSegments = label.textLines.map((line) => line.text);
+    const firstLineOffset = -((textSegments.length - 1) * nextLineHeight) / 2;
+    const nextTextLines = textSegments.map((lineText, index) => ({
+      id: label.textLines[index]?.id ?? `${label.id}-${index}`,
+      text: lineText,
+      x: nextTextX,
+      dy: index === 0 ? firstLineOffset : nextLineHeight
+    }));
+    const nextArrowStartX = label.side === 'left'
+      ? nextBoxX + nextBoxWidth
+      : nextBoxX;
+    const nextArrow = buildArrowGeometry(nextArrowStartX, nextTextY, label.anchorX, label.anchorY);
+
+    return {
+      ...label,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textX: nextTextX,
+      textY: nextTextY,
+      textLines: nextTextLines,
+      arrow: nextArrow || label.arrow
+    };
+  });
 });
 </script>
 

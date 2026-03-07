@@ -39,4 +39,13 @@ describe('PlotSettings camera-control precedence contract', () => {
     expect(source).toContain('data-i18n="ui.directional_label_scale"');
     expect(source).toContain('data-i18n="ui.directional_label_scale_hint"');
   });
+
+  it('exposes a smart-labels toggle for both view modes', () => {
+    const source = readPlotSettingsSource();
+
+    expect(source).toContain('const smartLabelsEnabledModel = computed({');
+    expect(source).toContain('viewConfigStore.setSmartLabelsEnabled(value);');
+    expect(source).toContain('data-i18n="ui.smart_labels_enabled"');
+    expect(source).toContain('data-i18n="ui.smart_labels_enabled_hint"');
+  });
 });

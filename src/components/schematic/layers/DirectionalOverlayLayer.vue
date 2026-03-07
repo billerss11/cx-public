@@ -18,6 +18,11 @@ import {
   normalizeDirectionalLabelScale,
   resolveDirectionalLabelFontSize
 } from '@/utils/directionalLabelScale.js';
+import {
+  applyDeterministicSmartLabelLayout,
+  resolveSmartLabelAutoScale,
+  resolveSmartLabelFontSize
+} from '@/utils/smartLabels.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 import { getStackAtDepth as getPhysicsStackAtDepth } from '@/composables/usePhysics.js';
@@ -319,6 +324,60 @@ const directionalLabelScale = computed(() => normalizeDirectionalLabelScale(
   props.config?.directionalLabelScale,
   DEFAULT_DIRECTIONAL_LABEL_SCALE
 ));
+
+const smartLabelsEnabled = computed(() => props.config?.smartLabelsEnabled !== false);
+
+const directionalSmartLabelAutoScale = computed(() => {
+  if (smartLabelsEnabled.value !== true) return 1;
+  const bounds = plotBounds.value;
+  const context = resolvedPhysicsContext.value;
+  if (!bounds || !context) return 1;
+
+  const casingRows = Array.isArray(context.casingRows) ? context.casingRows : [];
+  const transientRows = Array.isArray(activeTransientPipeRows.value) ? activeTransientPipeRows.value : [];
+  const equipmentRows = Array.isArray(context.equipment) ? context.equipment : [];
+  const fluidRows = Array.isArray(props.annulusFluids) ? props.annulusFluids : [];
+  const lineRows = Array.isArray(props.horizontalLines) ? props.horizontalLines : [];
+  const boxRows = Array.isArray(props.annotationBoxes) ? props.annotationBoxes : [];
+  const depthCount = casingRows.reduce((count, row) => {
+    const sourceRow = sourceCasingRowsByIndex.value.get(Number(row?.__index)) || {};
+    const showTop = sourceRow.showTop !== false;
+    const showBottom = sourceRow.showBottom !== false;
+    return count + (showTop ? 1 : 0) + (showBottom ? 1 : 0);
+  }, 0);
+
+  const totalPreferredLabelHeight =
+    (casingRows.length * 30) +
+    (transientRows.length * 24) +
+    (equipmentRows.length * 24) +
+    (fluidRows.length * 28) +
+    (lineRows.length * 24) +
+    (boxRows.length * 28) +
+    (depthCount * 20);
+
+  return resolveSmartLabelAutoScale({
+    totalPreferredLabelHeight,
+    availableTrackHeight: bounds.height
+  });
+});
+
+function resolveDirectionalOverlayFontSize(baseSize, fallbackSize = 11) {
+  const safeBase = Number.isFinite(Number(baseSize))
+    ? Number(baseSize)
+    : fallbackSize;
+  if (smartLabelsEnabled.value !== true) {
+    return resolveDirectionalLabelFontSize(safeBase, {
+      fallbackSize,
+      scale: directionalLabelScale.value
+    });
+  }
+  return resolveSmartLabelFontSize(safeBase, {
+    manualScale: directionalLabelScale.value,
+    autoScale: directionalSmartLabelAutoScale.value,
+    minPx: 8,
+    maxPx: 24
+  });
+}
 
 const resolvedPhysicsContext = computed(() => {
   if (props.physicsContext?.__physicsContext) return props.physicsContext;
@@ -797,10 +856,7 @@ const depthAnnotations = computed(() => {
     const baseDepthLabelFontSize = Number.isFinite(depthLabelFontSizeRaw)
       ? clamp(depthLabelFontSizeRaw, 8, 20)
       : 9;
-    const depthLabelFontSize = resolveDirectionalLabelFontSize(baseDepthLabelFontSize, {
-      fallbackSize: 9,
-      scale: directionalLabelScale.value
-    });
+    const depthLabelFontSize = resolveDirectionalOverlayFontSize(baseDepthLabelFontSize, 9);
     const depthLabelOffsetRaw = Number(sourceRow?.depthLabelOffset);
     const depthLabelOffset = Number.isFinite(depthLabelOffsetRaw)
       ? clamp(depthLabelOffsetRaw, 10, 120)
@@ -863,7 +919,8 @@ const depthAnnotations = computed(() => {
         textX: placeRight ? boxX + 6 : boxX + boxWidth - 6,
         textY: boxY + (boxHeight / 2),
         textAnchor: placeRight ? 'start' : 'end',
-        fontSize: depthLabelFontSize
+        fontSize: depthLabelFontSize,
+        isPositionPinned: false
       });
     });
   });
@@ -876,10 +933,7 @@ function resolvePipeLabelFontSize(sourceRow, pipeType) {
     ? Number(sourceRow?.casingLabelFontSize)
     : Number(sourceRow?.labelFontSize);
   const baseFontSize = Number.isFinite(raw) ? clamp(raw, 8, 20) : 11;
-  return resolveDirectionalLabelFontSize(baseFontSize, {
-    fallbackSize: 11,
-    scale: directionalLabelScale.value
-  });
+  return resolveDirectionalOverlayFontSize(baseFontSize, 11);
 }
 
 function buildPipeLabelLines(row, sourceRow, units, pipeType) {
@@ -998,6 +1052,7 @@ function buildDirectionalPipeLabelOverlays({
     const manualX = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
       : null;
+    const hasManualPosition = Number.isFinite(manualDepth) || Number.isFinite(manualXRatio);
 
     let preferredSide = 'right';
     if (Number.isFinite(manualX)) {
@@ -1106,7 +1161,8 @@ function buildDirectionalPipeLabelOverlays({
       boxHeight,
       fontSize: labelFontSize,
       lineHeight,
-      lines
+      lines,
+      isPositionPinned: hasManualPosition
     });
     placedLabelCenters.push([center[0], center[1]]);
   });
@@ -1174,7 +1230,8 @@ function buildDirectionalPipeLabelOverlays({
       boxWidth: item.boxWidth,
       boxHeight: item.boxHeight,
       fontSize: item.fontSize,
-      textRows
+      textRows,
+      isPositionPinned: item.isPositionPinned === true
     };
   }).filter(Boolean);
 }
@@ -1255,10 +1312,7 @@ const equipmentLabelOverlays = computed(() => {
     const baseLabelFontSize = Number.isFinite(Number(row?.labelFontSize))
       ? clamp(Number(row.labelFontSize), 8, 20)
       : 11;
-    const labelFontSize = resolveDirectionalLabelFontSize(baseLabelFontSize, {
-      fallbackSize: 11,
-      scale: directionalLabelScale.value
-    });
+    const labelFontSize = resolveDirectionalOverlayFontSize(baseLabelFontSize, 11);
     const lineHeight = labelFontSize + 2;
     const boxWidth = clamp(estimateLineWidth(labelText, labelFontSize) + 16, 90, 260);
     const boxHeight = (lineHeight) + (labelPaddingY * 2);
@@ -1267,6 +1321,7 @@ const equipmentLabelOverlays = computed(() => {
     const manualX = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
       : null;
+    const hasManualPosition = Number.isFinite(manualDepth) || Number.isFinite(manualXRatio);
     let preferredSide = 'right';
     if (Number.isFinite(manualX)) {
       preferredSide = manualX >= centerPoint[0] ? 'right' : 'left';
@@ -1307,7 +1362,8 @@ const equipmentLabelOverlays = computed(() => {
       boxHeight,
       fontSize: labelFontSize,
       lineHeight,
-      lines: [labelText]
+      lines: [labelText],
+      isPositionPinned: hasManualPosition
     });
   });
 
@@ -1369,7 +1425,8 @@ const equipmentLabelOverlays = computed(() => {
       boxWidth: item.boxWidth,
       boxHeight: item.boxHeight,
       fontSize: item.fontSize,
-      textRows
+      textRows,
+      isPositionPinned: item.isPositionPinned === true
     };
   }).filter(Boolean);
 });
@@ -1449,10 +1506,7 @@ const fluidLabelOverlays = computed(() => {
     const baseFontSize = Number.isFinite(Number(fluid?.fontSize))
       ? clamp(Number(fluid.fontSize), 8, 20)
       : 11;
-    const fontSize = resolveDirectionalLabelFontSize(baseFontSize, {
-      fallbackSize: 11,
-      scale: directionalLabelScale.value
-    });
+    const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 11);
     const textColor = fluid?.textColor || 'var(--color-ink-strong)';
     const strokeColor = fluid?.color || 'var(--color-default-fluid-stroke)';
     const wrappedLines = wrapTextToLines(label, 220, fontSize);
@@ -1461,6 +1515,7 @@ const fluidLabelOverlays = computed(() => {
     const estimatedWidth = resolveLabelWidth(wrappedLines, fontSize);
 
     const standoffPx = resolveDirectionalIntervalCalloutStandoff(bounds);
+    const manualXRatio = resolveDirectionalLabelXRatio(fluid?.labelXPos);
     const preferredSidePlacement = resolveOverflowAwareSide({
       preferredSide: 'right',
       anchorLeft: leftAnchor,
@@ -1513,6 +1568,7 @@ const fluidLabelOverlays = computed(() => {
       fluidIndex,
       strokeColor,
       textColor,
+      side: calloutPlacement.side === 'left' ? 'left' : 'right',
       fontSize,
       textAnchor,
       boxX,
@@ -1526,7 +1582,8 @@ const fluidLabelOverlays = computed(() => {
       arrowStartY,
       arrowEndX: sideAnchor[0],
       arrowEndY: sideAnchor[1],
-      arrowPoints
+      arrowPoints,
+      isPositionPinned: Number.isFinite(manualDepth) || Number.isFinite(manualXRatio)
     });
   });
 
@@ -1696,10 +1753,7 @@ const annotationBandOverlays = computed(() => {
     const lines = resolveAnnotationLines(box);
     const fontSizeRaw = toFiniteNumber(box?.fontSize, null);
     const baseFontSize = clamp(Number.isFinite(fontSizeRaw) ? fontSizeRaw : 12, 9, 20);
-    const fontSize = resolveDirectionalLabelFontSize(baseFontSize, {
-      fallbackSize: 12,
-      scale: directionalLabelScale.value
-    });
+    const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 12);
     const lineHeight = fontSize + 5;
     const fillColor = box?.color || 'var(--color-default-box)';
     const textColor = box?.fontColor || fillColor;
@@ -1739,8 +1793,10 @@ const annotationBandOverlays = computed(() => {
       textColor,
       boxOpacity,
       textAnchor,
+      side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
       fontSize,
-      textLines
+      textLines,
+      isPositionPinned: Number.isFinite(manualXRatio)
     };
   }).filter(Boolean);
 });
@@ -1770,10 +1826,7 @@ const horizontalLineOverlays = computed(() => {
     const baseFontSize = Number.isFinite(Number(line?.fontSize))
       ? clamp(Number(line.fontSize), 8, 20)
       : 11;
-    const fontSize = resolveDirectionalLabelFontSize(baseFontSize, {
-      fallbackSize: 11,
-      scale: directionalLabelScale.value
-    });
+    const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 11);
 
     const depthText = `${formatDepthValue(depthValue)} ${unitsLabel}`;
     const displayText = line?.label ? `${line.label} ${depthText}` : depthText;
@@ -1824,22 +1877,375 @@ const horizontalLineOverlays = computed(() => {
       fontColor,
       fontSize,
       textAnchor,
+      side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
       boxX,
       boxY,
       boxWidth: estimatedWidth,
       boxHeight: labelHeight,
       textX,
       textY,
-      textLines
+      textLines,
+      isPositionPinned: Number.isFinite(manualXRatio)
     };
   }).filter(Boolean);
+});
+
+function buildDirectionalSmartLayoutCandidates(overlays) {
+  const candidates = [];
+
+  overlays.annotationBandOverlays.forEach((item) => {
+    candidates.push({
+      id: `annotation:${item.id}`,
+      family: 'annotation',
+      side: item.side || 'center',
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.depthAnnotations.forEach((item) => {
+    candidates.push({
+      id: `depth:${item.id}`,
+      family: 'depth',
+      side: item.textAnchor === 'start' ? 'right' : 'left',
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.casingLabelOverlays.forEach((item) => {
+    const side = (item.boxX + (item.boxWidth / 2)) >= item.arrowEndX ? 'right' : 'left';
+    candidates.push({
+      id: `casing:${item.id}`,
+      family: 'casing',
+      side,
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.transientPipeLabelOverlays.forEach((item) => {
+    const side = (item.boxX + (item.boxWidth / 2)) >= item.arrowEndX ? 'right' : 'left';
+    candidates.push({
+      id: `transient:${item.id}`,
+      family: 'transient',
+      side,
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.equipmentLabelOverlays.forEach((item) => {
+    const side = (item.boxX + (item.boxWidth / 2)) >= item.arrowEndX ? 'right' : 'left';
+    candidates.push({
+      id: `equipment:${item.id}`,
+      family: 'equipment',
+      side,
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.fluidLabelOverlays.forEach((item) => {
+    candidates.push({
+      id: `fluid:${item.id}`,
+      family: 'fluid',
+      side: item.side || 'right',
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  overlays.horizontalLineOverlays.forEach((item) => {
+    candidates.push({
+      id: `line:${item.id}`,
+      family: 'line',
+      side: item.side || 'center',
+      preferredCenterY: item.boxY + (item.boxHeight / 2),
+      centerY: item.boxY + (item.boxHeight / 2),
+      boxY: item.boxY,
+      boxX: item.boxX,
+      boxWidth: item.boxWidth,
+      boxHeight: item.boxHeight,
+      baseFontPx: item.fontSize,
+      fontSize: item.fontSize,
+      isPositionPinned: item.isPositionPinned === true,
+      canSwapSide: false
+    });
+  });
+
+  return candidates;
+}
+
+function buildDirectionalLayoutCandidateMap(overlays, bounds) {
+  const candidates = buildDirectionalSmartLayoutCandidates(overlays);
+  if (candidates.length <= 1) return null;
+  const laidOut = applyDeterministicSmartLabelLayout(candidates, {
+    bounds,
+    initialGap: 6,
+    shrinkStep: 0.5,
+    maxMovePasses: 3,
+    maxShrinkPasses: 6
+  });
+  return new Map(laidOut.map((candidate) => [candidate.id, candidate]));
+}
+
+function applyDirectionalLayoutToDepth(items, candidateMap, bounds) {
+  return items.map((item) => {
+    const candidate = candidateMap.get(`depth:${item.id}`);
+    if (!candidate) return item;
+
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxY = clamp(candidate.boxY, bounds.top, bounds.bottom - nextBoxHeight);
+    const boxCenterY = nextBoxY + (nextBoxHeight / 2);
+    const placeRight = item.textAnchor === 'start';
+    const lineX2 = placeRight ? item.boxX : item.boxX + nextBoxWidth;
+    const lineY2 = boxCenterY;
+    const arrowHeadPoints = buildArrowHeadPoints([item.lineX1, item.lineY1], [lineX2, lineY2], 6, 3);
+
+    return {
+      ...item,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      lineX2,
+      lineY2,
+      textX: placeRight ? item.boxX + 6 : item.boxX + nextBoxWidth - 6,
+      textY: boxCenterY,
+      fontSize: candidate.fontSize,
+      arrowHeadPoints: arrowHeadPoints || item.arrowHeadPoints
+    };
+  });
+}
+
+function applyDirectionalLayoutToPipeLike(items, candidateMap, keyPrefix) {
+  return items.map((item) => {
+    const candidate = candidateMap.get(`${keyPrefix}:${item.id}`);
+    if (!candidate) return item;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxY = candidate.boxY;
+    const nextBoxX = candidate.boxX;
+    const boxCenterX = nextBoxX + (nextBoxWidth / 2);
+    const boxCenterY = nextBoxY + (nextBoxHeight / 2);
+    const lineHeight = candidate.fontSize + 2;
+    const textRows = item.textRows.map((textRow, index) => ({
+      ...textRow,
+      x: nextBoxX + (nextBoxWidth / 2),
+      y: nextBoxY + 5 + ((index + 0.7) * lineHeight)
+    }));
+    const arrowStartX = item.arrowEndX >= boxCenterX ? nextBoxX + nextBoxWidth : nextBoxX;
+    const arrowStartY = boxCenterY;
+    const arrowPoints = buildArrowHeadPoints(
+      [arrowStartX, arrowStartY],
+      [item.arrowEndX, item.arrowEndY],
+      6,
+      3
+    );
+
+    return {
+      ...item,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textRows,
+      arrowStartX,
+      arrowStartY,
+      arrowPoints: arrowPoints || item.arrowPoints
+    };
+  });
+}
+
+function applyDirectionalLayoutToFluid(items, candidateMap) {
+  return items.map((item) => {
+    const candidate = candidateMap.get(`fluid:${item.id}`);
+    if (!candidate) return item;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxY = candidate.boxY;
+    const nextBoxX = candidate.boxX;
+    const textAnchor = item.textAnchor;
+    const textX = textAnchor === 'end'
+      ? nextBoxX + nextBoxWidth - 6
+      : (textAnchor === 'middle' ? nextBoxX + (nextBoxWidth / 2) : nextBoxX + 6);
+    const textY = nextBoxY + (nextBoxHeight / 2);
+    const textSegments = item.textLines.map((segment) => segment.text);
+    const lineHeight = candidate.fontSize + 6;
+    const firstLineOffset = -((textSegments.length - 1) * lineHeight) / 2;
+    const textLines = textSegments.map((text, index) => ({
+      id: item.textLines[index]?.id ?? `${item.id}-text-${index}`,
+      text,
+      x: textX,
+      dy: index === 0 ? firstLineOffset : lineHeight
+    }));
+    const arrowStartY = textY;
+    const arrowPoints = buildArrowHeadPoints(
+      [item.arrowStartX, arrowStartY],
+      [item.arrowEndX, item.arrowEndY],
+      6,
+      3
+    );
+
+    return {
+      ...item,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textX,
+      textY,
+      textLines,
+      arrowStartY,
+      arrowPoints: arrowPoints || item.arrowPoints
+    };
+  });
+}
+
+function applyDirectionalLayoutToLines(items, candidateMap) {
+  return items.map((item) => {
+    const candidate = candidateMap.get(`line:${item.id}`);
+    if (!candidate) return item;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxWidth = candidate.boxWidth;
+    const nextBoxY = candidate.boxY;
+    const nextBoxX = candidate.boxX;
+    const textAnchor = item.textAnchor;
+    const textX = textAnchor === 'end'
+      ? nextBoxX + nextBoxWidth - 6
+      : (textAnchor === 'middle' ? nextBoxX + (nextBoxWidth / 2) : nextBoxX + 6);
+    const textY = nextBoxY + (nextBoxHeight / 2);
+    const textSegments = item.textLines.map((segment) => segment.text);
+    const lineHeight = candidate.fontSize + 6;
+    const firstLineOffset = -((textSegments.length - 1) * lineHeight) / 2;
+    const textLines = textSegments.map((text, index) => ({
+      id: item.textLines[index]?.id ?? `${item.id}-text-${index}`,
+      text,
+      x: textX,
+      dy: index === 0 ? firstLineOffset : lineHeight
+    }));
+
+    return {
+      ...item,
+      boxX: nextBoxX,
+      boxY: nextBoxY,
+      boxWidth: nextBoxWidth,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textX,
+      textY,
+      textLines
+    };
+  });
+}
+
+function applyDirectionalLayoutToAnnotations(items, candidateMap) {
+  return items.map((item) => {
+    const candidate = candidateMap.get(`annotation:${item.id}`);
+    if (!candidate) return item;
+    const nextBoxHeight = candidate.boxHeight;
+    const nextBoxY = candidate.boxY;
+    const deltaY = nextBoxY - item.boxY;
+
+    return {
+      ...item,
+      boxY: nextBoxY,
+      boxHeight: nextBoxHeight,
+      fontSize: candidate.fontSize,
+      textLines: item.textLines.map((line) => ({
+        ...line,
+        y: line.y + deltaY
+      }))
+    };
+  });
+}
+
+const directionalOverlayState = computed(() => {
+  const base = {
+    annotationBandOverlays: annotationBandOverlays.value,
+    plugLabelOverlays: plugLabelOverlays.value,
+    fluidLabelOverlays: fluidLabelOverlays.value,
+    depthAnnotations: depthAnnotations.value,
+    casingLabelOverlays: casingLabelOverlays.value,
+    transientPipeLabelOverlays: transientPipeLabelOverlays.value,
+    equipmentLabelOverlays: equipmentLabelOverlays.value,
+    horizontalLineOverlays: horizontalLineOverlays.value
+  };
+  const bounds = plotBounds.value;
+  if (smartLabelsEnabled.value !== true || !bounds) {
+    return base;
+  }
+  const candidateMap = buildDirectionalLayoutCandidateMap(base, bounds);
+  if (!candidateMap) return base;
+
+  return {
+    ...base,
+    annotationBandOverlays: applyDirectionalLayoutToAnnotations(base.annotationBandOverlays, candidateMap),
+    fluidLabelOverlays: applyDirectionalLayoutToFluid(base.fluidLabelOverlays, candidateMap),
+    depthAnnotations: applyDirectionalLayoutToDepth(base.depthAnnotations, candidateMap, bounds),
+    casingLabelOverlays: applyDirectionalLayoutToPipeLike(base.casingLabelOverlays, candidateMap, 'casing'),
+    transientPipeLabelOverlays: applyDirectionalLayoutToPipeLike(base.transientPipeLabelOverlays, candidateMap, 'transient'),
+    equipmentLabelOverlays: applyDirectionalLayoutToPipeLike(base.equipmentLabelOverlays, candidateMap, 'equipment'),
+    horizontalLineOverlays: applyDirectionalLayoutToLines(base.horizontalLineOverlays, candidateMap)
+  };
 });
 </script>
 
 <template>
   <g class="directional-overlay-layer">
     <g
-      v-for="annotation in annotationBandOverlays"
+      v-for="annotation in directionalOverlayState.annotationBandOverlays"
       :key="annotation.id"
       class="directional-overlay-layer__annotation-group"
       :data-box-index="annotation.boxIndex"
@@ -1873,7 +2279,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <text
-      v-for="plug in plugLabelOverlays"
+      v-for="plug in directionalOverlayState.plugLabelOverlays"
       :key="plug.id"
       class="directional-overlay-layer__plug-label"
       :x="plug.x"
@@ -1885,7 +2291,7 @@ const horizontalLineOverlays = computed(() => {
     </text>
 
     <g
-      v-for="fluid in fluidLabelOverlays"
+      v-for="fluid in directionalOverlayState.fluidLabelOverlays"
       :key="fluid.id"
       class="directional-overlay-layer__fluid-group"
       :data-fluid-index="fluid.fluidIndex"
@@ -1941,7 +2347,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <g
-      v-for="item in depthAnnotations"
+      v-for="item in directionalOverlayState.depthAnnotations"
       :key="item.id"
       class="directional-overlay-layer__depth-group"
       :data-pipe-key="`casing:${item.casingIndex}`"
@@ -1989,7 +2395,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <g
-      v-for="label in casingLabelOverlays"
+      v-for="label in directionalOverlayState.casingLabelOverlays"
       :key="label.id"
       class="directional-overlay-layer__casing-group"
       :data-pipe-key="label.dataKey"
@@ -2044,7 +2450,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <g
-      v-for="label in transientPipeLabelOverlays"
+      v-for="label in directionalOverlayState.transientPipeLabelOverlays"
       :key="label.id"
       class="directional-overlay-layer__casing-group"
       :data-pipe-key="label.dataKey"
@@ -2098,7 +2504,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <g
-      v-for="label in equipmentLabelOverlays"
+      v-for="label in directionalOverlayState.equipmentLabelOverlays"
       :key="label.id"
       class="directional-overlay-layer__equipment-group"
       :data-equipment-index="label.equipmentIndex"
@@ -2152,7 +2558,7 @@ const horizontalLineOverlays = computed(() => {
     </g>
 
     <g
-      v-for="line in horizontalLineOverlays"
+      v-for="line in directionalOverlayState.horizontalLineOverlays"
       :key="line.id"
       class="directional-overlay-layer__line-group"
       :data-line-index="line.lineIndex"
