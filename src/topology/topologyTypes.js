@@ -2,6 +2,7 @@ export const TOPOLOGY_EPSILON = 1e-6;
 
 export const NODE_KIND_SURFACE = 'SURFACE';
 export const NODE_KIND_TUBING_INNER = 'TUBING_INNER';
+export const NODE_KIND_TUBING_ANNULUS = 'TUBING_ANNULUS';
 export const NODE_KIND_LEGACY_BORE = 'BORE';
 
 // Backward-compatible export alias used by existing modules.
@@ -50,6 +51,7 @@ export const MODELED_ANNULUS_VOLUME_SLOTS = Object.freeze([
 
 export const MODELED_VOLUME_KINDS = Object.freeze([
     NODE_KIND_TUBING_INNER,
+    NODE_KIND_TUBING_ANNULUS,
     ...MODELED_CASING_ANNULUS_KINDS
 ]);
 
@@ -142,6 +144,18 @@ export function normalizeSourceVolumeKind(value) {
         return NODE_KIND_TUBING_INNER;
     }
     if (
+        token === NODE_KIND_TUBING_ANNULUS
+        || token === 'TUBINGANNULUS'
+        || token === 'TBG_ANNULUS'
+        || token === 'PRIMARY_ANNULUS'
+        || token === 'PRODUCTION_ANNULUS'
+        || token === 'PROD_ANNULUS'
+        || token.includes('TUBING_ANNULUS')
+        || token.includes('PRIMARY_ANNULUS')
+    ) {
+        return NODE_KIND_TUBING_ANNULUS;
+    }
+    if (
         token === NODE_KIND_LEGACY_BORE
         || token.includes('BORE')
     ) {
@@ -168,6 +182,7 @@ export default {
     TOPOLOGY_EPSILON,
     NODE_KIND_SURFACE,
     NODE_KIND_TUBING_INNER,
+    NODE_KIND_TUBING_ANNULUS,
     NODE_KIND_LEGACY_BORE,
     NODE_KIND_BORE,
     NODE_KIND_ANNULUS_A,

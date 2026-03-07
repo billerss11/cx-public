@@ -98,20 +98,24 @@
     "topologyWarningCodes": [
       "explicit_scenario_source_mode_active"
     ],
-    "overlayEntryCount": 2,
+    "overlayEntryCount": 6,
     "overlayEntryKindCounts": {
-      "ANNULUS_A": 2
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2
     },
     "overlayEntryStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 4,
       "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 2
     },
-    "overlayPolygonCount": 2,
+    "overlayPolygonCount": 6,
     "overlayPolygonKindCounts": {
-      "ANNULUS_A": 2
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2
     },
     "overlayPolygonStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 4,
       "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 2
     },
-    "overlayPolygonChecksum": 2507476221
+    "overlayPolygonChecksum": 2675001624
   }
 }

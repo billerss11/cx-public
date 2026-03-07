@@ -24,11 +24,10 @@ describe('DirectionalSchematicCanvas camera pan contract', () => {
     expect(source).toContain('const cameraPanSession = useCameraPanSession({');
     expect(source).toContain('function handleCanvasPointerUp(event) {');
     expect(source).toContain('function updateCameraPanFromPointer(event) {');
-    expect(source).toContain('if (!isCameraTransformEnabled.value && hasInteractiveSchematicTarget(event?.target)) return;');
     expect(source).toContain('panBy: (deltaX, deltaY) => {');
     expect(source).toContain('viewConfigStore.panDirectionalCameraBy(deltaX, deltaY);');
-    expect(source).toContain('resolvePointerFromClient: ({ clientX, clientY, localPointer }) => (');
-    expect(source).toContain('invertCameraPoint(localPointer, directionalCameraState.value) ??');
+    expect(source).toContain('resolvePointerFromClient: ({ localPointer }) => (');
+    expect(source).toContain('invertCameraPoint(localPointer, directionalCameraState.value) ?? localPointer');
     expect(source).toContain('@pointerup="handleCanvasPointerUp"');
     expect(source).toContain('@pointercancel="handleCanvasPointerUp"');
   });

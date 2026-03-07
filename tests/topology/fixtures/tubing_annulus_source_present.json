@@ -65,21 +65,19 @@
   },
   "expected": {
     "nodeCount": 7,
-    "edgeCount": 8,
-    "activeFlowNodeCount": 0,
-    "sourceEntityCount": 0,
-    "sourcePolicyMode": "marker_default",
+    "edgeCount": 9,
+    "activeFlowNodeCount": 7,
+    "sourceEntityCount": 1,
+    "sourcePolicyMode": "scenario_explicit",
     "minFailureCostToSurface": 0,
-    "minCostPathLength": 0,
+    "minCostPathLength": 1,
     "spofEdgeCount": 0,
-    "validationWarningCount": 2,
+    "validationWarningCount": 1,
     "validationWarningCodes": [
-      "scenario_rows_with_no_resolved_nodes",
-      "scenario_source_unsupported_volume"
+      "explicit_scenario_source_mode_active"
     ],
     "validationWarningCodeCounts": {
-      "scenario_rows_with_no_resolved_nodes": 1,
-      "scenario_source_unsupported_volume": 1
+      "explicit_scenario_source_mode_active": 1
     },
     "uncodedValidationWarningCount": 0,
     "barrierPrimaryElementCount": 0,

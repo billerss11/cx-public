@@ -131,10 +131,10 @@ export const FLUID_NUMERIC_FIELDS = new Set(['top', 'bottom', 'labelXPos', 'manu
 
 export const FLUID_PLACEMENT_AUTO_OPTIONS = [
     'Auto: Formation Annulus',
-    'Auto: Annulus A',
-    'Auto: Annulus B',
-    'Auto: Annulus C',
-    'Auto: Annulus D'
+    'Auto: Production Annulus',
+    'Auto: A-Annulus',
+    'Auto: B-Annulus',
+    'Auto: C-Annulus'
 ];
 export const FLUID_PLACEMENT_DEFAULT_OPTION = FLUID_PLACEMENT_AUTO_OPTIONS[0];
 

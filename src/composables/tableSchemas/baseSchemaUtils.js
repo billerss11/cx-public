@@ -20,14 +20,15 @@ export const TOPOLOGY_SOURCE_VOLUME_OPTIONS = TOPOLOGY_VOLUME_KINDS;
 function createTopologySourceVolumeCellLabels() {
   const labels = {
     TUBING_INNER: 'TUBING_INNER (legacy BORE)',
+    TUBING_ANNULUS: 'TUBING_ANNULUS (inner annulus: tubing-to-first-casing)',
     FORMATION_ANNULUS: 'FORMATION_ANNULUS (open hole / outside outermost casing)'
   };
 
   MODELED_CASING_ANNULUS_KINDS.forEach((kind, index) => {
     const suffix = kind.replace('ANNULUS_', '');
     labels[kind] = index === 0
-      ? `${kind} (first annulus)`
-      : `${kind} (annulus ${suffix})`;
+      ? `${kind} (outer annulus ${suffix}: first casing-to-casing)`
+      : `${kind} (outer annulus ${suffix})`;
   });
 
   return Object.freeze(labels);

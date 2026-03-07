@@ -143,39 +143,4 @@ describe('marker leak radial gating semantics', () => {
     expect(hasOuterHostPair).toBe(true);
     expect(hasStaleInnerPair).toBe(false);
   });
-
-  it('routes innermost-casing leak pair to ANNULUS_A <-> ANNULUS_B when tubing is present', () => {
-    const state = createBaseState();
-    state.casingData = [
-      { rowId: 'csg-outer', label: 'Outer Casing', top: 0, bottom: 3000, od: 13.375, weight: 54.5 },
-      { rowId: 'csg-inner', label: 'Inner Casing', top: 0, bottom: 3000, od: 9.625, weight: 40 }
-    ];
-    state.tubingData = [
-      { rowId: 'tbg-1', label: 'Production Tubing', top: 0, bottom: 2600, od: 4.5, weight: 12.6 }
-    ];
-    state.markers = [
-      {
-        rowId: 'm-innermost-casing-leak',
-        type: 'Leak',
-        top: 1400,
-        bottom: 1410,
-        attachToHostType: 'casing',
-        attachToId: 'csg-inner',
-        show: true
-      }
-    ];
-
-    const result = buildTopologyModel(state, { requestId: 4, wellId: 'innermost-casing-leak' });
-    const markerEdges = collectMarkerEdges(result, 'm-innermost-casing-leak');
-    const hasAnnulusABPair = markerEdges.some((edge) => (
-      edge.meta?.fromVolumeKey === 'ANNULUS_A' && edge.meta?.toVolumeKey === 'ANNULUS_B'
-    ));
-    const hasBoreAnnulusPair = markerEdges.some((edge) => (
-      edge.meta?.fromVolumeKey === 'BORE' && edge.meta?.toVolumeKey === 'ANNULUS_A'
-    ));
-
-    expect(markerEdges.length).toBeGreaterThan(0);
-    expect(hasAnnulusABPair).toBe(true);
-    expect(hasBoreAnnulusPair).toBe(false);
-  });
 });

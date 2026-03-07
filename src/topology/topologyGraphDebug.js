@@ -8,12 +8,13 @@ const GRAPH_SCOPE_SET = new Set(['min_path', 'spof', 'active_flow', 'selected_ba
 function buildAnnulusLaneLabel(kind = '') {
   const suffix = String(kind ?? '').replace('ANNULUS_', '').trim();
   if (!suffix) return null;
-  if (suffix === 'A') return 'Annulus A (First Annulus)';
-  return `Annulus ${suffix}`;
+  if (suffix === 'A') return 'Outer Annulus A (Casing-Casing)';
+  return `Outer Annulus ${suffix}`;
 }
 
 const GRAPH_LANE_ORDER = Object.freeze([
   'TUBING_INNER',
+  'TUBING_ANNULUS',
   'BORE',
   ...MODELED_CASING_ANNULUS_KINDS,
   'FORMATION_ANNULUS',
@@ -36,6 +37,7 @@ const DENSE_KIND_LABEL_THRESHOLD = 4;
 
 const NODE_KIND_LABEL_BY_TOKEN = Object.freeze({
   TUBING_INNER: 'Tubing Inner',
+  TUBING_ANNULUS: 'Inner Annulus (Tubing-Casing)',
   BORE: 'Bore (Legacy)',
   ...Object.fromEntries(
     MODELED_CASING_ANNULUS_KINDS.map((kind) => [kind, buildAnnulusLaneLabel(kind)])

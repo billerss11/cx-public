@@ -15,7 +15,6 @@ vi.mock('@/composables/useSchematicRenderer.js', () => ({
 
 vi.mock('@/app/selection.js', () => ({
   syncSelectionIndicators: vi.fn(),
-  clearSelection: vi.fn(),
   clearCasingSelection: vi.fn(),
   clearTubingSelection: vi.fn(),
   clearDrillStringSelection: vi.fn(),

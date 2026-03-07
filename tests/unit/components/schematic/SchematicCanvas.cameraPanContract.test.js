@@ -24,7 +24,6 @@ describe('SchematicCanvas vertical camera pan contract', () => {
     expect(source).toContain('const cameraPanSession = useCameraPanSession({');
     expect(source).toContain('function handleCanvasPointerUp(event) {');
     expect(source).toContain('function updateCameraPanFromPointer(event) {');
-    expect(source).toContain('if (!isCameraTransformEnabled.value && hasInteractiveSchematicTarget(target)) return;');
     expect(source).toContain('panBy: (deltaX, deltaY) => {');
     expect(source).toContain('viewConfigStore.panVerticalCameraBy(deltaX, deltaY);');
     expect(source).toContain('@pointerup="handleCanvasPointerUp"');

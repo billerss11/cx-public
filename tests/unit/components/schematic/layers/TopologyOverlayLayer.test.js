@@ -119,41 +119,4 @@ describe('TopologyOverlayLayer', () => {
     expect(Number(segments[0].attributes('x'))).toBeCloseTo(-3, 6);
     expect(Number(segments[0].attributes('width'))).toBeCloseTo(6, 6);
   });
-
-  it('does not render overlay segments for removed TUBING_ANNULUS node kind', () => {
-    const slices = [
-      { top: 0, bottom: 200, stack: createAnnulusStack() }
-    ];
-
-    const topologyResult = {
-      nodes: [
-        {
-          nodeId: 'node:TUBING_ANNULUS:0',
-          kind: 'TUBING_ANNULUS',
-          depthTop: 0,
-          depthBottom: 200
-        }
-      ],
-      activeFlowNodeIds: ['node:TUBING_ANNULUS:0'],
-      edges: [],
-      minCostPathEdgeIds: [],
-      spofEdgeIds: []
-    };
-
-    const wrapper = mount(TopologyOverlayLayer, {
-      props: {
-        slices,
-        topologyResult,
-        xScale: (value) => Number(value),
-        yScale: (value) => Number(value),
-        diameterScale: 1,
-        showActiveFlow: true,
-        showMinCostPath: true,
-        showSpof: true,
-        selectedNodeIds: []
-      }
-    });
-
-    expect(wrapper.findAll('rect')).toHaveLength(0);
-  });
 });

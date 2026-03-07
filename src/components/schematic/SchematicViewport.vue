@@ -4,6 +4,7 @@ import { downloadJPEG, downloadPNG, downloadSVG, downloadWebP } from '@/app/expo
 import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 import { usePlotElementsStore } from '@/stores/plotElementsStore.js';
+import { useSurfaceAssemblyStore } from '@/stores/surfaceAssemblyStore.js';
 import { syncSelectionIndicators } from '@/app/selection.js';
 import { getIntervalsWithBoundaryReasons } from '@/composables/usePhysics.js';
 import { useSchematicRenderer } from '@/composables/useSchematicRenderer.js';
@@ -11,12 +12,15 @@ import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.j
 import { onLanguageChange, t } from '@/app/i18n.js';
 import Menu from 'primevue/menu';
 import CrossSectionPanel from '@/components/cross-section/CrossSectionPanel.vue';
+import SurfaceAssemblyComposerDialog from '@/components/surface-assembly/SurfaceAssemblyComposerDialog.vue';
+import SurfaceAssemblyPreview from '@/components/surface-assembly/SurfaceAssemblyPreview.vue';
 import SchematicCanvas from './SchematicCanvas.vue';
 import DirectionalSchematicCanvas from './DirectionalSchematicCanvas.vue';
 
 const projectDataStore = useProjectDataStore();
 const viewConfigStore = useViewConfigStore();
 const plotElementsStore = usePlotElementsStore();
+const surfaceAssemblyStore = useSurfaceAssemblyStore();
 const config = viewConfigStore.config;
 
 const plotTooltipRef = ref(null);
@@ -30,6 +34,7 @@ let unsubscribeLanguageChange = null;
 let detachCrossSectionResizeListener = null;
 
 const isDirectionalView = computed(() => config?.viewMode === 'directional');
+const committedSurfaceAssembly = computed(() => surfaceAssemblyStore.committedAssemblyForActiveWell);
 const crossSectionDialogVisible = computed({
   get: () => config?.showDepthCrossSection === true,
   set: (value) => {
@@ -173,6 +178,10 @@ function handleDownloadSvg() {
   downloadSVG();
 }
 
+function openSurfaceAssemblyComposer() {
+  surfaceAssemblyStore.openComposer();
+}
+
 const exportMenuItems = computed(() => {
   void languageTick.value;
   return [
@@ -261,7 +270,20 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      <div class="export-button-group">
+      <div class="plot-container__actions">
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="plot-surface-trigger"
+          icon="pi pi-sitemap"
+          title="Surface Assembly"
+          @click="openSurfaceAssemblyComposer"
+        >
+          <span class="plot-surface-trigger__label">Surface Assembly</span>
+        </Button>
+
+        <div class="export-button-group">
         <Button
           type="button"
           size="small"
@@ -282,11 +304,27 @@ onBeforeUnmount(() => {
           :model="exportMenuItems"
           :popup="true"
         />
+        </div>
       </div>
     </div>
 
     <div class="plot-view-grid">
       <div class="plot-primary schematic-light-scope">
+        <div
+          v-if="committedSurfaceAssembly"
+          class="plot-surface-stage"
+        >
+          <div class="plot-surface-stage__header">
+            <span class="plot-surface-stage__title">Surface Assembly</span>
+            <small class="plot-surface-stage__note">Committed view shown above the schematic.</small>
+          </div>
+          <SurfaceAssemblyPreview
+            :assembly="committedSurfaceAssembly"
+            :compact="true"
+            :show-labels="false"
+          />
+        </div>
+
         <div class="comparison-stage">
           <SchematicCanvas
             v-if="!isDirectionalView"
@@ -305,6 +343,8 @@ onBeforeUnmount(() => {
         <div id="plotTooltip" ref="plotTooltipRef" class="plot-tooltip"></div>
       </div>
     </div>
+
+    <SurfaceAssemblyComposerDialog />
 
     <Dialog
       v-model:visible="crossSectionDialogVisible"
@@ -432,6 +472,45 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.plot-container__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.plot-surface-trigger__label {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.plot-surface-stage {
+  margin-bottom: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--color-surface-elevated) 92%, white);
+}
+
+.plot-surface-stage__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.plot-surface-stage__title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-ink-strong);
+}
+
+.plot-surface-stage__note {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 .export-button-group {
   display: inline-flex;
   align-items: center;
@@ -502,6 +581,12 @@ onBeforeUnmount(() => {
 
   .export-button-group {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .plot-container__actions {
+    width: 100%;
+    flex-wrap: wrap;
     justify-content: flex-start;
   }
 

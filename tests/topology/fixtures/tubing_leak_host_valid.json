@@ -66,7 +66,7 @@
   },
   "expected": {
     "nodeCount": 13,
-    "edgeCount": 15,
+    "edgeCount": 16,
     "activeFlowNodeCount": 0,
     "sourceEntityCount": 0,
     "sourcePolicyMode": "marker_default",

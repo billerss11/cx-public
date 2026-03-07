@@ -29,10 +29,6 @@ import {
   createTopologyPathEdgeSummaryRows,
   resolveTopologyInspectorOverlayNodeIds
 } from '@/topology/topologyInspector.js';
-import {
-  TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE,
-  TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE
-} from '@/topology/topologyTypes.js';
 import { buildTopologyDebugGraph } from '@/topology/topologyGraphDebug.js';
 import {
   resolveTopologyOverlaySynchronizationState
@@ -296,13 +292,6 @@ const declarativeProjectData = computed(() => ({
   trajectory: trajectory.value
 }));
 
-const topologyConfigSnapshot = computed(() => ({
-  [TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE]:
-    viewConfigStore.config?.[TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE] === true,
-  [TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE]:
-    viewConfigStore.config?.[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] === true
-}));
-
 const topologyStateSnapshot = computed(() => ({
   casingData: casingData.value,
   tubingData: tubingData.value,
@@ -316,7 +305,7 @@ const topologyStateSnapshot = computed(() => ({
   markers: markers.value,
   topologySources: topologySources.value,
   trajectory: trajectory.value,
-  config: topologyConfigSnapshot.value,
+  config: viewConfigStore.config,
   interaction: {}
 }));
 
@@ -1494,7 +1483,7 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
           </span>
         </p>
         <p class="analysis-topology__meta" data-i18n="ui.analysis.topology.source_policy.volume_guide">
-          Volume guide: use ANNULUS_A for the first annulus; use ANNULUS_B for the first casing-casing annulus when tubing is present.
+          Volume guide: use TUBING_ANNULUS for tubing-adjacent annulus; use ANNULUS_A for first casing annulus.
         </p>
         <p v-if="topologyTraversalContractsText" class="analysis-topology__meta">
           <span data-i18n="ui.analysis.topology.traversal_contracts.label">Traversal contracts:</span>
@@ -1522,7 +1511,7 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
             Envelope overlap means the same barrier element appears in both primary and secondary heuristic envelopes.
           </p>
           <p class="analysis-topology__note" data-i18n="ui.analysis.topology.notes.volume_semantics">
-            Volume semantics: ANNULUS_A is always the first annulus; ANNULUS_B is the first casing-casing annulus when tubing is present.
+            Volume semantics: TUBING_ANNULUS tracks tubing-to-first-casing annulus; ANNULUS_A tracks first casing-to-casing annulus.
           </p>
         </div>
 

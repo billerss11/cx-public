@@ -97,7 +97,7 @@
     "transitionBoundaryDepths": [],
     "topologyWarningCodes": [
       "scenario_rows_with_no_resolved_nodes",
-      "scenario_source_unsupported_volume"
+      "scenario_source_no_resolvable_interval"
     ],
     "overlayEntryCount": 0,
     "overlayEntryKindCounts": {},

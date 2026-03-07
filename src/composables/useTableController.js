@@ -31,7 +31,6 @@ import { refreshHotLayout } from '@/app/hot.js';
 import { requestSchematicRender } from '@/composables/useSchematicRenderer.js';
 import {
     syncSelectionIndicators,
-    clearSelection,
     clearCasingSelection,
     clearTubingSelection,
     clearDrillStringSelection,
@@ -267,16 +266,7 @@ function getSelectedIndex(type, interaction) {
     if (type === 'casing' || type === 'tubing' || type === 'drillString') {
         return resolvePipeSelectionIndex(type, interaction);
     }
-    if (
-        type === 'line'
-        || type === 'box'
-        || type === 'marker'
-        || type === 'plug'
-        || type === 'fluid'
-        || type === 'equipment'
-        || type === 'topologySource'
-        || type === 'topologyBreakout'
-    ) {
+    if (type === 'line' || type === 'box' || type === 'marker' || type === 'plug' || type === 'fluid' || type === 'equipment') {
         return resolveNonPipeSelectionIndex(type, interaction);
     }
     return null;
@@ -291,9 +281,7 @@ const CLEAR_SELECTION_HANDLERS = Object.freeze({
     box: clearBoxSelection,
     marker: clearMarkerSelection,
     plug: clearPlugSelection,
-    fluid: clearFluidSelection,
-    topologySource: () => clearSelection('topologySource'),
-    topologyBreakout: () => clearSelection('topologyBreakout')
+    fluid: clearFluidSelection
 });
 
 function buildTableSchema(type, domainState) {
@@ -1067,7 +1055,6 @@ export function useTableController(tableType, tabKey = tableType) {
     const languageToken = ref(getLanguage());
     let isInternalStoreSync = false;
     let stopLanguageChange = null;
-    let lastSelectedRowIndex = null;
 
     const schema = computed(() => {
         languageToken.value;
@@ -1190,22 +1177,6 @@ export function useTableController(tableType, tabKey = tableType) {
         handleTableClick(tableType, coords.row, event, instance);
     }
 
-    function resolveSelectedRowIndex(startRow, endRow = startRow) {
-        const normalizedStart = Number(startRow);
-        const normalizedEnd = Number(endRow);
-        if (!Number.isInteger(normalizedStart) || !Number.isInteger(normalizedEnd)) return null;
-        if (normalizedStart < 0 || normalizedEnd < 0) return null;
-        return Math.max(0, Math.min(normalizedStart, normalizedEnd));
-    }
-
-    function handleAfterSelectionEnd(row, column, row2) {
-        lastSelectedRowIndex = resolveSelectedRowIndex(row, row2);
-    }
-
-    function handleAfterDeselect() {
-        lastSelectedRowIndex = null;
-    }
-
     function refreshIfVisible() {
         if (activeTableTabKey.value !== tabKey) return;
         if (!isTablesAccordionOpen.value) return;
@@ -1325,9 +1296,7 @@ export function useTableController(tableType, tabKey = tableType) {
             afterChange: handleAfterChange,
             afterCreateRow: handleAfterCreateRow,
             afterRemoveRow: handleAfterRemoveRow,
-            afterOnCellMouseDown: handleAfterOnCellMouseDown,
-            afterSelectionEnd: handleAfterSelectionEnd,
-            afterDeselect: handleAfterDeselect
+            afterOnCellMouseDown: handleAfterOnCellMouseDown
         };
     });
 
@@ -1365,15 +1334,15 @@ export function useTableController(tableType, tabKey = tableType) {
             const instance = getHotInstance();
             const selection = instance?.getSelectedLast?.();
             if (Array.isArray(selection) && selection.length >= 1) {
-                index = resolveSelectedRowIndex(selection[0], selection[2] ?? selection[0]);
+                const startRow = Number(selection[0]);
+                const endRow = Number(selection[2] ?? selection[0]);
+                if (Number.isInteger(startRow) && Number.isInteger(endRow)) {
+                    index = Math.max(0, Math.min(startRow, endRow));
+                }
             }
-        }
-        if ((index === null || index === undefined) && Number.isInteger(lastSelectedRowIndex) && lastSelectedRowIndex >= 0) {
-            index = lastSelectedRowIndex;
         }
         if (index === null || index === undefined) return;
         deleteRow(index);
-        lastSelectedRowIndex = null;
         CLEAR_SELECTION_HANDLERS[tableType]?.();
     }
 

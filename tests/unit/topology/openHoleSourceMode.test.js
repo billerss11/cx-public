@@ -69,40 +69,4 @@ describe('open-hole source mode', () => {
     ))).toBe(true);
     expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);
   });
-
-  it('resolves ANNULUS_A scenario source rows against tubing-present first-annulus channels', () => {
-    const state = createBaseState();
-    state.tubingData = [
-      {
-        rowId: 'tbg-1',
-        label: 'Production Tubing',
-        top: 0,
-        bottom: 2500,
-        od: 4.5,
-        weight: 12.6,
-        show: true
-      }
-    ];
-    state.topologySources = [
-      {
-        rowId: 'src-annulus-a',
-        sourceType: 'scenario',
-        volumeKey: 'ANNULUS_A',
-        top: 1000,
-        bottom: 1100,
-        show: true
-      }
-    ];
-
-    const result = buildTopologyModel(state, { requestId: 3, wellId: 'open-hole-canonical-annulus-a' });
-    const sourceEntity = result.sourceEntities.find((source) => source.rowId === 'src-annulus-a');
-    const noIntervalWarning = result.validationWarnings.find(
-      (warning) => warning.code === 'scenario_source_no_resolvable_interval'
-    );
-
-    expect(sourceEntity).toBeDefined();
-    expect(sourceEntity?.volumeKey).toBe('ANNULUS_A');
-    expect((sourceEntity?.nodeIds?.length ?? 0) > 0).toBe(true);
-    expect(noIntervalWarning).toBeUndefined();
-  });
 });

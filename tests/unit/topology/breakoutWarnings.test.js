@@ -47,7 +47,7 @@ describe('breakoutWarnings helpers', () => {
       {
         code: TOPOLOGY_WARNING_CODES.SCENARIO_BREAKOUT_UNSUPPORTED_VOLUME_PAIR,
         rowId: 'br-1',
-        message: 'Unsupported pair with removed TUBING_ANNULUS token.'
+        message: 'Unsupported pair.'
       },
       {
         code: TOPOLOGY_WARNING_CODES.SCENARIO_BREAKOUT_MISSING_DEPTH_RANGE,

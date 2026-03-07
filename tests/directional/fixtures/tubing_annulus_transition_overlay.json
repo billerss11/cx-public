@@ -102,19 +102,40 @@
     "selectedNodeIds": []
   },
   "expected": {
-    "transitionEdgeCount": 0,
-    "transitionEdgePairs": [],
-    "transitionBoundaryDepths": [],
-    "topologyWarningCodes": [
-      "scenario_rows_with_no_resolved_nodes",
-      "scenario_source_unsupported_volume"
+    "transitionEdgeCount": 2,
+    "transitionEdgePairs": [
+      "ANNULUS_A->TUBING_ANNULUS",
+      "TUBING_ANNULUS->ANNULUS_A"
     ],
-    "overlayEntryCount": 0,
-    "overlayEntryKindCounts": {},
-    "overlayEntryStyleCounts": {},
-    "overlayPolygonCount": 0,
-    "overlayPolygonKindCounts": {},
-    "overlayPolygonStyleCounts": {},
-    "overlayPolygonChecksum": 2166136261
+    "transitionBoundaryDepths": [
+      "1500.000",
+      "6500.000"
+    ],
+    "topologyWarningCodes": [
+      "explicit_scenario_source_mode_active"
+    ],
+    "overlayEntryCount": 13,
+    "overlayEntryKindCounts": {
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2,
+      "TUBING_ANNULUS": 2,
+      "TUBING_INNER": 5
+    },
+    "overlayEntryStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 9,
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 4
+    },
+    "overlayPolygonCount": 13,
+    "overlayPolygonKindCounts": {
+      "ANNULUS_A": 4,
+      "ANNULUS_B": 2,
+      "TUBING_ANNULUS": 2,
+      "TUBING_INNER": 5
+    },
+    "overlayPolygonStyleCounts": {
+      "var(--color-topology-overlay-active-fill)|var(--color-topology-overlay-active-stroke)": 9,
+      "var(--color-topology-overlay-path-fill)|var(--color-topology-overlay-path-stroke)": 4
+    },
+    "overlayPolygonChecksum": 4035526581
   }
 }

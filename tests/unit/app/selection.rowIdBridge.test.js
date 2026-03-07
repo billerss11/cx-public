@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { setActivePinia } from 'pinia';
 import { pinia } from '@/stores/pinia.js';
 import { useProjectStore } from '@/stores/projectStore.js';
-import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import { useInteractionStore } from '@/stores/interactionStore.js';
 import { useWorkspaceStore } from '@/stores/workspaceStore.js';
-import { clearSelection, handleTableClick, selectEntityByRowRef } from '@/app/selection.js';
+import { clearSelection, selectEntityByRowRef } from '@/app/selection.js';
 
 function createWellData(casingRows = []) {
   return {
@@ -92,77 +91,5 @@ describe('selectEntityByRowRef', () => {
     expect(interactionStore.interaction.lockedEntity).toBeNull();
     expect(interactionStore.interaction.hoveredEntity).toBeNull();
     expect(workspaceStore.selectedHierarchyRef).toBeNull();
-  });
-
-  it('keeps topology source table selection locked for delete actions', () => {
-    const projectDataStore = useProjectDataStore(pinia);
-    const interactionStore = useInteractionStore(pinia);
-
-    projectDataStore.topologySources = [
-      {
-        rowId: 'src-1',
-        top: 1000,
-        bottom: 1000,
-        sourceType: 'formation_inflow',
-        volumeKey: 'ANNULUS_A',
-        show: true
-      },
-      {
-        rowId: 'br-1',
-        top: 1100,
-        bottom: 1100,
-        sourceType: 'scenario',
-        fromVolumeKey: 'ANNULUS_A',
-        toVolumeKey: 'ANNULUS_B',
-        show: true
-      }
-    ];
-
-    handleTableClick('topologySource', 0);
-
-    expect(interactionStore.interaction.lockedEntity).toEqual({
-      type: 'topologySource',
-      id: 0
-    });
-    expect(interactionStore.interaction.hoveredEntity).toEqual({
-      type: 'topologySource',
-      id: 0
-    });
-  });
-
-  it('keeps topology breakout table selection locked for delete actions', () => {
-    const projectDataStore = useProjectDataStore(pinia);
-    const interactionStore = useInteractionStore(pinia);
-
-    projectDataStore.topologySources = [
-      {
-        rowId: 'src-1',
-        top: 1000,
-        bottom: 1000,
-        sourceType: 'formation_inflow',
-        volumeKey: 'ANNULUS_A',
-        show: true
-      },
-      {
-        rowId: 'br-1',
-        top: 1100,
-        bottom: 1100,
-        sourceType: 'scenario',
-        fromVolumeKey: 'ANNULUS_A',
-        toVolumeKey: 'ANNULUS_B',
-        show: true
-      }
-    ];
-
-    handleTableClick('topologyBreakout', 0);
-
-    expect(interactionStore.interaction.lockedEntity).toEqual({
-      type: 'topologyBreakout',
-      id: 0
-    });
-    expect(interactionStore.interaction.hoveredEntity).toEqual({
-      type: 'topologyBreakout',
-      id: 0
-    });
   });
 });

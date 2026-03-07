@@ -71,7 +71,7 @@ export function buildTopologySourceSchema(domainState, options = {}) {
     sampleKeyFields: ['label'],
     afterChangeIgnoreSources: ['loadData', 'normalize'],
     triggersSchematicRender: false,
-    enableRowSelection: true,
+    enableRowSelection: false,
     mapRowsForStore: (rows) => mergeScenarioSourceRows(domainState.topologySources, rows),
     buildDefaultRow: () => ({
       top: 9000,
@@ -132,7 +132,7 @@ export function buildTopologyBreakoutSchema(domainState, options = {}) {
     sampleKeyFields: ['label'],
     afterChangeIgnoreSources: ['loadData', 'normalize'],
     triggersSchematicRender: false,
-    enableRowSelection: true,
+    enableRowSelection: false,
     mapRowsForStore: (rows) => mergeScenarioBreakoutRows(domainState.topologySources, rows),
     buildDefaultRow: () => ({
       top: 9000,

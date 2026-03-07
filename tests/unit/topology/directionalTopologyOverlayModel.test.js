@@ -16,7 +16,7 @@ function countEntriesByStyle(entries = []) {
 
 function buildDirectionalOverlayInputs({
   includeTubing = true,
-  sourceVolumeKey = 'ANNULUS_A'
+  sourceVolumeKey = includeTubing ? 'TUBING_ANNULUS' : 'ANNULUS_A'
 } = {}) {
   const tubingRows = includeTubing
     ? [{ rowId: 'tbg-1', od: 4.5, weight: 12.6, top: 1500, bottom: 6500, show: true }]
@@ -686,7 +686,7 @@ describe('directionalTopologyOverlayModel', () => {
 
     const kinds = new Set(overlayEntries.map((entry) => entry.nodeKind));
     expect(kinds.has('ANNULUS_A')).toBe(true);
-    expect(overlayEntries.length).toBeGreaterThan(0);
+    expect(kinds.has('ANNULUS_B')).toBe(true);
   });
 
   it('keeps ANNULUS_C directional source path at zero failure cost through mapped ANNULUS_C <-> ANNULUS_B transitions', () => {
@@ -889,13 +889,14 @@ describe('directionalTopologyOverlayModel', () => {
   it('keeps tubing-boundary transition semantics visible in directional overlay entries', () => {
     const { topologyResult, intervals, projector } = buildDirectionalOverlayInputs();
     const transitionEdgePairs = topologyResult.edges
-      .filter((edge) => edge?.reason?.ruleId === 'annulus-family-transition')
+      .filter((edge) => edge?.reason?.ruleId === 'tubing-annulus-transition')
       .map((edge) => `${edge?.meta?.fromVolumeKey}->${edge?.meta?.toVolumeKey}`);
     const tubingEndTransferPairs = topologyResult.edges
       .filter((edge) => edge?.reason?.ruleId === 'tubing-end-transfer')
       .map((edge) => `${edge?.meta?.fromVolumeKey}->${edge?.meta?.toVolumeKey}`);
 
-    expect(transitionEdgePairs.length).toBeGreaterThan(0);
+    expect(transitionEdgePairs).toContain('ANNULUS_A->TUBING_ANNULUS');
+    expect(transitionEdgePairs).toContain('TUBING_ANNULUS->ANNULUS_A');
     expect(tubingEndTransferPairs).toContain('ANNULUS_A->TUBING_INNER');
     expect(tubingEndTransferPairs).toContain('TUBING_INNER->ANNULUS_A');
 
@@ -912,8 +913,8 @@ describe('directionalTopologyOverlayModel', () => {
     });
 
     const kinds = new Set(overlayEntries.map((entry) => entry.nodeKind));
+    expect(kinds.has('TUBING_ANNULUS')).toBe(true);
     expect(kinds.has('ANNULUS_A')).toBe(true);
-    expect(kinds.has('TUBING_ANNULUS')).toBe(false);
     expect(overlayEntries.length).toBeGreaterThan(0);
   });
 
@@ -950,7 +951,7 @@ describe('directionalTopologyOverlayModel', () => {
     expect(overlayEntries.length).toBeGreaterThan(0);
   });
 
-  it('emits unsupported-volume warnings and no overlays for removed tubing-annulus source when tubing is absent', () => {
+  it('emits no-resolvable-interval warnings and no overlays for tubing-annulus source when tubing is absent', () => {
     const { topologyResult, intervals, projector } = buildDirectionalOverlayInputs({
       includeTubing: false,
       sourceVolumeKey: 'TUBING_ANNULUS'
@@ -962,7 +963,7 @@ describe('directionalTopologyOverlayModel', () => {
       .filter((edge) => edge?.reason?.ruleId === 'tubing-annulus-transition')
       .length;
 
-    expect(warningCodes.has('scenario_source_unsupported_volume')).toBe(true);
+    expect(warningCodes.has('scenario_source_no_resolvable_interval')).toBe(true);
     expect(warningCodes.has('scenario_rows_with_no_resolved_nodes')).toBe(true);
     expect(transitionEdgeCount).toBe(0);
 

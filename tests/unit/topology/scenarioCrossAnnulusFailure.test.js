@@ -132,7 +132,7 @@ describe('scenario cross-annulus failure entities', () => {
     expect(perforationSource?.origin).toBe('marker');
     expect(scenarioSource).toBeUndefined();
     expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);
-    expect(warningCodes.has('scenario_source_unsupported_volume')).toBe(true);
+    expect(warningCodes.has('scenario_source_no_resolvable_interval')).toBe(true);
     expect(warningCodes.has('scenario_rows_with_no_resolved_nodes')).toBe(true);
     expect(warningCodes.has('explicit_scenario_source_mode_active')).toBe(false);
   });

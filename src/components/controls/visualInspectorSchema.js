@@ -3,6 +3,7 @@ import { isOpenHoleRow } from '@/app/domain.js';
 import { NAMED_COLORS } from '@/constants/index.js';
 import { OPEN_HOLE_WAVE_DEFAULTS, OPEN_HOLE_WAVE_LIMITS } from '@/utils/openHoleWave.js';
 import { parseOptionalNumber } from '@/utils/general.js';
+import { resolveEquipmentInspectorFields } from '@/topology/equipmentDefinitions/index.js';
 
 export const VISUAL_INSPECTOR_CONTROL_TYPES = Object.freeze({
     toggle: 'toggle',
@@ -264,7 +265,42 @@ function shouldShowField(fieldDefinition, context) {
     }) === true;
 }
 
+function normalizeFieldToken(value) {
+    return String(value ?? '').trim();
+}
+
+function mergeInspectorFields(baseFields = [], extensionFields = []) {
+    const merged = [];
+    const fieldToIndexMap = new Map();
+    const candidates = [...baseFields, ...extensionFields];
+    candidates.forEach((fieldDefinition) => {
+        if (!fieldDefinition || typeof fieldDefinition !== 'object') return;
+        const fieldToken = normalizeFieldToken(fieldDefinition.field);
+        if (!fieldToken) {
+            merged.push(fieldDefinition);
+            return;
+        }
+
+        const existingIndex = fieldToIndexMap.get(fieldToken);
+        if (Number.isInteger(existingIndex)) {
+            merged[existingIndex] = fieldDefinition;
+            return;
+        }
+
+        fieldToIndexMap.set(fieldToken, merged.length);
+        merged.push(fieldDefinition);
+    });
+    return merged;
+}
+
 export function getVisualInspectorFields(elementType, context = null) {
     const baseFields = VISUAL_INSPECTOR_SCHEMA[elementType] ?? [];
-    return [...baseFields].filter((fieldDefinition) => shouldShowField(fieldDefinition, context));
+    if (elementType !== 'equipment') {
+        return [...baseFields].filter((fieldDefinition) => shouldShowField(fieldDefinition, context));
+    }
+
+    const equipmentType = context?.rowData?.type ?? null;
+    const extensionFields = resolveEquipmentInspectorFields(equipmentType, context);
+    const mergedFields = mergeInspectorFields(baseFields, extensionFields);
+    return mergedFields.filter((fieldDefinition) => shouldShowField(fieldDefinition, context));
 }

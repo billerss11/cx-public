@@ -32,7 +32,7 @@ import {
   isRenderModelWorkerCancelledError
 } from '@/composables/useRenderModelWorker.js';
 import { usePlotEntityHandlers } from '@/composables/usePlotEntityHandlers.js';
-import { resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
+import { hasTrajectoryDefinitionRows, resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
 import DirectionalAxisLayer from './layers/DirectionalAxisLayer.vue';
 import DirectionalBandLayer from './layers/DirectionalBandLayer.vue';
 import DirectionalDecorationLayer from './layers/DirectionalDecorationLayer.vue';
@@ -59,6 +59,8 @@ import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgT
 import {
   DIRECTIONAL_BASE_SVG_WIDTH,
   DIRECTIONAL_MARGIN,
+  resolveDirectionalHorizontalPadding,
+  resolveVerticalEquivalentXHalf,
   resolveDirectionalSvgWidthFromHeight
 } from '@/utils/directionalSizing.js';
 import {
@@ -67,6 +69,7 @@ import {
   normalizeMagnifierZoomLevel
 } from '@/constants/index.js';
 import { createClientPointerResolver } from '@/composables/useClientPointerResolver.js';
+import { logLabelScaleDiagnostic } from '@/utils/diagnostics.js';
 
 const EPSILON = 1e-6;
 const AUTO_FIT_HEIGHT_DELTA_THRESHOLD = 2;
@@ -147,6 +150,7 @@ const DIRECTIONAL_WHEEL_ZOOM_MAX = 4;
 let resizeObserver = null;
 let directionalRenderRequestVersion = 0;
 let lastTooltipHoverAt = 0;
+let lastDirectionalCanvasMetricSignature = '';
 
 const lastAutoFitSignature = computed(() => (
   typeof viewConfigStore.uiState?.lastDirectionalAutoFitSignature === 'string'
@@ -190,6 +194,9 @@ const userAnnotationRows = computed(() => (
 ));
 const trajectoryRows = computed(() => (
   Array.isArray(props.projectData?.trajectory) ? props.projectData.trajectory : []
+));
+const hasTrajectoryDefinition = computed(() => (
+  hasTrajectoryDefinitionRows(trajectoryRows.value)
 ));
 
 function toFiniteDepth(value) {
@@ -429,6 +436,18 @@ const diameterScaleValue = computed(() => {
 const maxProjectedRadiusValue = computed(() => (
   maxStackOuterRadius.value * diameterScaleValue.value
 ));
+const widthMultiplierValue = computed(() => {
+  const parsed = Number(props.config?.widthMultiplier);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3.5;
+});
+const verticalEquivalentXHalfValue = computed(() => (
+  resolveVerticalEquivalentXHalf({
+    maxCasingOuterRadius: maxCasingOuterRadius.value,
+    maxStackOuterRadius: maxStackOuterRadius.value,
+    diameterScale: diameterScaleValue.value,
+    widthMultiplier: widthMultiplierValue.value
+  })
+));
 
 const exaggeratedXValues = computed(() => (
   trajectoryPoints.value
@@ -479,7 +498,13 @@ const rawMaxTvdValue = computed(() => {
   return 1000;
 });
 
-const xPaddingValue = computed(() => Math.max(10, maxProjectedRadiusValue.value * 1.5));
+const xPaddingValue = computed(() => (
+  resolveDirectionalHorizontalPadding({
+    maxProjectedRadius: maxProjectedRadiusValue.value,
+    hasTrajectoryDefinition: hasTrajectoryDefinition.value,
+    verticalEquivalentXHalf: verticalEquivalentXHalfValue.value
+  })
+));
 const yPaddingValue = computed(() => Math.max(10, maxProjectedRadiusValue.value * 1.5));
 
 const minXData = computed(() => rawMinXValue.value - xPaddingValue.value);
@@ -554,6 +579,52 @@ const displayScaleValue = computed(() => {
 });
 const displayWidthValue = computed(() => Math.round(svgWidthValue.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(figHeightValue.value * displayScaleValue.value));
+
+watch(
+  [
+    () => Number(containerWidth.value),
+    () => Number(containerHeight.value),
+    () => Number(svgWidthValue.value),
+    () => Number(figHeightValue.value),
+    () => Number(displayWidthValue.value),
+    () => Number(displayHeightValue.value),
+    () => Number(props.config?.canvasWidthMultiplier),
+    () => Number(props.config?.figHeight),
+    () => String(props.config?.viewMode ?? ''),
+    () => Boolean(props.config?.lockAspectRatio)
+  ],
+  ([
+    containerW,
+    containerH,
+    svgW,
+    figH,
+    displayW,
+    displayH,
+    canvasWidthMultiplier,
+    configFigHeight,
+    viewMode,
+    lockAspectRatioEnabled
+  ]) => {
+    const payload = {
+      containerWidth: containerW,
+      containerHeight: containerH,
+      svgWidth: svgW,
+      figHeight: figH,
+      displayWidth: displayW,
+      displayHeight: displayH,
+      canvasWidthMultiplier,
+      configFigHeight,
+      viewMode,
+      lockAspectRatioEnabled
+    };
+
+    const signature = JSON.stringify(payload);
+    if (signature === lastDirectionalCanvasMetricSignature) return;
+    lastDirectionalCanvasMetricSignature = signature;
+    logLabelScaleDiagnostic('directional-canvas-metrics', payload);
+  },
+  { immediate: true }
+);
 
 const xScale = computed(() => d3.scaleLinear()
   .domain([minXData.value, maxXData.value])
@@ -713,10 +784,8 @@ const depthCursor = useDepthCursorOverlay({
   plotTopY,
   plotBottomY,
   restrictXToPlot: false,
-  resolvePointerFromClient: ({ clientX, clientY, localPointer }) => (
-    pointerMapping.resolvePointer({ clientX, clientY })?.canonicalPoint ??
-    invertCameraPoint(localPointer, directionalCameraState.value) ??
-    localPointer
+  resolvePointerFromClient: ({ localPointer }) => (
+    invertCameraPoint(localPointer, directionalCameraState.value) ?? localPointer
   ),
   resolveDepth: (pointer) => {
     const tvd = Number(yScale.value.invert(pointer?.y));
@@ -1216,7 +1285,7 @@ function handleCanvasPointerUp(event) {
 }
 
 function handleCanvasPointerDown(event) {
-  if (!isCameraTransformEnabled.value && hasInteractiveSchematicTarget(event?.target)) return;
+  if (hasInteractiveSchematicTarget(event?.target)) return;
   startCameraPan(event);
 }
 

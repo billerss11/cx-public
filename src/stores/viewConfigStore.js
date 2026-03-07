@@ -21,6 +21,7 @@ import {
     resolveDirectionalWidthMultiplierFromSvgWidth
 } from '@/utils/directionalSizing.js';
 import { clampZoom } from '@/utils/svgTransformMath.js';
+import { logLabelScaleDiagnostic } from '@/utils/diagnostics.js';
 
 const MIN_CANVAS_WIDTH_MULTIPLIER = 0.1;
 const DEFAULT_CANVAS_WIDTH_MULTIPLIER = 1.0;
@@ -268,6 +269,19 @@ export function normalizeCanvasWidthMultiplierForMode(value, mode, fallback = DE
 export const useViewConfigStore = defineStore('viewConfig', () => {
     const config = reactive(createDefaultViewConfig());
     const uiState = reactive(createDefaultViewUiState());
+
+    function buildModeLayoutSnapshot() {
+        return {
+            viewMode: normalizeViewMode(config.viewMode),
+            figHeight: Number(config.figHeight),
+            canvasWidthMultiplier: Number(config.canvasWidthMultiplier),
+            lockAspectRatio: config.lockAspectRatio === true,
+            widthMultiplier: Number(config.widthMultiplier),
+            xExaggeration: Number(config.xExaggeration),
+            hasDirectionalAspectRatioMeasurement: uiState.hasDirectionalAspectRatioMeasurement === true,
+            directionalDataAspectRatio: Number(uiState.directionalDataAspectRatio)
+        };
+    }
 
     function normalizeMetricsDelta(value, fallback = 1) {
         const parsed = Number(value);
@@ -734,6 +748,7 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
     function syncDirectionalCanvasWidthFromFigureHeight() {
         if (normalizeViewMode(config.viewMode) !== 'directional' || config.lockAspectRatio !== true) return;
         if (uiState.hasDirectionalAspectRatioMeasurement !== true) return;
+        const beforeMultiplier = Number(config.canvasWidthMultiplier);
         const svgWidth = resolveDirectionalSvgWidthFromHeight(
             config.figHeight,
             resolveDirectionalDataAspectRatio()
@@ -745,6 +760,12 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         const multiplier = Math.round(rawMultiplier * 100) / 100;
         setConfigValue('canvasWidthMultiplier', multiplier);
         rememberDirectionalCanvasWidth(multiplier);
+        logLabelScaleDiagnostic('store-sync-directional-width-from-height', {
+            ...buildModeLayoutSnapshot(),
+            svgWidth,
+            beforeMultiplier,
+            nextMultiplier: multiplier
+        });
     }
 
     function setCanvasWidthForMode(mode, value, fallback = config.canvasWidthMultiplier) {
@@ -799,6 +820,12 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
     function setViewMode(value) {
         const previousMode = normalizeViewMode(config.viewMode);
         const nextMode = normalizeViewMode(value);
+        logLabelScaleDiagnostic('store-set-view-mode-start', {
+            previousMode,
+            requestedMode: value,
+            nextMode,
+            snapshot: buildModeLayoutSnapshot()
+        });
 
         if (previousMode === 'directional') {
             rememberDirectionalViewportConfig(config);
@@ -807,9 +834,20 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         setConfigValue('viewMode', nextMode);
         maybeApplyDirectionalCanvasWidthDefault(previousMode, nextMode);
 
-        if (previousMode !== 'directional' && nextMode === 'directional' && restoreDirectionalViewportConfig()) {
+        const restoredDirectionalViewport = (
+            previousMode !== 'directional' &&
+            nextMode === 'directional' &&
+            restoreDirectionalViewportConfig()
+        );
+        if (restoredDirectionalViewport) {
             suppressNextDirectionalAutoFit();
         }
+        logLabelScaleDiagnostic('store-set-view-mode-end', {
+            previousMode,
+            nextMode,
+            restoredDirectionalViewport,
+            snapshot: buildModeLayoutSnapshot()
+        });
         return config.viewMode;
     }
 
@@ -835,11 +873,17 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
     }
 
     function setDirectionalDataAspectRatio(value) {
+        const previousAspectRatio = Number(uiState.directionalDataAspectRatio);
         const numeric = Number(value);
         const safeAspectRatio = Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
         uiState.hasDirectionalAspectRatioMeasurement = true;
         if (Object.is(uiState.directionalDataAspectRatio, safeAspectRatio)) return safeAspectRatio;
         uiState.directionalDataAspectRatio = safeAspectRatio;
+        logLabelScaleDiagnostic('store-set-directional-aspect-ratio', {
+            previousAspectRatio,
+            nextAspectRatio: safeAspectRatio,
+            snapshot: buildModeLayoutSnapshot()
+        });
         syncDirectionalCanvasWidthFromFigureHeight();
         return safeAspectRatio;
     }

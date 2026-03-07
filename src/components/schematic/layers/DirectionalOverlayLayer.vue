@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import {
   clamp,
   formatDepthValue,
@@ -25,6 +25,7 @@ import {
   resolveScreenFrameAtMD,
   normalizeXExaggeration
 } from './directionalProjection.js';
+import { logLabelScaleDiagnostic } from '@/utils/diagnostics.js';
 
 const ANNOTATION_SIDE_PADDING_PX = 12;
 const ANNOTATION_WELL_GAP_PX = 8;
@@ -129,6 +130,7 @@ const emit = defineEmits([
   'hover-box',
   'leave-box'
 ]);
+let lastDirectionalLabelDiagnosticSignature = '';
 
 function normalizePipeType(pipeType) {
   const normalized = String(pipeType ?? '').trim().toLowerCase();
@@ -1180,6 +1182,26 @@ const casingLabelOverlays = computed(() => {
     sourceRowsByIndex: sourceCasingRowsByIndex.value
   });
 });
+
+watch(casingLabelOverlays, (nextLabels) => {
+  const rows = (Array.isArray(nextLabels) ? nextLabels : [])
+    .map((label) => ({
+      rowIndex: Number(label?.rowIndex),
+      fontSize: Number(label?.fontSize),
+      boxY: Number(label?.boxY),
+      boxHeight: Number(label?.boxHeight),
+      primaryText: String(label?.textRows?.[0]?.text ?? '')
+    }));
+
+  const signature = JSON.stringify(rows);
+  if (signature === lastDirectionalLabelDiagnosticSignature) return;
+  lastDirectionalLabelDiagnosticSignature = signature;
+
+  logLabelScaleDiagnostic('directional-casing-label-render', {
+    count: rows.length,
+    labels: rows
+  });
+}, { immediate: true });
 
 const transientPipeLabelOverlays = computed(() => {
   const physicsContext = resolvedPhysicsContext.value;

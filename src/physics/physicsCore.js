@@ -49,8 +49,9 @@ const ANNULUS_NODE_KIND_BY_SLOT_INDEX = Object.freeze([
     'ANNULUS_C',
     'ANNULUS_D'
 ]);
+const TOPOLOGY_NODE_KIND_TUBING_ANNULUS = 'TUBING_ANNULUS';
 
-const [AUTO_FORMATION_ANNULUS, AUTO_ANNULUS_A, AUTO_ANNULUS_B, AUTO_ANNULUS_C, AUTO_ANNULUS_D] = FLUID_PLACEMENT_AUTO_OPTIONS;
+const [AUTO_FORMATION_ANNULUS, AUTO_PRODUCTION_ANNULUS, AUTO_A_ANNULUS, AUTO_B_ANNULUS, AUTO_C_ANNULUS] = FLUID_PLACEMENT_AUTO_OPTIONS;
 
 function isDepthWithin(depth, top, bottom) {
     if (!Number.isFinite(depth) || !Number.isFinite(top) || !Number.isFinite(bottom)) return false;
@@ -73,11 +74,10 @@ function normalizeFluidPlacementToken(value) {
     const compact = raw.replace(/[\s_-]+/g, '').toLowerCase();
 
     if (compact.includes('formation')) return AUTO_FORMATION_ANNULUS;
-    if (compact.includes('production')) return AUTO_ANNULUS_A;
-    if (compact.includes('annulusa') || compact.includes('aannulus') || compact === 'a') return AUTO_ANNULUS_A;
-    if (compact.includes('annulusb') || compact.includes('bannulus') || compact === 'b') return AUTO_ANNULUS_B;
-    if (compact.includes('annulusc') || compact.includes('cannulus') || compact === 'c') return AUTO_ANNULUS_C;
-    if (compact.includes('annulusd') || compact.includes('dannulus') || compact === 'd') return AUTO_ANNULUS_D;
+    if (compact.includes('production')) return AUTO_PRODUCTION_ANNULUS;
+    if (compact.includes('aannulus') || compact === 'a') return AUTO_A_ANNULUS;
+    if (compact.includes('bannulus') || compact === 'b') return AUTO_B_ANNULUS;
+    if (compact.includes('cannulus') || compact === 'c') return AUTO_C_ANNULUS;
 
     if (raw.toLowerCase().startsWith('behind:')) {
         const casingRef = raw.slice(raw.indexOf(':') + 1).trim();
@@ -500,12 +500,18 @@ export function resolveHangers(casingRows = [], options = {}) {
 
 function resolveModeledAnnulusKindBySlotIndex(slotIndex, options = {}) {
     const isFormation = options?.isFormation === true;
+    const hasTubingAnnulus = options?.hasTubingAnnulus === true;
     if (!Number.isInteger(slotIndex) || slotIndex < 0) {
         return isFormation ? 'FORMATION_ANNULUS' : null;
     }
 
-    if (slotIndex < ANNULUS_NODE_KIND_BY_SLOT_INDEX.length) {
-        return ANNULUS_NODE_KIND_BY_SLOT_INDEX[slotIndex];
+    if (hasTubingAnnulus && slotIndex === 0) {
+        return TOPOLOGY_NODE_KIND_TUBING_ANNULUS;
+    }
+
+    const adjustedSlotIndex = hasTubingAnnulus ? slotIndex - 1 : slotIndex;
+    if (adjustedSlotIndex >= 0 && adjustedSlotIndex < ANNULUS_NODE_KIND_BY_SLOT_INDEX.length) {
+        return ANNULUS_NODE_KIND_BY_SLOT_INDEX[adjustedSlotIndex];
     }
     return isFormation ? 'FORMATION_ANNULUS' : null;
 }
@@ -535,6 +541,10 @@ function resolvePackerSealSlotForHost(depth, hostType, hostRow, options = {}) {
     const outerEnvironmentRadius = resolveOuterEnvironmentRadius(activeSteel, activeOpenHoles, depth);
     const annuli = buildAnnulusSlots(activeSteel, outerEnvironmentRadius);
     if (annuli.length === 0) return null;
+    const hasTubingAnnulus = annuli.some((slot) =>
+        Number(slot?.index) === 0 && slot?.innerPipe?.pipeType === PIPE_TYPE_TUBING
+    );
+
     const hostPipeType = hostType === PIPE_HOST_TYPE_TUBING
         ? PIPE_TYPE_TUBING
         : PIPE_TYPE_CASING;
@@ -555,6 +565,7 @@ function resolvePackerSealSlotForHost(depth, hostType, hostRow, options = {}) {
         ? Number(sealSlot.index)
         : null;
     const sealNodeKind = resolveModeledAnnulusKindBySlotIndex(sealSlotIndex, {
+        hasTubingAnnulus,
         isFormation: sealSlot?.isFormation === true
     });
     const sealInnerDiameter = Number.isFinite(sealSlot?.innerRadius)
@@ -1483,17 +1494,14 @@ function resolveAnnulusIndexForPlacement(placement, annuli, context, placementRe
     if (placement === AUTO_FORMATION_ANNULUS) {
         return annuli[annuli.length - 1]?.index ?? null;
     }
-    if (placement === AUTO_ANNULUS_A) {
+    if (placement === AUTO_PRODUCTION_ANNULUS || placement === AUTO_A_ANNULUS) {
         return annuli[0]?.index ?? null;
     }
-    if (placement === AUTO_ANNULUS_B) {
+    if (placement === AUTO_B_ANNULUS) {
         return annuli[1]?.index ?? null;
     }
-    if (placement === AUTO_ANNULUS_C) {
+    if (placement === AUTO_C_ANNULUS) {
         return annuli[2]?.index ?? null;
-    }
-    if (placement === AUTO_ANNULUS_D) {
-        return annuli[3]?.index ?? null;
     }
     if (placement.toLowerCase().startsWith('behind:')) {
         const casingRef = placement.slice(placement.indexOf(':') + 1).trim();

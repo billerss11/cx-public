@@ -65,11 +65,11 @@
     "validationWarningCount": 2,
     "validationWarningCodes": [
       "scenario_rows_with_no_resolved_nodes",
-      "scenario_source_unsupported_volume"
+      "scenario_source_no_resolvable_interval"
     ],
     "validationWarningCodeCounts": {
       "scenario_rows_with_no_resolved_nodes": 1,
-      "scenario_source_unsupported_volume": 1
+      "scenario_source_no_resolvable_interval": 1
     },
     "uncodedValidationWarningCount": 0,
     "barrierPrimaryElementCount": 0,

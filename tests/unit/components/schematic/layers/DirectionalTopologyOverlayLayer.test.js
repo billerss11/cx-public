@@ -158,41 +158,4 @@ describe('DirectionalTopologyOverlayLayer', () => {
     const pointCount = parsePolygonPointCount(polygons[0].attributes('points'));
     expect(pointCount).toBe(22);
   });
-
-  it('does not render overlay polygons for removed TUBING_ANNULUS node kind', () => {
-    const intervals = [
-      { top: 0, bottom: 200, stack: createAnnulusStack() }
-    ];
-
-    const topologyResult = {
-      nodes: [
-        {
-          nodeId: 'node:TUBING_ANNULUS:0',
-          kind: 'TUBING_ANNULUS',
-          depthTop: 0,
-          depthBottom: 200
-        }
-      ],
-      activeFlowNodeIds: ['node:TUBING_ANNULUS:0'],
-      edges: [],
-      minCostPathEdgeIds: [],
-      spofEdgeIds: []
-    };
-
-    const wrapper = mount(DirectionalTopologyOverlayLayer, {
-      props: {
-        intervals,
-        topologyResult,
-        projector: (md, offset) => [Number(md), Number(offset)],
-        diameterScale: 1,
-        showActiveFlow: true,
-        showMinCostPath: true,
-        showSpof: true,
-        selectedNodeIds: [],
-        sampleStepMd: 20
-      }
-    });
-
-    expect(wrapper.findAll('polygon')).toHaveLength(0);
-  });
 });

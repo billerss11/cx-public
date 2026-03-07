@@ -145,7 +145,7 @@ describe('topologyGraphDebug', () => {
       kind: 'ANNULUS_A',
       depthTop: 9000,
       depthBottom: 9500
-    }, { depthUnitsLabel: 'ft' })).toBe('Annulus A (First Annulus) | 9,000-9,500 ft MD');
+    }, { depthUnitsLabel: 'ft' })).toBe('Outer Annulus A (Casing-Casing) | 9,000-9,500 ft MD');
 
     expect(formatTopologyGraphEdgeLabel({
       kind: 'radial',
@@ -248,12 +248,12 @@ describe('topologyGraphDebug', () => {
     });
 
     expect(graph.laneHeaders).toEqual([
-      expect.objectContaining({ kind: 'ANNULUS_A', label: 'Annulus A (First Annulus)' }),
-      expect.objectContaining({ kind: 'ANNULUS_B', label: 'Annulus B' })
+      expect.objectContaining({ kind: 'ANNULUS_A', label: 'Outer Annulus A (Casing-Casing)' }),
+      expect.objectContaining({ kind: 'ANNULUS_B', label: 'Outer Annulus B' })
     ]);
 
     const radialEdge = graph.edges['edge:radial:a1-b1'];
-    expect(radialEdge.tooltipLines).toContain('Path: Annulus A (First Annulus) -> Annulus B');
+    expect(radialEdge.tooltipLines).toContain('Path: Outer Annulus A (Casing-Casing) -> Outer Annulus B');
     expect(radialEdge.tooltipLines).toContain('Rule: marker-leak');
     expect(radialEdge.tooltipLines).toContain('Tubing-host leak marker creates radial communication.');
   });

@@ -15,6 +15,12 @@ function clampPositive(value, fallback = 1) {
   return numeric;
 }
 
+function toFinitePositive(value, fallback = null) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
+  return numeric;
+}
+
 function resolvePlotHeightFromFigureHeight(figHeight) {
   return Math.max(10, clampPositive(figHeight, DIRECTIONAL_MIN_FIGURE_HEIGHT) - DIRECTIONAL_MARGIN.top - DIRECTIONAL_MARGIN.bottom);
 }
@@ -56,6 +62,32 @@ export function resolveDirectionalSvgWidthFromMultiplier(multiplier) {
 
 export function resolveDirectionalWidthMultiplierFromSvgWidth(svgWidth) {
   return clampSvgWidth(svgWidth) / DIRECTIONAL_BASE_SVG_WIDTH;
+}
+
+export function resolveVerticalEquivalentXHalf(options = {}) {
+  const maxCasingOuterRadius = clampPositive(options?.maxCasingOuterRadius, 1);
+  const maxStackOuterRadius = clampPositive(options?.maxStackOuterRadius, 1);
+  const diameterScale = clampPositive(options?.diameterScale, 1);
+  const widthMultiplier = clampPositive(options?.widthMultiplier, 3.5);
+  const minHalfWidth = clampPositive(options?.minHalfWidth, 30);
+
+  const maxOD = Math.max(1, maxCasingOuterRadius * 2, maxStackOuterRadius * 2);
+  const halfWidth = (maxOD * diameterScale) / 2;
+  return Math.max(minHalfWidth, halfWidth * widthMultiplier);
+}
+
+export function resolveDirectionalHorizontalPadding(options = {}) {
+  const maxProjectedRadius = Math.max(0, Number(options?.maxProjectedRadius) || 0);
+  const radialPaddingMultiplier = clampPositive(options?.radialPaddingMultiplier, 1.5);
+  const minRadialPadding = clampPositive(options?.minRadialPadding, 10);
+  const radialPadding = Math.max(minRadialPadding, maxProjectedRadius * radialPaddingMultiplier);
+
+  if (options?.hasTrajectoryDefinition !== false) return radialPadding;
+
+  const verticalEquivalentXHalf = toFinitePositive(options?.verticalEquivalentXHalf, null);
+  if (!Number.isFinite(verticalEquivalentXHalf)) return radialPadding;
+
+  return Math.max(radialPadding, verticalEquivalentXHalf);
 }
 
 export {

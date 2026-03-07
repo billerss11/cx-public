@@ -3,10 +3,6 @@ import {
   buildTopologyBreakoutSchema,
   buildTopologySourceSchema
 } from '@/composables/tableSchemas/topologySchema.js';
-import {
-  TOPOLOGY_SOURCE_VOLUME_CELL_LABELS,
-  TOPOLOGY_SOURCE_VOLUME_OPTIONS
-} from '@/composables/tableSchemas/baseSchemaUtils.js';
 
 function createDomainState() {
   return {
@@ -33,13 +29,6 @@ function createDomainState() {
 }
 
 describe('topologySchema', () => {
-  it('uses canonical topology source volume labels and options', () => {
-    expect(TOPOLOGY_SOURCE_VOLUME_OPTIONS).not.toContain('TUBING_ANNULUS');
-    expect(Object.prototype.hasOwnProperty.call(TOPOLOGY_SOURCE_VOLUME_CELL_LABELS, 'TUBING_ANNULUS')).toBe(false);
-    expect(TOPOLOGY_SOURCE_VOLUME_CELL_LABELS.ANNULUS_A).toContain('first annulus');
-    expect(TOPOLOGY_SOURCE_VOLUME_CELL_LABELS.ANNULUS_A).not.toContain('first casing-to-casing');
-  });
-
   it('builds source schema that only exposes source rows and merges edits', () => {
     const domainState = createDomainState();
     const schema = buildTopologySourceSchema(domainState, {
@@ -50,7 +39,6 @@ describe('topologySchema', () => {
     const sourceRows = schema.getData();
     expect(sourceRows).toHaveLength(1);
     expect(sourceRows[0].rowId).toBe('src-1');
-    expect(schema.enableRowSelection).toBe(true);
 
     const mergedRows = schema.mapRowsForStore([
       {
@@ -77,7 +65,6 @@ describe('topologySchema', () => {
     const breakoutRows = schema.getData();
     expect(breakoutRows).toHaveLength(1);
     expect(breakoutRows[0].rowId).toBe('br-1');
-    expect(schema.enableRowSelection).toBe(true);
 
     const mergedRows = schema.mapRowsForStore([
       {

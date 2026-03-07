@@ -89,37 +89,4 @@ describe('physicsCore', () => {
     expect(resolved[0].isOrphaned).toBe(true);
     expect(resolved[0].attachWarningCode).toBe('equipment_missing_attach_target');
   });
-
-  it('maps legacy production-annulus placement token to first annulus slot', () => {
-    const stack = getStackAtDepth(1200, {
-      casingData: [
-        { od: 9.625, weight: 40, top: 0, bottom: 2000, idOverride: 8.5 },
-        { od: 7.0, weight: 26, top: 0, bottom: 2000, idOverride: 6.2 }
-      ],
-      tubingData: [
-        { od: 4.5, innerDiameter: 4.0, top: 0, bottom: 2000 }
-      ],
-      drillStringData: [],
-      equipmentData: [],
-      horizontalLines: [],
-      annotationBoxes: [],
-      cementPlugs: [],
-      annulusFluids: [
-        {
-          placement: 'Auto: Production Annulus',
-          top: 0,
-          bottom: 2000,
-          label: 'Legacy placement token'
-        }
-      ],
-      markers: [],
-      trajectory: [],
-      config: { operationPhase: 'production' },
-      interaction: {}
-    });
-
-    const assignedLayer = stack.find((layer) => layer.role === 'annulus' && layer.material === 'fluid');
-    expect(assignedLayer).toBeDefined();
-    expect(assignedLayer?.slotIndex).toBe(0);
-  });
 });

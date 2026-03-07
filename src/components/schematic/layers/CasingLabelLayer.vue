@@ -1,9 +1,10 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { LAYOUT_CONSTANTS, PHYSICS_CONSTANTS } from '@/constants/index.js';
 import { clamp, estimateCasingID, parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
+import { logLabelScaleDiagnostic } from '@/utils/diagnostics.js';
 
 const props = defineProps({
   pipeData: {
@@ -41,6 +42,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['select-pipe', 'hover-pipe', 'leave-pipe']);
+let lastVerticalLabelDiagnosticSignature = '';
 
 function normalizePipeType(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -273,6 +275,27 @@ const labels = computed(() => {
     };
   }).filter(Boolean);
 });
+
+watch(labels, (nextLabels) => {
+  const rows = (Array.isArray(nextLabels) ? nextLabels : [])
+    .filter((label) => String(label?.pipeType ?? '').trim() === 'casing')
+    .map((label) => ({
+      rowIndex: Number(label?.rowIndex),
+      fontSize: Number(label?.fontSize),
+      boxY: Number(label?.boxY),
+      boxHeight: Number(label?.boxHeight),
+      primaryText: String(label?.textLines?.[0]?.text ?? '')
+    }));
+
+  const signature = JSON.stringify(rows);
+  if (signature === lastVerticalLabelDiagnosticSignature) return;
+  lastVerticalLabelDiagnosticSignature = signature;
+
+  logLabelScaleDiagnostic('vertical-casing-label-render', {
+    count: rows.length,
+    labels: rows
+  });
+}, { immediate: true });
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProjectedTrajectory,
+  hasTrajectoryDefinitionRows,
   resolveTrajectoryPointsFromRows
 } from '@/app/trajectoryMathCore.mjs';
 
@@ -56,5 +57,26 @@ describe('trajectoryMathCore', () => {
     expect(projected[1].md).toBe(1000);
     expect(projected[1].tvd).toBeCloseTo(1000, 6);
     expect(projected[1].x).toBeCloseTo(0, 6);
+  });
+
+  it('detects when trajectory rows contain explicit trajectory definition', () => {
+    expect(hasTrajectoryDefinitionRows([])).toBe(false);
+    expect(hasTrajectoryDefinitionRows([{ md: 0, inc: 0, azi: 0 }])).toBe(false);
+    expect(hasTrajectoryDefinitionRows([
+      { md: 0, inc: 0, azi: 0 },
+      { md: 1000, inc: 5, azi: 90 }
+    ])).toBe(true);
+  });
+
+  it('detects legacy cartesian trajectory rows as explicit definition only when path is valid', () => {
+    expect(hasTrajectoryDefinitionRows([
+      { x: 0, tvd: 0 },
+      { x: 100, tvd: 200 }
+    ])).toBe(true);
+
+    expect(hasTrajectoryDefinitionRows([
+      { x: 0, tvd: 0 },
+      { x: 0, tvd: 0 }
+    ])).toBe(false);
   });
 });

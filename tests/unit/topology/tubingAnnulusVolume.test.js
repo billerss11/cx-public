@@ -48,12 +48,12 @@ function createBaseState() {
   };
 }
 
-describe('topology canonical first-annulus volume semantics', () => {
-  it('accepts canonical annulus source keys and rejects removed tubing-annulus aliases', () => {
-    expect(normalizeSourceVolumeKind('TUBING_ANNULUS')).toBe(null);
-    expect(normalizeSourceVolumeKind('tubing annulus')).toBe(null);
-    expect(normalizeSourceVolumeKind('PRIMARY_ANNULUS')).toBe(null);
-    expect(normalizeSourceVolumeKind('PRODUCTION_ANNULUS')).toBe(null);
+describe('topology tubing-annulus volume semantics', () => {
+  it('treats TUBING_ANNULUS as a first-class source volume key', () => {
+    expect(normalizeSourceVolumeKind('TUBING_ANNULUS')).toBe('TUBING_ANNULUS');
+    expect(normalizeSourceVolumeKind('tubing annulus')).toBe('TUBING_ANNULUS');
+    expect(normalizeSourceVolumeKind('PRIMARY_ANNULUS')).toBe('TUBING_ANNULUS');
+    expect(normalizeSourceVolumeKind('PRODUCTION_ANNULUS')).toBe('TUBING_ANNULUS');
     expect(normalizeSourceVolumeKind('CASING_ANNULUS_A')).toBe('ANNULUS_A');
     expect(normalizeSourceVolumeKind('ANNULUS_E')).toBe('ANNULUS_E');
     expect(normalizeSourceVolumeKind('ANNULUS_F')).toBe('ANNULUS_F');
@@ -61,7 +61,7 @@ describe('topology canonical first-annulus volume semantics', () => {
     expect(normalizeSourceVolumeKind('open hole')).toBe('FORMATION_ANNULUS');
   });
 
-  it('resolves ANNULUS_A as first annulus in both tubing-present and tubing-absent states', () => {
+  it('resolves TUBING_ANNULUS sources only where tubing-annulus nodes exist', () => {
     const stateWithTubing = createBaseState();
     stateWithTubing.tubingData = [
       {
@@ -76,9 +76,9 @@ describe('topology canonical first-annulus volume semantics', () => {
     ];
     stateWithTubing.topologySources = [
       {
-        rowId: 'src-annulus-a',
+        rowId: 'src-tbg-annulus',
         sourceType: 'scenario',
-        volumeKey: 'ANNULUS_A',
+        volumeKey: 'TUBING_ANNULUS',
         top: 1200,
         bottom: 1300,
         show: true
@@ -86,23 +86,23 @@ describe('topology canonical first-annulus volume semantics', () => {
     ];
 
     const withTubing = buildTopologyModel(stateWithTubing, { requestId: 1, wellId: 'with-tubing-annulus' });
-    const annulusASourceWithTubing = withTubing.sourceEntities.find((source) => source.rowId === 'src-annulus-a');
+    const tubingAnnulusSource = withTubing.sourceEntities.find((source) => source.rowId === 'src-tbg-annulus');
     const noIntervalWarningWithTubing = withTubing.validationWarnings.find(
       (warning) => warning.code === 'scenario_source_no_resolvable_interval'
     );
 
-    expect(withTubing.nodes.some((node) => node.kind === 'TUBING_ANNULUS')).toBe(false);
+    expect(withTubing.nodes.some((node) => node.kind === 'TUBING_ANNULUS')).toBe(true);
     expect(withTubing.nodes.some((node) => node.kind === 'ANNULUS_A')).toBe(true);
-    expect(annulusASourceWithTubing?.volumeKey).toBe('ANNULUS_A');
-    expect((annulusASourceWithTubing?.nodeIds?.length ?? 0) > 0).toBe(true);
+    expect(tubingAnnulusSource?.volumeKey).toBe('TUBING_ANNULUS');
+    expect(tubingAnnulusSource?.nodeIds.every((nodeId) => nodeId.includes('TUBING_ANNULUS'))).toBe(true);
     expect(noIntervalWarningWithTubing).toBeUndefined();
 
     const stateWithoutTubing = createBaseState();
     stateWithoutTubing.topologySources = [
       {
-        rowId: 'src-annulus-a',
+        rowId: 'src-tbg-annulus',
         sourceType: 'scenario',
-        volumeKey: 'ANNULUS_A',
+        volumeKey: 'TUBING_ANNULUS',
         top: 1200,
         bottom: 1300,
         show: true
@@ -110,17 +110,19 @@ describe('topology canonical first-annulus volume semantics', () => {
     ];
 
     const withoutTubing = buildTopologyModel(stateWithoutTubing, { requestId: 2, wellId: 'without-tubing-annulus' });
-    const annulusASourceWithoutTubing = withoutTubing.sourceEntities.find((source) => source.rowId === 'src-annulus-a');
     const noIntervalWarningWithoutTubing = withoutTubing.validationWarnings.find(
       (warning) => warning.code === 'scenario_source_no_resolvable_interval'
     );
+    const unsupportedVolumeWarning = withoutTubing.validationWarnings.find(
+      (warning) => warning.code === 'scenario_source_unsupported_volume'
+    );
 
-    expect(annulusASourceWithoutTubing?.volumeKey).toBe('ANNULUS_A');
-    expect((annulusASourceWithoutTubing?.nodeIds?.length ?? 0) > 0).toBe(true);
-    expect(noIntervalWarningWithoutTubing).toBeUndefined();
+    expect(withoutTubing.sourceEntities).toHaveLength(0);
+    expect(noIntervalWarningWithoutTubing).toBeDefined();
+    expect(unsupportedVolumeWarning).toBeUndefined();
   });
 
-  it('does not emit legacy tubing-annulus transition edges after canonical annulus mapping', () => {
+  it('creates explicit ANNULUS_A <-> TUBING_ANNULUS transition edges at tubing boundaries', () => {
     const state = createBaseState();
     state.tubingData = [
       {
@@ -135,13 +137,19 @@ describe('topology canonical first-annulus volume semantics', () => {
     ];
 
     const result = buildTopologyModel(state, { requestId: 3, wellId: 'tubing-boundary-transition' });
-    const legacyTransitionEdges = result.edges.filter((edge) => edge.reason?.ruleId === 'tubing-annulus-transition');
+    const nodeKindById = new Map(result.nodes.map((node) => [node.nodeId, node.kind]));
+    const transitionEdges = result.edges.filter((edge) => edge.reason?.ruleId === 'tubing-annulus-transition');
 
-    expect(legacyTransitionEdges).toHaveLength(0);
-    expect(result.nodes.some((node) => node.kind === 'TUBING_ANNULUS')).toBe(false);
+    const edgePairs = transitionEdges.map((edge) => (
+      `${nodeKindById.get(edge.from)}->${nodeKindById.get(edge.to)}`
+    ));
+
+    expect(transitionEdges.length).toBeGreaterThanOrEqual(2);
+    expect(edgePairs).toContain('ANNULUS_A->TUBING_ANNULUS');
+    expect(edgePairs).toContain('TUBING_ANNULUS->ANNULUS_A');
   });
 
-  it('emits deterministic tubing-end-transfer edges with canonical annulus mapping', () => {
+  it('creates explicit tubing-end transfer edges between TUBING_INNER and ANNULUS_A at tubing boundaries', () => {
     const state = createBaseState();
     state.tubingData = [
       {
@@ -157,17 +165,18 @@ describe('topology canonical first-annulus volume semantics', () => {
 
     const result = buildTopologyModel(state, { requestId: 31, wellId: 'tubing-end-transfer-transition' });
     const transferEdges = result.edges.filter((edge) => edge.reason?.ruleId === 'tubing-end-transfer');
-    const transitionTypes = new Set(transferEdges.map((edge) => edge.meta?.transitionType));
+    const edgePairs = transferEdges.map((edge) => (
+      `${edge.meta?.fromVolumeKey}->${edge.meta?.toVolumeKey}`
+    ));
+    const transitionKinds = new Set(transferEdges.map((edge) => edge.meta?.transitionType));
 
-    expect(transferEdges).toHaveLength(3);
-    expect(transitionTypes.has('tubing_end_transfer_entry')).toBe(true);
-    expect(transitionTypes.has('tubing_end_transfer_exit')).toBe(true);
-    expect(transferEdges.some((edge) => (
-      edge.meta?.fromVolumeKey === 'TUBING_INNER' && edge.meta?.toVolumeKey === 'ANNULUS_A'
-    ))).toBe(true);
+    expect(transitionKinds.has('tubing_end_transfer_entry')).toBe(true);
+    expect(transitionKinds.has('tubing_end_transfer_exit')).toBe(true);
+    expect(edgePairs).toContain('ANNULUS_A->TUBING_INNER');
+    expect(edgePairs).toContain('TUBING_INNER->ANNULUS_A');
   });
 
-  it('emits blocked tubing-end transfer exit edge for tubing-host packer with canonical annulus mapping', () => {
+  it('marks tubing-end transfer exit edge as closed_failable when tubing-host packer seals boundary annulus', () => {
     const state = createBaseState();
     state.tubingData = [
       {
@@ -200,11 +209,12 @@ describe('topology canonical first-annulus volume semantics', () => {
     ));
 
     expect(transferExitEdge).toBeDefined();
-    expect(transferExitEdge?.meta?.toVolumeKey).toBe('ANNULUS_A');
+    expect(transferExitEdge?.state).toBe('closed_failable');
     expect(transferExitEdge?.cost).toBe(1);
+    expect(transferExitEdge?.reason?.details?.blockedByEquipment).toBe(true);
   });
 
-  it('keeps deterministic tubing-end transfer exit edges for below-packer scenario', () => {
+  it('keeps below-packer tubing annulus active when tubing-end transfer to ANNULUS_A is material-blocked', () => {
     const state = createBaseState();
     state.casingData = [
       {
@@ -271,8 +281,29 @@ describe('topology canonical first-annulus volume semantics', () => {
       edge.reason?.ruleId === 'tubing-end-transfer'
       && edge.meta?.transitionType === 'tubing_end_transfer_exit'
     ));
-    expect(transferExitEdges).toHaveLength(2);
-    expect(transferExitEdges.every((edge) => edge.meta?.toVolumeKey === 'ANNULUS_A')).toBe(true);
+    const transitionPairs = transferExitEdges.map((edge) => (
+      `${edge.meta?.fromVolumeKey}->${edge.meta?.toVolumeKey}`
+    ));
+    const blockedAnnulusATransfer = transferExitEdges.find((edge) => (
+      edge.meta?.toVolumeKey === 'ANNULUS_A'
+    ));
+    const localTubingAnnulusTransfer = transferExitEdges.find((edge) => (
+      edge.meta?.toVolumeKey === 'TUBING_ANNULUS'
+    ));
+    const belowPackerTubingAnnulusNode = result.nodes.find((node) => (
+      node?.kind === 'TUBING_ANNULUS'
+      && Number(node?.depthTop) >= 9431 - 1e-6
+      && Number(node?.depthBottom) >= 10000 - 1e-6
+    ));
+    const activeNodeIdSet = new Set(result.activeFlowNodeIds);
+
+    expect(transitionPairs).toContain('TUBING_INNER->ANNULUS_A');
+    expect(transitionPairs).toContain('TUBING_INNER->TUBING_ANNULUS');
+    expect(blockedAnnulusATransfer?.state).toBe('closed_failable');
+    expect(localTubingAnnulusTransfer?.state).toBe('open');
+    expect(localTubingAnnulusTransfer?.cost).toBe(0);
+    expect(belowPackerTubingAnnulusNode).toBeDefined();
+    expect(activeNodeIdSet.has(belowPackerTubingAnnulusNode?.nodeId)).toBe(true);
   });
 
   it('creates explicit ANNULUS_A <-> ANNULUS_B structural transitions for mapped non-tubing casing-family boundaries', () => {

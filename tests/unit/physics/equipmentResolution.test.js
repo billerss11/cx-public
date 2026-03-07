@@ -16,7 +16,7 @@ function buildTubingRows() {
 }
 
 describe('equipment resolution (explicit packer host)', () => {
-  it('resolves tubing-mounted packer to ANNULUS_A with explicit host', () => {
+  it('resolves tubing-mounted packer to TUBING_ANNULUS with explicit host', () => {
     const resolved = resolveEquipment(
       [{
         rowId: 'eq-tbg',
@@ -35,13 +35,13 @@ describe('equipment resolution (explicit packer host)', () => {
     expect(resolved[0].isOrphaned).toBe(false);
     expect(resolved[0].hostType).toBe('tubing');
     expect(resolved[0].hostRowId).toBe('tbg-1');
-    expect(resolved[0].sealNodeKind).toBe('ANNULUS_A');
+    expect(resolved[0].sealNodeKind).toBe('TUBING_ANNULUS');
     expect(resolved[0].sealSlotIndex).toBe(0);
     expect(resolved[0].sealInnerDiameter).toBeCloseTo(4.5, 3);
     expect(resolved[0].sealOuterDiameter).toBeCloseTo(6.2, 3);
   });
 
-  it('resolves casing-mounted packer to the next annulus slot by selected host', () => {
+  it('resolves casing-mounted packer to the first casing annulus by selected host', () => {
     const resolved = resolveEquipment(
       [{
         rowId: 'eq-csg',
@@ -60,7 +60,7 @@ describe('equipment resolution (explicit packer host)', () => {
     expect(resolved[0].isOrphaned).toBe(false);
     expect(resolved[0].hostType).toBe('casing');
     expect(resolved[0].hostRowId).toBe('csg-inner');
-    expect(resolved[0].sealNodeKind).toBe('ANNULUS_B');
+    expect(resolved[0].sealNodeKind).toBe('ANNULUS_A');
     expect(resolved[0].sealSlotIndex).toBe(1);
   });
 
@@ -105,7 +105,7 @@ describe('equipment resolution (explicit packer host)', () => {
     expect(resolved[0].isOrphaned).toBe(false);
     expect(resolved[0].hostType).toBe('tubing');
     expect(resolved[0].hostRowId).toBe('tbg-1');
-    expect(resolved[0].sealNodeKind).toBe('ANNULUS_A');
+    expect(resolved[0].sealNodeKind).toBe('TUBING_ANNULUS');
     expect(resolved[0].sealSlotIndex).toBe(0);
     expect(resolved[0].sealInnerDiameter).toBeCloseTo(4.5, 3);
     expect(resolved[0].sealOuterDiameter).toBeCloseTo(6.2, 3);

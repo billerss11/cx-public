@@ -256,6 +256,14 @@ export function buildProjectedTrajectory(points3D = [], config = {}) {
         .filter(Boolean);
 }
 
+export function hasTrajectoryDefinitionRows(rows = []) {
+    const surveys = normalizeSurveyRows(rows);
+    if (surveys.length >= 2) return true;
+
+    const legacySurveys = convertLegacyCartesianToSurveys(rows);
+    return legacySurveys.length >= 2;
+}
+
 export function resolveTrajectoryPointsFromRows(rows = [], config = {}, options = {}) {
     let surveys = normalizeSurveyRows(rows);
     if (surveys.length < 2) {

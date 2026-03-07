@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   filterScenarioBreakoutRows,
   filterScenarioSourceRows,
-  resolveScenarioBreakoutVolumePair,
   mergeScenarioBreakoutRows,
   mergeScenarioSourceRows
 } from '@/topology/sourceRows.js';
@@ -63,20 +62,6 @@ describe('sourceRows breakout helpers', () => {
 
     const sources = filterScenarioSourceRows(rows);
     expect(sources.map((row) => row.rowId)).toEqual(['src-1', 'src-2']);
-  });
-
-  it('normalizes breakout volume pair kinds and rejects removed tubing annulus tokens', () => {
-    const pair = resolveScenarioBreakoutVolumePair({
-      fromVolumeKey: 'TUBING_ANNULUS',
-      toVolumeKey: 'ANNULUS_B'
-    });
-
-    expect(pair).toEqual({
-      fromVolumeKey: 'TUBING_ANNULUS',
-      toVolumeKey: 'ANNULUS_B',
-      fromKind: null,
-      toKind: 'ANNULUS_B'
-    });
   });
 
   it('merges breakout editor rows without dropping non-breakout rows', () => {

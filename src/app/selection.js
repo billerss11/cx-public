@@ -24,10 +24,6 @@ import {
     resolveDomainEntryByEntityType,
     resolveDomainTableTarget
 } from '@/workspace/domainRegistry.js';
-import {
-    filterScenarioBreakoutRows,
-    filterScenarioSourceRows
-} from '@/topology/sourceRows.js';
 
 const projectDataStore = useProjectDataStore(pinia);
 const interactionStore = useInteractionStore(pinia);
@@ -61,9 +57,6 @@ const state = {
     },
     get markers() {
         return projectDataStore.markers ?? [];
-    },
-    get topologySources() {
-        return projectDataStore.topologySources ?? [];
     },
     get interaction() {
         return interactionStore.interaction ?? {};
@@ -195,12 +188,6 @@ function resolveEntityTotal(type) {
     if (normalizedType === 'casing') return state.casingData.length;
     if (normalizedType === 'tubing') return state.tubingData.length;
     if (normalizedType === 'drillString') return state.drillStringData.length;
-    if (normalizedType === 'topologySource') {
-        return filterScenarioSourceRows(state.topologySources).length;
-    }
-    if (normalizedType === 'topologyBreakout') {
-        return filterScenarioBreakoutRows(state.topologySources).length;
-    }
     const cfg = NON_PIPE_CONFIG[normalizedType];
     if (!cfg) return 0;
     return cfg.getTotal();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveBoundaryEquipmentEffects } from '@/topology/equipmentRules.js';
 
 describe('topology equipment resolved seal effects', () => {
-  it('blocks the first modeled annulus when tubing-host packer resolves to ANNULUS_A', () => {
+  it('blocks tubing annulus only when packer resolves to TUBING_ANNULUS', () => {
     const effects = resolveBoundaryEquipmentEffects(
       1200,
       [{
@@ -11,7 +11,7 @@ describe('topology equipment resolved seal effects', () => {
         depth: 1200,
         attachToHostType: 'tubing',
         attachToId: 'tbg-1',
-        sealNodeKind: 'ANNULUS_A',
+        sealNodeKind: 'TUBING_ANNULUS',
         sealSlotIndex: 0,
         show: true
       }],
@@ -21,7 +21,8 @@ describe('topology equipment resolved seal effects', () => {
     );
 
     expect(effects.byVolume.BORE.blocked).toBe(false);
-    expect(effects.byVolume.ANNULUS_A.blocked).toBe(true);
+    expect(effects.byVolume.TUBING_ANNULUS.blocked).toBe(true);
+    expect(effects.byVolume.ANNULUS_A.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_B.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_C.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_D.blocked).toBe(false);
@@ -80,7 +81,7 @@ describe('topology equipment resolved seal effects', () => {
         depth: 1200,
         attachToHostType: 'tubing',
         attachToId: 'tbg-1',
-        sealNodeKind: 'ANNULUS_A',
+        sealNodeKind: 'TUBING_ANNULUS',
         sealSlotIndex: 0,
         show: true
       }],
@@ -90,6 +91,7 @@ describe('topology equipment resolved seal effects', () => {
     );
 
     expect(effects.byVolume.BORE.blocked).toBe(true);
+    expect(effects.byVolume.TUBING_ANNULUS.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_A.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_B.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_C.blocked).toBe(false);

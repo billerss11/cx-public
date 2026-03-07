@@ -43,10 +43,6 @@ export function useCameraPanSession(options = {}) {
     isPanActive.value = true;
     hasMoved.value = false;
 
-    if (typeof event?.preventDefault === 'function') {
-      event.preventDefault();
-    }
-
     if (pointerId.value !== null && typeof event?.currentTarget?.setPointerCapture === 'function') {
       try {
         event.currentTarget.setPointerCapture(pointerId.value);

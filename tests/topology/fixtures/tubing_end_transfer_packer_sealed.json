@@ -71,7 +71,7 @@
   "expected": {
     "nodeCount": 9,
     "edgeCount": 9,
-    "activeFlowNodeCount": 1,
+    "activeFlowNodeCount": 2,
     "sourceEntityCount": 1,
     "sourcePolicyMode": "scenario_explicit",
     "minFailureCostToSurface": 1,

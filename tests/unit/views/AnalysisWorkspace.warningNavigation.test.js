@@ -1,6 +1,5 @@
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { reactive } from 'vue';
 import AnalysisWorkspace from '@/views/AnalysisWorkspace.vue';
 
 const mockState = vi.hoisted(() => ({
@@ -347,14 +346,7 @@ function configureOverlaySynchronizationContext({
 
 describe('AnalysisWorkspace warning navigation', () => {
   beforeEach(() => {
-    mockState.viewConfigStore.config = reactive({
-      viewMode: 'vertical',
-      operationPhase: 'production',
-      showPhysicsDebug: false,
-      figHeight: 800,
-      topologyUseIllustrativeFluidSource: false,
-      topologyUseOpenHoleSource: false
-    });
+    mockState.viewConfigStore.config.viewMode = 'vertical';
     mockState.requestTopologyModelInWorker.mockReset();
     mockState.requestTopologyModelInWorker.mockImplementation(() => ({
       requestId: 99,
@@ -363,30 +355,6 @@ describe('AnalysisWorkspace warning navigation', () => {
     mockState.setTablesAccordionOpen.mockReset();
     mockState.setActiveTableTabKey.mockReset();
     mockState.requestTableRowFocus.mockReset();
-  });
-
-  it('does not trigger topology recompute for non-topology view config changes', async () => {
-    const wrapper = mountAnalysisWorkspace();
-    await wrapper.vm.$nextTick();
-
-    expect(mockState.requestTopologyModelInWorker).toHaveBeenCalledTimes(1);
-
-    wrapper.vm.viewConfigStore.config.figHeight = 920;
-    await wrapper.vm.$nextTick();
-
-    expect(mockState.requestTopologyModelInWorker).toHaveBeenCalledTimes(1);
-  });
-
-  it('triggers topology recompute when topology source-policy config changes', async () => {
-    const wrapper = mountAnalysisWorkspace();
-    await wrapper.vm.$nextTick();
-
-    expect(mockState.requestTopologyModelInWorker).toHaveBeenCalledTimes(1);
-
-    wrapper.vm.viewConfigStore.config.topologyUseIllustrativeFluidSource = true;
-    await wrapper.vm.$nextTick();
-
-    expect(mockState.requestTopologyModelInWorker).toHaveBeenCalledTimes(2);
   });
 
   it('renders PrimeVue Select controls for envelope filter and sort', async () => {
@@ -408,26 +376,6 @@ describe('AnalysisWorkspace warning navigation', () => {
     expect(canvasStub.exists()).toBe(true);
     expect(canvasStub.attributes('data-readonly')).toBe('true');
     expect(canvasStub.attributes('data-allow-readonly-selection')).toBe('true');
-  });
-
-  it('renders canonical annulus guidance text without legacy tubing-annulus terminology', async () => {
-    const wrapper = mountAnalysisWorkspace();
-
-    await wrapper.vm.$nextTick();
-
-    const volumeGuide = wrapper.find('[data-i18n="ui.analysis.topology.source_policy.volume_guide"]');
-    const volumeSemantics = wrapper.find('[data-i18n="ui.analysis.topology.notes.volume_semantics"]');
-
-    expect(volumeGuide.exists()).toBe(true);
-    expect(volumeSemantics.exists()).toBe(true);
-
-    expect(volumeGuide.text()).toContain('ANNULUS_A');
-    expect(volumeGuide.text()).toContain('ANNULUS_B');
-    expect(volumeGuide.text()).not.toContain('TUBING_ANNULUS');
-
-    expect(volumeSemantics.text()).toContain('ANNULUS_A');
-    expect(volumeSemantics.text()).toContain('ANNULUS_B');
-    expect(volumeSemantics.text()).not.toContain('TUBING_ANNULUS');
   });
 
   it('projects inspector row selection into schematic overlay node ids', async () => {

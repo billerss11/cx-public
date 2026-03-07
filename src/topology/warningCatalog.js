@@ -47,6 +47,7 @@ export const TOPOLOGY_WARNING_CATEGORIES = Object.freeze({
 
 const SUPPORTED_VOLUME_KEYS = Object.freeze([
     'TUBING_INNER',
+    'TUBING_ANNULUS',
     ...MODELED_CASING_ANNULUS_KINDS,
     'FORMATION_ANNULUS'
 ]);

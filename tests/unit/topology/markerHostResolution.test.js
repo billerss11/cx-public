@@ -94,39 +94,4 @@ describe('marker host resolution', () => {
     expect(hasBoreRadialEdge).toBe(false);
     expect(hasAnnulusABPair).toBe(true);
   });
-
-  it('routes innermost-casing marker radial connectivity to ANNULUS_A <-> ANNULUS_B when tubing is present', () => {
-    const state = buildBaseState();
-    state.casingData = [
-      { rowId: 'csg-outer', label: 'Outer', top: 0, bottom: 3000, od: 13.375, weight: 54.5 },
-      { rowId: 'csg-inner', label: 'Inner', top: 0, bottom: 3000, od: 9.625, weight: 40 }
-    ];
-    state.tubingData = [
-      { rowId: 'tbg-1', label: 'Production Tubing', top: 0, bottom: 2500, od: 4.5, weight: 12 }
-    ];
-    state.markers = [
-      {
-        rowId: 'm-innermost-casing-perf',
-        type: 'Perforation',
-        top: 1200,
-        bottom: 1205,
-        attachToId: 'csg-inner',
-        attachToHostType: 'casing',
-        show: true
-      }
-    ];
-
-    const result = buildTopologyModel(state, { requestId: 4, wellId: 'innermost-casing-tubing-present' });
-    const markerEdges = result.edges.filter((edge) => edge.kind === 'radial' && edge.meta?.markerRowId === 'm-innermost-casing-perf');
-    const hasAnnulusABPair = markerEdges.some((edge) => (
-      edge.meta?.fromVolumeKey === 'ANNULUS_A' && edge.meta?.toVolumeKey === 'ANNULUS_B'
-    ));
-    const hasBoreAnnulusPair = markerEdges.some((edge) => (
-      edge.meta?.fromVolumeKey === 'BORE' && edge.meta?.toVolumeKey === 'ANNULUS_A'
-    ));
-
-    expect(markerEdges.length).toBeGreaterThan(0);
-    expect(hasAnnulusABPair).toBe(true);
-    expect(hasBoreAnnulusPair).toBe(false);
-  });
 });
