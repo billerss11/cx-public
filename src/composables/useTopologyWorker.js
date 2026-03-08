@@ -46,6 +46,7 @@ function rejectPendingRequests(error) {
 function cancelPendingRequests(reason = 'Topology request superseded') {
     if (pendingRequests.size === 0) return;
     rejectPendingRequests(createTopologyWorkerCancelledError(reason));
+    terminateTopologyWorker();
 }
 
 function handleTopologyWorkerMessage(event) {
@@ -72,10 +73,10 @@ function handleTopologyWorkerError(event) {
 }
 
 function postTopologyRequest(task, payload = {}, options = {}) {
-    const worker = ensureTopologyWorker();
     if (options.supersedeInFlight !== false) {
         cancelPendingRequests(options.supersedeReason || 'Topology request superseded');
     }
+    const worker = ensureTopologyWorker();
 
     const requestId = ++requestSequence;
     const promise = new Promise((resolve, reject) => {

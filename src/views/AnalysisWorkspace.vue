@@ -315,6 +315,7 @@ const topologyStateSnapshot = computed(() => ({
   annulusFluids: annulusFluids.value,
   markers: markers.value,
   topologySources: topologySources.value,
+  surfaceAssembly: projectDataStore.surfaceAssembly,
   trajectory: trajectory.value,
   config: topologyConfigSnapshot.value,
   interaction: {}

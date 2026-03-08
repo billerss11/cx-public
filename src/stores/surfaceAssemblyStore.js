@@ -2,57 +2,72 @@ import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 import { cloneSnapshot } from '@/utils/general.js';
 import { useProjectStore } from '@/stores/projectStore.js';
+import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import {
-  appendSurfaceAssemblyRightBranchComponent,
-  appendSurfaceAssemblyTrunkComponent,
-  createSurfaceAssemblyFromTemplate,
+  buildSurfaceAssemblyEditorSections,
+  createSurfaceAssemblyEntityKey,
+  createSurfaceAssemblyFromFamily,
+  normalizeSurfaceAssembly,
+  resolveSurfaceAssemblyEntity,
+  updateSurfaceAssemblyBoundaryState,
+  updateSurfaceAssemblyDeviceState,
+  updateSurfaceAssemblyFamily,
+  updateSurfaceAssemblyTerminationType,
+  validateSurfaceAssembly,
 } from '@/utils/surfaceAssemblyModel.js';
+
+function resolveDefaultSelectionKey(assembly) {
+  const firstDevice = Array.isArray(assembly?.devices) ? assembly.devices[0] : null;
+  if (firstDevice?.slotKey) {
+    return createSurfaceAssemblyEntityKey('device', firstDevice.slotKey);
+  }
+  const firstTermination = Array.isArray(assembly?.terminations) ? assembly.terminations[0] : null;
+  if (firstTermination?.slotKey) {
+    return createSurfaceAssemblyEntityKey('termination', firstTermination.slotKey);
+  }
+  return null;
+}
 
 export const useSurfaceAssemblyStore = defineStore('surfaceAssembly', () => {
   const projectStore = useProjectStore();
+  const projectDataStore = useProjectDataStore();
 
   const state = reactive({
-    committedAssemblyByWellId: {},
     draftAssembly: null,
     isComposerVisible: false,
-    selectedDraftComponentId: null,
+    selectedDraftEntityKey: null,
   });
 
-  const activeWellId = computed(() => {
-    const resolvedWellId = String(projectStore.activeWellId ?? '').trim();
-    return resolvedWellId || null;
-  });
+  const committedAssemblyForActiveWell = computed(() => (
+    normalizeSurfaceAssembly(projectDataStore.surfaceAssembly) ?? null
+  ));
 
-  const committedAssemblyForActiveWell = computed(() => {
-    if (!activeWellId.value) return null;
-    return state.committedAssemblyByWellId[activeWellId.value] ?? null;
-  });
-
-  const selectedDraftComponent = computed(() => {
-    if (!state.draftAssembly || !state.selectedDraftComponentId) return null;
-    return state.draftAssembly.components.find((component) => (
-      component.componentId === state.selectedDraftComponentId
-    )) ?? null;
-  });
+  const draftAssembly = computed(() => state.draftAssembly);
+  const selectedDraftEntityKey = computed(() => state.selectedDraftEntityKey);
+  const selectedDraftEntity = computed(() => (
+    resolveSurfaceAssemblyEntity(state.draftAssembly, state.selectedDraftEntityKey)
+  ));
+  const draftEditorSections = computed(() => buildSurfaceAssemblyEditorSections(state.draftAssembly));
+  const draftValidationWarnings = computed(() => validateSurfaceAssembly(state.draftAssembly));
 
   function clearDraftState() {
     state.draftAssembly = null;
-    state.selectedDraftComponentId = null;
+    state.selectedDraftEntityKey = null;
   }
 
   function resolveDraftSeed() {
     if (committedAssemblyForActiveWell.value) {
       return cloneSnapshot(committedAssemblyForActiveWell.value);
     }
-    return createSurfaceAssemblyFromTemplate();
+    return createSurfaceAssemblyFromFamily();
   }
 
   function openComposer() {
     projectStore.ensureInitialized();
-    if (!activeWellId.value) return false;
+    if (!projectStore.activeWellId) return false;
 
     state.draftAssembly = resolveDraftSeed();
-    state.selectedDraftComponentId = state.draftAssembly.components[0]?.componentId ?? null;
+    state.selectedDraftEntityKey = resolveDefaultSelectionKey(state.draftAssembly);
     state.isComposerVisible = true;
     return true;
   }
@@ -68,55 +83,59 @@ export const useSurfaceAssemblyStore = defineStore('surfaceAssembly', () => {
   }
 
   function applyDraft() {
-    if (!activeWellId.value || !state.draftAssembly) return false;
-
-    state.committedAssemblyByWellId[activeWellId.value] = cloneSnapshot(state.draftAssembly);
+    if (!state.draftAssembly) return false;
+    projectDataStore.setSurfaceAssembly(cloneSnapshot(state.draftAssembly));
     state.isComposerVisible = false;
     clearDraftState();
     return true;
   }
 
-  function setDraftTemplate(templateKey) {
-    state.draftAssembly = createSurfaceAssemblyFromTemplate(templateKey);
-    state.selectedDraftComponentId = state.draftAssembly.components[0]?.componentId ?? null;
-    return state.draftAssembly;
+  function setDraftFamily(familyKey) {
+    const nextAssembly = updateSurfaceAssemblyFamily(state.draftAssembly, familyKey);
+    state.draftAssembly = nextAssembly;
+    state.selectedDraftEntityKey = resolveDefaultSelectionKey(nextAssembly);
+    return nextAssembly;
   }
 
-  function appendDraftTrunkComponent(typeKey) {
+  function setDraftDeviceState(slotKey, nextState) {
     if (!state.draftAssembly) return false;
-    const nextAssembly = appendSurfaceAssemblyTrunkComponent(state.draftAssembly, typeKey);
-    state.draftAssembly = nextAssembly;
-    state.selectedDraftComponentId = state.draftAssembly.components[state.draftAssembly.components.length - 1]?.componentId ?? null;
+    state.draftAssembly = updateSurfaceAssemblyDeviceState(state.draftAssembly, slotKey, nextState);
     return true;
   }
 
-  function appendDraftRightBranchComponent(typeKey) {
+  function setDraftBoundaryState(slotKey, nextState) {
     if (!state.draftAssembly) return false;
-    const nextAssembly = appendSurfaceAssemblyRightBranchComponent(state.draftAssembly, typeKey);
-    state.draftAssembly = nextAssembly;
-    state.selectedDraftComponentId = state.draftAssembly.components[state.draftAssembly.components.length - 1]?.componentId ?? null;
+    state.draftAssembly = updateSurfaceAssemblyBoundaryState(state.draftAssembly, slotKey, nextState);
     return true;
   }
 
-  function selectDraftComponent(componentId) {
-    const normalizedComponentId = String(componentId ?? '').trim();
-    state.selectedDraftComponentId = normalizedComponentId || null;
-    return state.selectedDraftComponentId;
+  function setDraftTerminationType(slotKey, nextTypeKey) {
+    if (!state.draftAssembly) return false;
+    state.draftAssembly = updateSurfaceAssemblyTerminationType(state.draftAssembly, slotKey, nextTypeKey);
+    return true;
+  }
+
+  function selectDraftEntity(entityKey) {
+    state.selectedDraftEntityKey = entityKey || null;
+    return state.selectedDraftEntityKey;
   }
 
   return {
-    draftAssembly: computed(() => state.draftAssembly),
-    isComposerVisible: computed(() => state.isComposerVisible),
     committedAssemblyForActiveWell,
-    selectedDraftComponent,
-    selectedDraftComponentId: computed(() => state.selectedDraftComponentId),
-    openComposer,
+    draftAssembly,
+    draftEditorSections,
+    draftValidationWarnings,
+    isComposerVisible: computed(() => state.isComposerVisible),
+    selectedDraftEntity,
+    selectedDraftEntityKey,
+    applyDraft,
     closeComposer,
     discardDraft,
-    applyDraft,
-    setDraftTemplate,
-    appendDraftTrunkComponent,
-    appendDraftRightBranchComponent,
-    selectDraftComponent,
+    openComposer,
+    selectDraftEntity,
+    setDraftBoundaryState,
+    setDraftDeviceState,
+    setDraftFamily,
+    setDraftTerminationType,
   };
 });

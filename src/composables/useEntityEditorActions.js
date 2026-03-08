@@ -231,7 +231,11 @@ export function useEntityEditorActions() {
 
     const targetWellId = normalizeToken(lastEntry.wellId) || null;
     if (targetWellId) {
-      projectStore.setActiveWell(targetWellId);
+      const switched = projectStore.setActiveWell(targetWellId);
+      const activeWellId = normalizeToken(projectStore.activeWellId) || null;
+      if (!switched && activeWellId !== targetWellId) {
+        return null;
+      }
     }
 
     const context = resolveDomainContext(lastEntry.entityType);

@@ -16,15 +16,15 @@ function handleOpen(event) {
 <template>
   <section class="surface-assembly-entry-card" data-testid="surface-assembly-entry-card">
     <div class="surface-assembly-entry-card__copy">
-      <p class="surface-assembly-entry-card__eyebrow">Surface Assembly Prototype</p>
+      <p class="surface-assembly-entry-card__eyebrow">Surface Engineering Model</p>
       <h4 class="surface-assembly-entry-card__title">
-        {{ hasAssembly ? 'Committed surface assembly is available.' : 'No surface assembly has been built yet.' }}
+        {{ hasAssembly ? 'Committed surface configuration is available.' : 'No surface configuration has been built yet.' }}
       </h4>
       <p class="surface-assembly-entry-card__description">
         {{
           hasAssembly
-            ? 'Open the composer to edit the current simplified wellhead / production tree and review the preview below.'
-            : 'Open the composer to build a simplified wellhead / production tree and apply it back to the schematic.'
+            ? 'Open the guided engineering surface model to revise the active family, outlet chains, and valve states.'
+            : 'Open the guided engineering surface model to choose a surface family and configure the required outlet chains.'
         }}
       </p>
     </div>
@@ -36,7 +36,7 @@ function handleOpen(event) {
       data-testid="surface-assembly-entry-open"
       @click="handleOpen"
     >
-      <span>{{ hasAssembly ? 'Edit Surface Assembly' : 'Build Surface Assembly' }}</span>
+      <span>{{ hasAssembly ? 'Edit Surface Configuration' : 'Build Surface Configuration' }}</span>
     </Button>
   </section>
 </template>

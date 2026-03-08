@@ -20,7 +20,7 @@ describe('SurfaceAssemblyEntryCard', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('Build Surface Assembly');
+    expect(wrapper.text()).toContain('Build Surface Configuration');
 
     await wrapper.get('[data-testid="surface-assembly-entry-open"]').trigger('click');
 
@@ -39,7 +39,7 @@ describe('SurfaceAssemblyEntryCard', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('Edit Surface Assembly');
-    expect(wrapper.text()).toContain('review the preview below');
+    expect(wrapper.text()).toContain('Edit Surface Configuration');
+    expect(wrapper.text()).toContain('guided engineering surface model');
   });
 });

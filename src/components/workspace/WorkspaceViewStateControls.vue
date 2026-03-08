@@ -44,8 +44,8 @@ function setOperationPhase(phase) {
 
 <template>
   <section class="workspace-view-state-controls" role="group" aria-label="Well context controls">
-    <div class="workspace-view-state-controls__state-group">
-      <p class="workspace-view-state-controls__state-label" data-i18n="ui.well_view_mode">Well View Mode:</p>
+    <div class="workspace-view-state-controls__inline-group">
+      <span class="workspace-view-state-controls__inline-label" data-i18n="ui.toolbar.mode_short">Mode</span>
       <SelectButton
         v-model="viewModeModel"
         :options="viewModeOptions"
@@ -61,8 +61,8 @@ function setOperationPhase(phase) {
       </SelectButton>
     </div>
 
-    <div class="workspace-view-state-controls__state-group">
-      <p class="workspace-view-state-controls__state-label" data-i18n="ui.operation_phase">Operation Phase:</p>
+    <div class="workspace-view-state-controls__inline-group">
+      <span class="workspace-view-state-controls__inline-label" data-i18n="ui.toolbar.phase_short">Phase</span>
       <SelectButton
         v-model="operationPhaseModel"
         :options="operationPhaseOptions"
@@ -83,36 +83,45 @@ function setOperationPhase(phase) {
 <style scoped>
 .workspace-view-state-controls {
   display: inline-flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  flex-wrap: nowrap;
   min-width: 0;
 }
 
-.workspace-view-state-controls__state-group {
-  display: grid;
-  gap: 3px;
+.workspace-view-state-controls__inline-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-surface-elevated) 35%, transparent);
   min-width: 0;
 }
 
-.workspace-view-state-controls__state-label {
-  font-size: 0.68rem;
+.workspace-view-state-controls__inline-label {
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   color: var(--muted);
   text-transform: uppercase;
-  margin: 0;
+  white-space: nowrap;
 }
 
 .workspace-view-state-controls__segmented-control :deep(.p-selectbutton) {
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .workspace-view-state-controls__segmented-control :deep(.p-togglebutton) {
-  padding: 5px 11px;
-  font-size: 0.82rem;
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 0.74rem;
   font-weight: 600;
   line-height: 1.1;
 }
@@ -123,12 +132,13 @@ function setOperationPhase(phase) {
 
 @media (max-width: 991px) {
   .workspace-view-state-controls {
-    width: 100%;
+    width: auto;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
-  .workspace-view-state-controls__state-group {
-    flex: 1 1 210px;
+  .workspace-view-state-controls__inline-group {
+    flex: 1 1 auto;
   }
 }
 </style>

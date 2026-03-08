@@ -23,11 +23,14 @@ import WorkspaceViewStateControls from '@/components/workspace/WorkspaceViewStat
 const workspaceStore = useWorkspaceStore();
 const shellRef = ref(null);
 const languageTick = ref(0);
+const isCompactToolbarMode = ref(false);
+const compactToolsDialogVisible = ref(false);
 
 const FLOATING_DOCK_MIN_WIDTH = 560;
 const FLOATING_DOCK_MIN_HEIGHT = 260;
 const FLOATING_DOCK_DEFAULT_WIDTH = 980;
 const FLOATING_DOCK_DEFAULT_HEIGHT = 560;
+const COMPACT_TOOLBAR_BREAKPOINT = 1200;
 
 const activityMeta = Object.freeze({
   design: { label: 'Design', i18nKey: 'ui.activity.design' },
@@ -68,10 +71,11 @@ const activeActivity = computed(() => (
 const actionButtonLabels = computed(() => {
   void languageTick.value;
   return {
-    hierarchy: 'Hierarchy',
+    hierarchy: t('ui.toolbar.hierarchy_short'),
     dataTables: t('ui.sidebar.tables'),
-    inspector: t('ui.visual_inspector.title'),
-    dockedLayout: t('ui.layout.sidebar')
+    inspector: t('ui.toolbar.inspector_short'),
+    dockedLayout: t('ui.layout.sidebar'),
+    tools: t('ui.toolbar.tools')
   };
 });
 
@@ -132,6 +136,18 @@ function setBottomDockMode(mode) {
   workspaceStore.setBottomDockMode(mode);
 }
 
+function openCompactToolsDialog() {
+  compactToolsDialogVisible.value = true;
+}
+
+function updateCompactToolbarMode() {
+  const nextCompactMode = window.innerWidth <= COMPACT_TOOLBAR_BREAKPOINT;
+  isCompactToolbarMode.value = nextCompactMode;
+  if (!nextCompactMode) {
+    compactToolsDialogVisible.value = false;
+  }
+}
+
 watch([isBottomDockFloating, isBottomDockVisible], ([isFloating, isVisible]) => {
   if (isFloating === true && isVisible === true) return;
   stopFloatingDockResize();
@@ -146,12 +162,14 @@ onMounted(() => {
   workspaceStore.reconcileRightDockWidth();
   workspaceStore.reconcileBottomDockHeight();
   reconcileFloatingDockSize();
+  updateCompactToolbarMode();
 
   const handleResize = () => {
     workspaceStore.reconcileLeftDockWidth();
     workspaceStore.reconcileRightDockWidth();
     workspaceStore.reconcileBottomDockHeight();
     reconcileFloatingDockSize();
+    updateCompactToolbarMode();
   };
 
   window.addEventListener('resize', handleResize);
@@ -184,54 +202,64 @@ onBeforeUnmount(() => {
           </p>
           <h2 class="workspace-activity-shell__title" data-i18n="app.title">Casing Schematic Plotter</h2>
         </div>
+        <WorkspaceProjectActions
+          v-show="shouldShowSharedTopControls"
+          class="workspace-activity-shell__project-actions"
+        />
       </div>
 
       <div
         v-show="shouldShowSharedTopControls"
         class="workspace-activity-shell__row workspace-activity-shell__row--secondary"
       >
-        <WorkspaceProjectActions class="workspace-activity-shell__project-actions" />
-        <div class="workspace-activity-shell__mode-and-tools">
+        <template v-if="!isCompactToolbarMode">
           <WorkspaceViewStateControls class="workspace-activity-shell__view-state-controls" />
-          <span class="workspace-activity-shell__cluster-divider" aria-hidden="true"></span>
           <CanvasInteractionToolbar class="workspace-activity-shell__interaction-toolbar" />
-        </div>
 
-        <div class="workspace-activity-shell__dock-toggles" role="group" aria-label="Workspace panel visibility">
+          <div class="workspace-activity-shell__panel-segment" role="group" aria-label="Workspace panel visibility">
+            <Button
+              type="button"
+              size="small"
+              text
+              class="workspace-activity-shell__panel-toggle"
+              :class="{ 'workspace-activity-shell__panel-toggle--active': isLeftDockVisible }"
+              icon="pi pi-list"
+              :label="actionButtonLabels.hierarchy"
+              @click="toggleLeftDock"
+            />
+
+            <Button
+              type="button"
+              size="small"
+              text
+              class="workspace-activity-shell__panel-toggle"
+              :class="{ 'workspace-activity-shell__panel-toggle--active': isBottomDockVisible }"
+              icon="pi pi-table"
+              :label="actionButtonLabels.dataTables"
+              @click="toggleBottomDock"
+            />
+
+            <Button
+              type="button"
+              size="small"
+              text
+              class="workspace-activity-shell__panel-toggle"
+              :class="{ 'workspace-activity-shell__panel-toggle--active': isRightDockVisible }"
+              icon="pi pi-sliders-v"
+              :label="actionButtonLabels.inspector"
+              @click="toggleRightDock"
+            />
+          </div>
+        </template>
+
+        <div v-else class="workspace-activity-shell__compact-launcher">
           <Button
             type="button"
             size="small"
-            severity="secondary"
             outlined
-            class="workspace-activity-shell__dock-toggle"
-            :class="{ 'workspace-activity-shell__dock-toggle--active': isLeftDockVisible }"
-            icon="pi pi-list"
-            :label="actionButtonLabels.hierarchy"
-            @click="toggleLeftDock"
-          />
-
-          <Button
-            type="button"
-            size="small"
-            severity="secondary"
-            outlined
-            class="workspace-activity-shell__dock-toggle"
-            :class="{ 'workspace-activity-shell__dock-toggle--active': isBottomDockVisible }"
-            icon="pi pi-table"
-            :label="actionButtonLabels.dataTables"
-            @click="toggleBottomDock"
-          />
-
-          <Button
-            type="button"
-            size="small"
-            severity="secondary"
-            outlined
-            class="workspace-activity-shell__dock-toggle"
-            :class="{ 'workspace-activity-shell__dock-toggle--active': isRightDockVisible }"
-            icon="pi pi-sliders-v"
-            :label="actionButtonLabels.inspector"
-            @click="toggleRightDock"
+            icon="pi pi-sliders-h"
+            :label="actionButtonLabels.tools"
+            @click="openCompactToolsDialog"
           />
         </div>
       </div>
@@ -322,6 +350,56 @@ onBeforeUnmount(() => {
       ></span>
     </div>
   </Dialog>
+
+  <Dialog
+    v-if="shouldShowSharedTopControls && isCompactToolbarMode"
+    v-model:visible="compactToolsDialogVisible"
+    modal
+    :draggable="false"
+    :header="actionButtonLabels.tools"
+    :style="{ width: 'min(96vw, 36rem)' }"
+    :content-style="{ paddingTop: '0.45rem' }"
+  >
+    <div class="workspace-activity-shell__compact-tools-panel">
+      <WorkspaceViewStateControls class="workspace-activity-shell__view-state-controls workspace-activity-shell__view-state-controls--compact" />
+      <CanvasInteractionToolbar class="workspace-activity-shell__interaction-toolbar workspace-activity-shell__interaction-toolbar--compact" />
+
+      <div class="workspace-activity-shell__panel-segment workspace-activity-shell__panel-segment--compact" role="group" aria-label="Workspace panel visibility">
+        <Button
+          type="button"
+          size="small"
+          text
+          class="workspace-activity-shell__panel-toggle"
+          :class="{ 'workspace-activity-shell__panel-toggle--active': isLeftDockVisible }"
+          icon="pi pi-list"
+          :label="actionButtonLabels.hierarchy"
+          @click="toggleLeftDock"
+        />
+
+        <Button
+          type="button"
+          size="small"
+          text
+          class="workspace-activity-shell__panel-toggle"
+          :class="{ 'workspace-activity-shell__panel-toggle--active': isBottomDockVisible }"
+          icon="pi pi-table"
+          :label="actionButtonLabels.dataTables"
+          @click="toggleBottomDock"
+        />
+
+        <Button
+          type="button"
+          size="small"
+          text
+          class="workspace-activity-shell__panel-toggle"
+          :class="{ 'workspace-activity-shell__panel-toggle--active': isRightDockVisible }"
+          icon="pi pi-sliders-v"
+          :label="actionButtonLabels.inspector"
+          @click="toggleRightDock"
+        />
+      </div>
+    </div>
+  </Dialog>
 </template>
 
 <style scoped>
@@ -338,7 +416,7 @@ onBeforeUnmount(() => {
   grid-row: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 10px;
 }
 
@@ -347,29 +425,32 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex-wrap: nowrap;
 }
 
 .workspace-activity-shell__row--primary {
-  justify-content: flex-start;
+  min-height: 34px;
+  justify-content: space-between;
+  flex-wrap: nowrap;
 }
 
 .workspace-activity-shell__row--secondary {
   border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
-  padding-top: 10px;
+  padding-top: 6px;
+  min-height: 34px;
   justify-content: flex-start;
   align-items: center;
-  flex-wrap: wrap;
-  row-gap: 10px;
-  overflow: visible;
+  gap: 7px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .workspace-activity-shell__title-block {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .workspace-activity-shell__activity-pill {
@@ -382,17 +463,21 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--color-accent-primary) 34%, transparent);
   background: color-mix(in srgb, var(--color-accent-primary) 13%, transparent);
   color: var(--color-accent-primary-strong);
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .workspace-activity-shell__title {
   margin: 0;
-  font-size: clamp(1.25rem, 1.4vw, 1.68rem);
-  line-height: 1.02;
+  font-size: clamp(1.02rem, 1.1vw, 1.22rem);
+  line-height: 1.1;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :deep(.workspace-project-actions.workspace-activity-shell__project-actions) {
@@ -400,56 +485,38 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   justify-content: flex-start;
   min-width: 0;
-  margin-inline-start: 0;
+  margin-inline-start: auto;
 }
 
-.workspace-activity-shell__mode-and-tools {
+.workspace-activity-shell__compact-launcher {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 5px 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-surface-elevated) 35%, transparent);
-  flex-wrap: nowrap;
-  min-width: 0;
 }
 
-.workspace-activity-shell__cluster-divider {
-  width: 1px;
-  align-self: stretch;
-  background: color-mix(in srgb, var(--line) 72%, transparent);
+.workspace-activity-shell__panel-segment {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--radius-pill);
-}
-
-.workspace-activity-shell__dock-toggles {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 46px;
-  padding: 4px 6px;
-  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-surface-elevated) 35%, transparent);
-  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
-.workspace-activity-shell__dock-toggles :deep(.workspace-activity-shell__dock-toggle.p-button) {
+.workspace-activity-shell__panel-toggle {
   min-height: 30px;
-  flex: 0 0 auto;
+  border-radius: 0;
+  padding-inline: 9px;
 }
 
-.workspace-activity-shell__dock-toggles :deep(.workspace-activity-shell__dock-toggle--active.p-button) {
-  border-color: color-mix(in srgb, var(--color-accent-primary-strong) 55%, transparent);
-  background: color-mix(in srgb, var(--color-accent-primary) 13%, transparent);
+.workspace-activity-shell__panel-toggle:not(:last-child) {
+  border-right: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.workspace-activity-shell__panel-toggle--active {
+  background: color-mix(in srgb, var(--color-accent-primary) 15%, transparent);
   color: var(--color-accent-primary-strong);
-}
-
-.workspace-activity-shell__dock-toggles :deep(.workspace-activity-shell__dock-toggle.p-button .p-button-label) {
-  white-space: nowrap;
 }
 
 :deep(.workspace-view-state-controls.workspace-activity-shell__view-state-controls) {
@@ -458,6 +525,20 @@ onBeforeUnmount(() => {
 
 :deep(.canvas-interaction-toolbar.workspace-activity-shell__interaction-toolbar) {
   flex: 0 0 auto;
+}
+
+.workspace-activity-shell__compact-tools-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.workspace-activity-shell__panel-segment--compact {
+  width: fit-content;
+}
+
+:deep(.workspace-view-state-controls.workspace-activity-shell__view-state-controls--compact),
+:deep(.canvas-interaction-toolbar.workspace-activity-shell__interaction-toolbar--compact) {
+  width: 100%;
 }
 
 .workspace-activity-shell__content {
@@ -604,17 +685,20 @@ onBeforeUnmount(() => {
     margin-bottom: 8px;
   }
 
-  .workspace-activity-shell__row {
-    align-items: stretch;
+  .workspace-activity-shell__row--primary {
+    align-items: flex-start;
     flex-wrap: wrap;
+    row-gap: 6px;
   }
 
   .workspace-activity-shell__title-block {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
   }
 
   .workspace-activity-shell__title {
-    width: 100%;
+    width: auto;
+    max-width: min(100%, 24rem);
   }
 
   :deep(.workspace-project-actions.workspace-activity-shell__project-actions) {
@@ -624,25 +708,8 @@ onBeforeUnmount(() => {
     margin-inline-start: 0;
   }
 
-  .workspace-activity-shell__mode-and-tools {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .workspace-activity-shell__cluster-divider {
-    display: none;
-  }
-
-  .workspace-activity-shell__dock-toggles {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
   .workspace-activity-shell__row--secondary {
-    align-items: flex-start;
-    overflow: visible;
+    min-height: 32px;
   }
 
   :deep(.workspace-view-state-controls.workspace-activity-shell__view-state-controls) {

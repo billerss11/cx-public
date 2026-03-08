@@ -23,17 +23,17 @@ describe('surfaceAssemblyStore', () => {
     setActivePinia(createPinia());
   });
 
-  it('seeds a simple-tree draft when opening the composer without a committed assembly', () => {
+  it('seeds a conventional wellhead draft when opening the composer without a committed assembly', () => {
     const { surfaceAssemblyStore } = setupStores();
 
     surfaceAssemblyStore.openComposer();
 
     expect(surfaceAssemblyStore.isComposerVisible).toBe(true);
     expect(surfaceAssemblyStore.committedAssemblyForActiveWell).toBe(null);
-    expect(surfaceAssemblyStore.draftAssembly?.templateKey).toBe('simple-tree');
-    expect(
-      surfaceAssemblyStore.draftAssembly?.components.some((component) => component.typeKey === 'master-valve')
-    ).toBe(true);
+    expect(surfaceAssemblyStore.draftAssembly?.familyKey).toBe('conventional-wellhead-stack');
+    expect(surfaceAssemblyStore.draftAssembly?.entryPaths.map((path) => path.roleKey)).toEqual(
+      expect.arrayContaining(['TUBING_BORE', 'ANNULUS_A'])
+    );
   });
 
   it('keeps committed assemblies isolated per well', () => {
@@ -41,20 +41,20 @@ describe('surfaceAssemblyStore', () => {
     const firstWellId = projectStore.activeWellId;
 
     surfaceAssemblyStore.openComposer();
-    surfaceAssemblyStore.appendDraftTrunkComponent('spool');
+    surfaceAssemblyStore.setDraftFamily('vertical-tree');
     surfaceAssemblyStore.applyDraft();
 
-    const firstWellComponentCount = surfaceAssemblyStore.committedAssemblyForActiveWell?.components.length;
+    const firstWellFamilyKey = surfaceAssemblyStore.committedAssemblyForActiveWell?.familyKey;
 
     const createResult = projectStore.createNewWell('Well 2');
     expect(createResult.ok).toBe(true);
     expect(surfaceAssemblyStore.committedAssemblyForActiveWell).toBe(null);
 
     surfaceAssemblyStore.openComposer();
-    expect(surfaceAssemblyStore.draftAssembly?.templateKey).toBe('simple-tree');
+    expect(surfaceAssemblyStore.draftAssembly?.familyKey).toBe('conventional-wellhead-stack');
 
     projectStore.setActiveWell(firstWellId);
 
-    expect(surfaceAssemblyStore.committedAssemblyForActiveWell?.components.length).toBe(firstWellComponentCount);
+    expect(surfaceAssemblyStore.committedAssemblyForActiveWell?.familyKey).toBe(firstWellFamilyKey);
   });
 });

@@ -1,11 +1,11 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
 import SurfaceAssemblyPreview from '@/components/surface-assembly/SurfaceAssemblyPreview.vue';
-import { createSurfaceAssemblyFromTemplate } from '@/utils/surfaceAssemblyModel.js';
+import { createSurfaceAssemblyFromFamily } from '@/utils/surfaceAssemblyModel.js';
 
 describe('SurfaceAssemblyPreview', () => {
-  it('renders trunk and branch components from a simple-tree assembly', () => {
-    const assembly = createSurfaceAssemblyFromTemplate('simple-tree');
+  it('renders family-specific engineering slots for a vertical tree', () => {
+    const assembly = createSurfaceAssemblyFromFamily('vertical-tree');
 
     const wrapper = mount(SurfaceAssemblyPreview, {
       props: {
@@ -14,14 +14,13 @@ describe('SurfaceAssemblyPreview', () => {
       },
     });
 
-    expect(wrapper.findAll('[data-testid="surface-assembly-component"]').length).toBe(assembly.components.length);
-    expect(wrapper.text()).toContain('Master Valve');
-    expect(wrapper.text()).toContain('Wing Valve');
+    expect(wrapper.findAll('[data-testid="surface-assembly-slot"]').length).toBeGreaterThan(0);
+    expect(wrapper.text()).toContain('Vertical Tree');
+    expect(wrapper.text()).toContain('Wing Branch');
   });
 
-  it('emits selected component ids when the preview is interactive', async () => {
-    const assembly = createSurfaceAssemblyFromTemplate('simple-tree');
-    const selectedComponent = assembly.components.find((component) => component.typeKey === 'master-valve');
+  it('emits selected engineering entity keys when the preview is interactive', async () => {
+    const assembly = createSurfaceAssemblyFromFamily('horizontal-tree');
 
     const wrapper = mount(SurfaceAssemblyPreview, {
       props: {
@@ -30,8 +29,8 @@ describe('SurfaceAssemblyPreview', () => {
       },
     });
 
-    await wrapper.get(`[data-component-id="${selectedComponent.componentId}"]`).trigger('click');
+    await wrapper.get('[data-entity-key="device:productionMasterValve"]').trigger('click');
 
-    expect(wrapper.emitted('select-component')).toEqual([[selectedComponent.componentId]]);
+    expect(wrapper.emitted('select-entity')).toEqual([['device:productionMasterValve']]);
   });
 });

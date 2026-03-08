@@ -1,4 +1,5 @@
 import { withDefaultPipeComponentType } from '@/utils/pipeRows.js';
+import { normalizeSurfaceAssembly } from '@/utils/surfaceAssemblyModel.js';
 import { ensureProjectSchemaV2, isProjectPayloadLike as isLegacyProjectPayloadLike } from '@/utils/migrations/v1_to_v2.js';
 import {
     createDefaultProjectConfig,
@@ -46,7 +47,8 @@ function normalizeDataRows(data = {}) {
         annulusFluids: toArray(source.annulusFluids),
         markers: toArray(source.markers),
         topologySources: toArray(source.topologySources),
-        trajectory: toArray(source.trajectory)
+        trajectory: toArray(source.trajectory),
+        surfaceAssembly: normalizeSurfaceAssembly(source.surfaceAssembly)
     };
 }
 

@@ -3,6 +3,7 @@ import { reactive, toRefs } from 'vue';
 import { createRowId, ensureRowsHaveRowIds, normalizeRowId } from '@/utils/rowIdentity.js';
 import { buildCasingReferenceMap, resolveCasingReference } from '@/utils/casingReference.js';
 import { parseOptionalNumber } from '@/utils/general.js';
+import { normalizeSurfaceAssembly } from '@/utils/surfaceAssemblyModel.js';
 import {
     buildPipeReferenceMap,
     normalizePipeHostType,
@@ -48,6 +49,7 @@ export function createDefaultProjectDataState() {
         markers: [],
         topologySources: [],
         physicsIntervals: [],
+        surfaceAssembly: null,
         trajectory: [
             { rowId: createRowId('trajectory'), md: 0, inc: 0, azi: 0, comment: 'Surface' }
         ]
@@ -486,7 +488,17 @@ export const useProjectDataStore = defineStore('projectData', () => {
     }
 
     function setProjectData(key, value) {
+        if (key === 'surfaceAssembly') {
+            return setSurfaceAssembly(value);
+        }
         return setArrayProjectData(key, value);
+    }
+
+    function setSurfaceAssembly(surfaceAssembly) {
+        const normalized = normalizeSurfaceAssembly(surfaceAssembly);
+        if (Object.is(state.surfaceAssembly, normalized)) return false;
+        state.surfaceAssembly = normalized;
+        return true;
     }
 
     function updateProjectRow(key, index, patch) {
@@ -553,6 +565,7 @@ export const useProjectDataStore = defineStore('projectData', () => {
         setAnnulusFluids,
         setMarkers,
         setTopologySources,
+        setSurfaceAssembly,
         setTrajectory,
         setProjectData,
         updateProjectRow,

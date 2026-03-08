@@ -43,7 +43,7 @@ function cloneTraversalPolicy(policy = {}) {
 export function buildTopologyModel(stateSnapshot = {}, options = {}) {
     const safeState = normalizeStateSnapshot(stateSnapshot);
     const physicsContext = createPhysicsContext(safeState);
-    const { intervals, nodes, intervalNodeByKind } = buildTopologyNodes(physicsContext);
+    const { intervals, nodes: baseNodes, intervalNodeByKind } = buildTopologyNodes(physicsContext);
     const useIllustrativeFluidSource = shouldUseIllustrativeFluidSource(safeState);
     const useOpenHoleSource = shouldUseOpenHoleSource(safeState);
 
@@ -76,7 +76,12 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
         hasExplicitScenarioRows: sourceResolution?.sourcePolicy?.explicitScenarioDerived === true
     });
 
-    const termination = buildTerminationEdges(intervals, intervalNodeByKind);
+    const termination = buildTerminationEdges(
+        intervals,
+        intervalNodeByKind,
+        safeState.surfaceAssembly
+    );
+    const nodes = [...baseNodes, ...termination.nodes];
 
     const edges = [
         ...vertical.edges,

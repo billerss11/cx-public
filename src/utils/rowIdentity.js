@@ -52,12 +52,33 @@ export function ensureRowHasRowId(row, options = {}) {
 export function ensureRowsHaveRowIds(rows = [], options = {}) {
     if (!Array.isArray(rows)) return [];
 
+    const prefix = getRowIdPrefixForKey(options.key, options.prefix);
+    const usedRowIds = new Set();
     let changed = false;
     const normalized = rows.map((row) => {
         const withRowId = ensureRowHasRowId(row, options);
-        if (withRowId !== row) {
+        const normalizedRowId = normalizeRowId(withRowId?.rowId);
+
+        if (withRowId !== row) changed = true;
+
+        if (!normalizedRowId || usedRowIds.has(normalizedRowId)) {
+            if (!withRowId || typeof withRowId !== 'object' || Array.isArray(withRowId)) {
+                return withRowId;
+            }
+
+            let nextRowId = createRowId(prefix);
+            while (usedRowIds.has(nextRowId)) {
+                nextRowId = createRowId(prefix);
+            }
             changed = true;
+            usedRowIds.add(nextRowId);
+            return {
+                ...withRowId,
+                rowId: nextRowId
+            };
         }
+
+        usedRowIds.add(normalizedRowId);
         return withRowId;
     });
 

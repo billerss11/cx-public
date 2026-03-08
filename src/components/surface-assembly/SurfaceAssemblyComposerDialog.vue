@@ -3,9 +3,10 @@ import { computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import SurfaceAssemblyPreview from '@/components/surface-assembly/SurfaceAssemblyPreview.vue';
 import { useSurfaceAssemblyStore } from '@/stores/surfaceAssemblyStore.js';
-import { resolveSurfaceAssemblyComponentDefinition } from '@/utils/surfaceAssemblyModel.js';
+import { listSurfaceAssemblyFamilies } from '@/utils/surfaceAssemblyModel.js';
 
 const surfaceAssemblyStore = useSurfaceAssemblyStore();
+const familyOptions = listSurfaceAssemblyFamilies();
 
 const composerVisible = computed({
   get: () => surfaceAssemblyStore.isComposerVisible === true,
@@ -16,14 +17,9 @@ const composerVisible = computed({
 });
 
 const draftAssembly = computed(() => surfaceAssemblyStore.draftAssembly);
-const selectedDraftComponent = computed(() => surfaceAssemblyStore.selectedDraftComponent);
-
-const trunkPalette = Object.freeze(['spool', 'valve']);
-const rightBranchPalette = Object.freeze(['wing-valve', 'outlet']);
-
-function resolveLabel(typeKey) {
-  return resolveSurfaceAssemblyComponentDefinition(typeKey)?.label ?? typeKey;
-}
+const selectedDraftEntity = computed(() => surfaceAssemblyStore.selectedDraftEntity);
+const draftSections = computed(() => surfaceAssemblyStore.draftEditorSections);
+const draftWarnings = computed(() => surfaceAssemblyStore.draftValidationWarnings);
 
 function applyDraft() {
   surfaceAssemblyStore.applyDraft();
@@ -33,12 +29,25 @@ function discardDraft() {
   surfaceAssemblyStore.discardDraft();
 }
 
-function loadSimpleTreeTemplate() {
-  surfaceAssemblyStore.setDraftTemplate('simple-tree');
+function selectEntity(entityKey) {
+  surfaceAssemblyStore.selectDraftEntity(entityKey);
 }
 
-function handleSelectComponent(componentId) {
-  surfaceAssemblyStore.selectDraftComponent(componentId);
+function setRowType(entityKind, slotKey, value) {
+  if (entityKind === 'termination') {
+    surfaceAssemblyStore.setDraftTerminationType(slotKey, value);
+    return;
+  }
+}
+
+function setRowState(entityKind, slotKey, value) {
+  if (entityKind === 'device') {
+    surfaceAssemblyStore.setDraftDeviceState(slotKey, value);
+    return;
+  }
+  if (entityKind === 'boundary') {
+    surfaceAssemblyStore.setDraftBoundaryState(slotKey, value);
+  }
 }
 </script>
 
@@ -48,60 +57,56 @@ function handleSelectComponent(componentId) {
     data-vue-owned="true"
     class="surface-assembly-composer"
     :modal="true"
-    :style="{ width: 'min(1080px, 94vw)' }"
+    :style="{ width: 'min(1180px, 96vw)' }"
   >
     <template #header>
       <div class="surface-assembly-composer__header">
-        <span>Surface Assembly Composer</span>
-        <small>Draft changes stay local until you click Apply.</small>
+        <span>Surface Configuration</span>
+        <small>Choose a family, then configure the engineering slots before applying the committed model.</small>
       </div>
     </template>
 
     <div class="surface-assembly-composer__layout">
       <aside class="surface-assembly-composer__sidebar">
         <section class="surface-assembly-composer__section">
-          <h4 class="surface-assembly-composer__section-title">Templates</h4>
+          <h4 class="surface-assembly-composer__section-title">Surface Family</h4>
           <Button
+            v-for="family in familyOptions"
+            :key="family.familyKey"
             type="button"
             size="small"
             outlined
-            data-testid="surface-assembly-template-simple-tree"
-            @click="loadSimpleTreeTemplate"
+            class="surface-assembly-composer__family-button"
+            :class="{
+              'surface-assembly-composer__family-button--active': draftAssembly?.familyKey === family.familyKey,
+            }"
+            :data-testid="`surface-assembly-family-${family.familyKey}`"
+            @click="surfaceAssemblyStore.setDraftFamily(family.familyKey)"
           >
-            Simple Tree
+            <span>{{ family.label }}</span>
           </Button>
         </section>
 
         <section class="surface-assembly-composer__section">
-          <h4 class="surface-assembly-composer__section-title">Trunk Blocks</h4>
-          <Button
-            v-for="typeKey in trunkPalette"
-            :key="typeKey"
-            type="button"
-            size="small"
-            outlined
-            class="surface-assembly-composer__action"
-            :data-testid="`surface-assembly-add-trunk-${typeKey}`"
-            @click="surfaceAssemblyStore.appendDraftTrunkComponent(typeKey)"
+          <h4 class="surface-assembly-composer__section-title">Validation</h4>
+          <p
+            v-if="draftWarnings.length === 0"
+            class="surface-assembly-composer__validation-ok"
           >
-            Add {{ resolveLabel(typeKey) }}
-          </Button>
-        </section>
-
-        <section class="surface-assembly-composer__section">
-          <h4 class="surface-assembly-composer__section-title">Right Branch</h4>
-          <Button
-            v-for="typeKey in rightBranchPalette"
-            :key="typeKey"
-            type="button"
-            size="small"
-            outlined
-            class="surface-assembly-composer__action"
-            :data-testid="`surface-assembly-add-right-${typeKey}`"
-            @click="surfaceAssemblyStore.appendDraftRightBranchComponent(typeKey)"
+            All required access chains are defined.
+          </p>
+          <ul
+            v-else
+            class="surface-assembly-composer__warning-list"
           >
-            Add {{ resolveLabel(typeKey) }}
-          </Button>
+            <li
+              v-for="warning in draftWarnings"
+              :key="`${warning.code}-${warning.slotKey}`"
+              class="surface-assembly-composer__warning-item"
+            >
+              {{ warning.message }}
+            </li>
+          </ul>
         </section>
       </aside>
 
@@ -109,34 +114,89 @@ function handleSelectComponent(componentId) {
         <SurfaceAssemblyPreview
           :assembly="draftAssembly"
           :interactive="true"
-          :selected-component-id="surfaceAssemblyStore.selectedDraftComponentId"
+          :selected-entity-key="surfaceAssemblyStore.selectedDraftEntityKey"
           :show-labels="true"
-          @select-component="handleSelectComponent"
+          @select-entity="selectEntity"
         />
       </section>
 
       <aside class="surface-assembly-composer__inspector">
-        <section class="surface-assembly-composer__section">
-          <h4 class="surface-assembly-composer__section-title">Draft Summary</h4>
-          <p class="surface-assembly-composer__summary-row">
-            <strong>Template:</strong>
-            <span>{{ draftAssembly?.label ?? 'None' }}</span>
-          </p>
-          <p class="surface-assembly-composer__summary-row">
-            <strong>Components:</strong>
-            <span>{{ draftAssembly?.components?.length ?? 0 }}</span>
-          </p>
+        <section
+          v-for="section in draftSections"
+          :key="section.sectionKey"
+          class="surface-assembly-composer__section"
+        >
+          <h4 class="surface-assembly-composer__section-title">{{ section.title }}</h4>
+          <p class="surface-assembly-composer__section-description">{{ section.description }}</p>
+
+          <div
+            v-for="row in section.rows"
+            :key="row.entityKey"
+            class="surface-assembly-composer__row"
+            :class="{
+              'surface-assembly-composer__row--selected': row.entityKey === surfaceAssemblyStore.selectedDraftEntityKey,
+            }"
+            @click="selectEntity(row.entityKey)"
+          >
+            <div class="surface-assembly-composer__row-header">
+              <strong>{{ row.label }}</strong>
+              <small v-if="row.currentTypeLabel">{{ row.currentTypeLabel }}</small>
+            </div>
+
+            <p
+              v-if="!row.editable"
+              class="surface-assembly-composer__row-description"
+            >
+              {{ row.description }}
+            </p>
+
+            <div
+              v-if="row.typeOptions.length > 1"
+              class="surface-assembly-composer__button-group"
+            >
+              <Button
+                v-for="option in row.typeOptions"
+                :key="option.value"
+                type="button"
+                size="small"
+                outlined
+                class="surface-assembly-composer__action"
+                :data-testid="`surface-assembly-${row.entityKind}-type-${row.slotKey}-${option.value}`"
+                @click.stop="setRowType(row.entityKind, row.slotKey, option.value)"
+              >
+                <span>{{ option.label }}</span>
+              </Button>
+            </div>
+
+            <div
+              v-if="row.stateOptions.length > 0"
+              class="surface-assembly-composer__button-group"
+            >
+              <Button
+                v-for="option in row.stateOptions"
+                :key="option.value"
+                type="button"
+                size="small"
+                outlined
+                class="surface-assembly-composer__action"
+                :data-testid="`surface-assembly-${row.entityKind}-state-${row.slotKey}-${option.value}`"
+                @click.stop="setRowState(row.entityKind, row.slotKey, option.value)"
+              >
+                <span>{{ option.label }}</span>
+              </Button>
+            </div>
+          </div>
         </section>
 
         <section class="surface-assembly-composer__section">
-          <h4 class="surface-assembly-composer__section-title">Selected Component</h4>
+          <h4 class="surface-assembly-composer__section-title">Selected Slot</h4>
           <p class="surface-assembly-composer__summary-row">
             <strong>Label:</strong>
-            <span>{{ selectedDraftComponent?.label ?? 'Select a component in the preview' }}</span>
+            <span>{{ selectedDraftEntity?.label ?? 'Select a slot in the preview or inspector.' }}</span>
           </p>
           <p class="surface-assembly-composer__summary-row">
-            <strong>Type:</strong>
-            <span>{{ selectedDraftComponent?.typeKey ?? 'None' }}</span>
+            <strong>State:</strong>
+            <span>{{ selectedDraftEntity?.state ?? 'Not state-driven' }}</span>
           </p>
         </section>
       </aside>
@@ -173,9 +233,9 @@ function handleSelectComponent(componentId) {
 
 .surface-assembly-composer__layout {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-columns: minmax(220px, 250px) minmax(0, 1fr) minmax(260px, 340px);
   gap: 16px;
-  min-height: 520px;
+  min-height: 560px;
 }
 
 .surface-assembly-composer__sidebar,
@@ -190,7 +250,7 @@ function handleSelectComponent(componentId) {
   min-height: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 14px;
   background: linear-gradient(180deg, var(--color-surface-elevated), var(--color-surface-subtle));
 }
 
@@ -202,14 +262,79 @@ function handleSelectComponent(componentId) {
 }
 
 .surface-assembly-composer__section-title {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: 0.86rem;
 }
 
+.surface-assembly-composer__section-description {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.surface-assembly-composer__family-button,
 .surface-assembly-composer__action {
   width: 100%;
   justify-content: flex-start;
   margin-top: 8px;
+}
+
+.surface-assembly-composer__family-button--active {
+  border-color: color-mix(in srgb, var(--color-accent-primary) 55%, var(--line));
+}
+
+.surface-assembly-composer__validation-ok {
+  margin: 0;
+  color: var(--color-status-success-text, var(--color-ink-strong));
+  font-size: 0.78rem;
+}
+
+.surface-assembly-composer__warning-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.surface-assembly-composer__warning-item {
+  color: var(--color-status-warning-text, var(--color-ink-strong));
+}
+
+.surface-assembly-composer__row {
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--color-surface-subtle) 82%, transparent);
+  cursor: pointer;
+}
+
+.surface-assembly-composer__row--selected {
+  border-color: color-mix(in srgb, var(--color-accent-primary) 48%, var(--line));
+}
+
+.surface-assembly-composer__row-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.surface-assembly-composer__row-header small,
+.surface-assembly-composer__row-description {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.surface-assembly-composer__button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .surface-assembly-composer__summary-row {

@@ -1,13 +1,14 @@
 <script setup>
 import { computed, ref } from 'vue';
-import Select from 'primevue/select';
 import Popover from 'primevue/popover';
-import { useViewConfigStore } from '@/stores/viewConfigStore.js';
+import Select from 'primevue/select';
+import SelectButton from 'primevue/selectbutton';
 import DisplayControls from '@/components/controls/DisplayControls.vue';
 import {
   MAGNIFIER_ZOOM_LEVEL_OPTIONS,
   normalizeMagnifierZoomLevel
 } from '@/constants/index.js';
+import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 import {
   USER_ANNOTATION_TOOL_MODE_ADD,
   USER_ANNOTATION_TOOL_MODE_SELECT
@@ -15,13 +16,17 @@ import {
 
 const viewConfigStore = useViewConfigStore();
 const config = viewConfigStore.config;
+const CAMERA_ZOOM_STEP = 0.25;
+
+const secondaryToolsPopoverRef = ref(null);
+const isSecondaryToolsPopoverOpen = ref(false);
+const isDisplayControlsExpanded = ref(false);
 
 const isMagnifierEnabled = computed(() => config.showMagnifier === true);
 const isDepthCursorEnabled = computed(() => config.showDepthCursor === true);
 const isCrossSectionEnabled = computed(() => config.showDepthCrossSection === true);
 const isPhysicsDebugEnabled = computed(() => config.showPhysicsDebug === true);
 const isDirectionalView = computed(() => config.viewMode === 'directional');
-const CAMERA_ZOOM_STEP = 0.25;
 const isCameraTransformGlobalEnabled = computed(() => (
   viewConfigStore.uiState?.useCameraTransform === true
 ));
@@ -65,13 +70,7 @@ const hasCurrentCameraViewOffset = computed(() => {
   if (!Number.isFinite(scale) || !Number.isFinite(translateX) || !Number.isFinite(translateY)) return false;
   return Math.abs(scale - 1) > 1e-6 || Math.abs(translateX) > 1e-6 || Math.abs(translateY) > 1e-6;
 });
-const isDisplayControlsOpen = ref(false);
-const displayControlsPopoverRef = ref(null);
-const annotationToolMode = computed(() => (
-  config.annotationToolMode === USER_ANNOTATION_TOOL_MODE_ADD
-    ? USER_ANNOTATION_TOOL_MODE_ADD
-    : USER_ANNOTATION_TOOL_MODE_SELECT
-));
+
 const magnifierZoomOptions = Object.freeze(
   MAGNIFIER_ZOOM_LEVEL_OPTIONS.map((zoomLevel) => ({
     value: zoomLevel,
@@ -87,6 +86,7 @@ const magnifierZoomLevelModel = computed({
 const selectedMagnifierZoomOption = computed(() => (
   magnifierZoomOptions.find((option) => option.value === magnifierZoomLevelModel.value) ?? null
 ));
+
 const depthCursorModeOptions = [
   { value: 'tvd', label: 'TVD', i18nKey: 'ui.depth_cursor_mode.tvd' },
   { value: 'md', label: 'MD', i18nKey: 'ui.depth_cursor_mode.md' }
@@ -100,6 +100,31 @@ const depthCursorDirectionalModeModel = computed({
 const selectedDepthCursorModeOption = computed(() => (
   depthCursorModeOptions.find((option) => option.value === depthCursorDirectionalModeModel.value) ?? null
 ));
+
+const annotationToolOptions = Object.freeze([
+  {
+    value: USER_ANNOTATION_TOOL_MODE_SELECT,
+    label: 'Select',
+    i18nKey: 'ui.annotation_tool.select',
+    icon: 'pi pi-check'
+  },
+  {
+    value: USER_ANNOTATION_TOOL_MODE_ADD,
+    label: 'Add Note',
+    i18nKey: 'ui.annotation_tool.add_note',
+    icon: 'pi pi-file-edit'
+  }
+]);
+const annotationToolModeModel = computed({
+  get: () => (
+    config.annotationToolMode === USER_ANNOTATION_TOOL_MODE_ADD
+      ? USER_ANNOTATION_TOOL_MODE_ADD
+      : USER_ANNOTATION_TOOL_MODE_SELECT
+  ),
+  set: (mode) => {
+    viewConfigStore.setAnnotationToolMode(mode);
+  }
+});
 
 function toggleMagnifier() {
   viewConfigStore.setShowMagnifier(!isMagnifierEnabled.value);
@@ -172,55 +197,27 @@ function fitToDataForCurrentView() {
   viewConfigStore.resetVerticalCameraView();
 }
 
-function toggleDisplayControlsPanel(event) {
-  displayControlsPopoverRef.value?.toggle(event);
+function toggleSecondaryToolsPopover(event) {
+  secondaryToolsPopoverRef.value?.toggle(event);
 }
 
-function handleDisplayControlsShow() {
-  isDisplayControlsOpen.value = true;
+function handleSecondaryToolsPopoverShow() {
+  isSecondaryToolsPopoverOpen.value = true;
 }
 
-function handleDisplayControlsHide() {
-  isDisplayControlsOpen.value = false;
+function handleSecondaryToolsPopoverHide() {
+  isSecondaryToolsPopoverOpen.value = false;
+  isDisplayControlsExpanded.value = false;
 }
 
-function setAnnotationToolMode(mode) {
-  viewConfigStore.setAnnotationToolMode(mode);
+function toggleDisplayControlsExpanded() {
+  isDisplayControlsExpanded.value = !isDisplayControlsExpanded.value;
 }
 </script>
 
 <template>
   <section class="canvas-interaction-toolbar" role="toolbar" aria-label="Canvas interaction tools">
-    <div class="canvas-interaction-toolbar__group" aria-label="Inspection tools">
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': isMagnifierEnabled }"
-        title="Show magnifier"
-        data-i18n-title="ui.show_magnifier"
-        aria-label="Show magnifier"
-        @click="toggleMagnifier"
-      >
-        <i class="pi pi-search-plus" aria-hidden="true"></i>
-      </button>
-
-      <div v-if="isMagnifierEnabled" class="canvas-interaction-toolbar__magnifier-mode">
-        <Select
-          v-model="magnifierZoomLevelModel"
-          :options="magnifierZoomOptions"
-          option-label="label"
-          option-value="value"
-          class="canvas-interaction-toolbar__magnifier-mode-select"
-        >
-          <template #value="slotProps">
-            <span v-if="selectedMagnifierZoomOption">
-              {{ selectedMagnifierZoomOption.label }}
-            </span>
-            <span v-else>{{ slotProps.placeholder }}</span>
-          </template>
-        </Select>
-      </div>
-
+    <div class="canvas-interaction-toolbar__core-strip">
       <button
         type="button"
         class="canvas-interaction-toolbar__button"
@@ -261,33 +258,8 @@ function setAnnotationToolMode(mode) {
         </Select>
       </div>
 
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': isCrossSectionEnabled }"
-        title="Show depth cross-section"
-        data-i18n-title="ui.show_depth_cross_section"
-        aria-label="Show depth cross-section"
-        @click="toggleCrossSection"
-      >
-        <i class="pi pi-chart-line" aria-hidden="true"></i>
-      </button>
+      <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
 
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': isPhysicsDebugEnabled }"
-        title="Debug: Show Physics Intervals"
-        aria-label="Debug: Show Physics Intervals"
-        @click="togglePhysicsDebug"
-      >
-        <i class="pi pi-sliders-h" aria-hidden="true"></i>
-      </button>
-    </div>
-
-    <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
-
-    <div class="canvas-interaction-toolbar__group" aria-label="Camera tools">
       <button
         type="button"
         class="canvas-interaction-toolbar__button canvas-interaction-toolbar__button--camera-toggle"
@@ -350,56 +322,124 @@ function setAnnotationToolMode(mode) {
       >
         <i class="pi pi-refresh" aria-hidden="true"></i>
       </button>
+
+      <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
+
+      <SelectButton
+        v-model="annotationToolModeModel"
+        :options="annotationToolOptions"
+        option-label="label"
+        option-value="value"
+        class="canvas-interaction-toolbar__annotation-mode"
+      >
+        <template #option="slotProps">
+          <span class="canvas-interaction-toolbar__annotation-option">
+            <i :class="slotProps.option.icon" aria-hidden="true"></i>
+            <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
+          </span>
+        </template>
+      </SelectButton>
     </div>
 
-    <span class="canvas-interaction-toolbar__divider" aria-hidden="true"></span>
-
-    <div class="canvas-interaction-toolbar__group" aria-label="Display and annotation tools">
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': isDisplayControlsOpen }"
-        title="Display Layers & Colors"
-        data-i18n-title="ui.display_controls_title"
-        aria-label="Display Layers & Colors"
-        @click="toggleDisplayControlsPanel"
-      >
-        <i class="pi pi-palette" aria-hidden="true"></i>
-      </button>
-
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_SELECT }"
-        title="Select"
-        data-i18n-title="ui.annotation_tool.select"
-        aria-label="Select annotation tool"
-        @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_SELECT)"
-      >
-        <i class="pi pi-check" aria-hidden="true"></i>
-      </button>
-
-      <button
-        type="button"
-        class="canvas-interaction-toolbar__button"
-        :class="{ 'canvas-interaction-toolbar__button--active': annotationToolMode === USER_ANNOTATION_TOOL_MODE_ADD }"
-        title="Add Note"
-        data-i18n-title="ui.annotation_tool.add_note"
-        aria-label="Add annotation note"
-        @click="setAnnotationToolMode(USER_ANNOTATION_TOOL_MODE_ADD)"
-      >
-        <i class="pi pi-file-edit" aria-hidden="true"></i>
-      </button>
-    </div>
+    <Button
+      type="button"
+      size="small"
+      text
+      rounded
+      class="canvas-interaction-toolbar__overflow-trigger"
+      :class="{ 'canvas-interaction-toolbar__overflow-trigger--active': isSecondaryToolsPopoverOpen }"
+      icon="pi pi-ellipsis-h"
+      title="More tools"
+      data-i18n-title="ui.toolbar.more_tools"
+      aria-label="More tools"
+      @click="toggleSecondaryToolsPopover"
+    />
 
     <Popover
-      ref="displayControlsPopoverRef"
+      ref="secondaryToolsPopoverRef"
       appendTo="body"
-      class="canvas-interaction-toolbar__popover"
-      @show="handleDisplayControlsShow"
-      @hide="handleDisplayControlsHide"
+      class="canvas-interaction-toolbar__secondary-popover"
+      @show="handleSecondaryToolsPopoverShow"
+      @hide="handleSecondaryToolsPopoverHide"
     >
-      <DisplayControls />
+      <div class="canvas-interaction-toolbar__secondary-panel">
+        <p class="canvas-interaction-toolbar__secondary-title" data-i18n="ui.toolbar.secondary_tools">Extra Tools</p>
+
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="canvas-interaction-toolbar__secondary-action"
+          :class="{ 'canvas-interaction-toolbar__secondary-action--active': isMagnifierEnabled }"
+          @click="toggleMagnifier"
+        >
+          <i class="pi pi-search-plus" aria-hidden="true"></i>
+          <span data-i18n="ui.show_magnifier">Show magnifier</span>
+        </Button>
+
+        <div v-if="isMagnifierEnabled" class="canvas-interaction-toolbar__secondary-setting">
+          <span class="canvas-interaction-toolbar__secondary-setting-label" data-i18n="ui.toolbar.zoom_short">Zoom</span>
+          <Select
+            v-model="magnifierZoomLevelModel"
+            :options="magnifierZoomOptions"
+            option-label="label"
+            option-value="value"
+            class="canvas-interaction-toolbar__secondary-setting-select"
+          >
+            <template #value="slotProps">
+              <span v-if="selectedMagnifierZoomOption">
+                {{ selectedMagnifierZoomOption.label }}
+              </span>
+              <span v-else>{{ slotProps.placeholder }}</span>
+            </template>
+          </Select>
+        </div>
+
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="canvas-interaction-toolbar__secondary-action"
+          :class="{ 'canvas-interaction-toolbar__secondary-action--active': isCrossSectionEnabled }"
+          @click="toggleCrossSection"
+        >
+          <i class="pi pi-chart-line" aria-hidden="true"></i>
+          <span data-i18n="ui.show_depth_cross_section">Show depth cross-section</span>
+        </Button>
+
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="canvas-interaction-toolbar__secondary-action"
+          :class="{ 'canvas-interaction-toolbar__secondary-action--active': isPhysicsDebugEnabled }"
+          @click="togglePhysicsDebug"
+        >
+          <i class="pi pi-sliders-h" aria-hidden="true"></i>
+          <span data-i18n="ui.toolbar.physics_debug">Debug Physics Intervals</span>
+        </Button>
+
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="canvas-interaction-toolbar__secondary-action"
+          :class="{ 'canvas-interaction-toolbar__secondary-action--active': isDisplayControlsExpanded }"
+          @click="toggleDisplayControlsExpanded"
+        >
+          <i class="pi pi-palette" aria-hidden="true"></i>
+          <span data-i18n="ui.display_controls_title">Display Layers & Colors</span>
+          <i
+            class="pi canvas-interaction-toolbar__secondary-chevron"
+            :class="isDisplayControlsExpanded ? 'pi-chevron-up' : 'pi-chevron-down'"
+            aria-hidden="true"
+          ></i>
+        </Button>
+
+        <div v-if="isDisplayControlsExpanded" class="canvas-interaction-toolbar__display-controls-stage">
+          <DisplayControls />
+        </div>
+      </div>
     </Popover>
   </section>
 </template>
@@ -409,26 +449,26 @@ function setAnnotationToolMode(mode) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-surface-elevated) 94%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: var(--shadow-canvas-toolbar);
-  padding: 4px;
-  pointer-events: auto;
-  white-space: nowrap;
+  min-height: 32px;
+  min-width: 0;
 }
 
-.canvas-interaction-toolbar__group {
+.canvas-interaction-toolbar__core-strip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 30px;
+  min-height: 32px;
+  padding: 3px 4px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-surface-elevated) 35%, transparent);
+  min-width: 0;
 }
 
 .canvas-interaction-toolbar__button {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -444,13 +484,6 @@ function setAnnotationToolMode(mode) {
   background: color-mix(in srgb, var(--color-accent-primary) 10%, transparent);
 }
 
-.canvas-interaction-toolbar__button--camera-toggle {
-  width: auto;
-  min-width: 58px;
-  padding-inline: 8px;
-  gap: 4px;
-}
-
 .canvas-interaction-toolbar__button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -462,14 +495,21 @@ function setAnnotationToolMode(mode) {
   color: var(--color-accent-primary-strong);
 }
 
+.canvas-interaction-toolbar__button--camera-toggle {
+  width: auto;
+  min-width: 56px;
+  padding-inline: 8px;
+  gap: 4px;
+}
+
 .canvas-interaction-toolbar__camera-state {
-  font-size: 0.56rem;
+  font-size: 0.54rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   line-height: 1;
   padding: 2px 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-text-secondary) 32%, transparent);
+  background: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
   color: var(--color-text-secondary);
 }
 
@@ -481,47 +521,129 @@ function setAnnotationToolMode(mode) {
 .canvas-interaction-toolbar__divider {
   width: 1px;
   align-self: stretch;
-  background: color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
+  background: color-mix(in srgb, var(--line) 72%, transparent);
   margin-inline: 1px;
 }
 
 .canvas-interaction-toolbar__depth-mode {
-  min-width: 126px;
-}
-
-.canvas-interaction-toolbar__magnifier-mode {
-  min-width: 88px;
+  min-width: 112px;
 }
 
 .canvas-interaction-toolbar__depth-mode--disabled {
   opacity: 0.68;
 }
 
-.canvas-interaction-toolbar__magnifier-mode-select :deep(.p-select-label),
 .canvas-interaction-toolbar__depth-mode-select :deep(.p-select-label) {
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
+  padding-top: 0.34rem;
+  padding-bottom: 0.34rem;
+  font-size: 0.7rem;
+}
+
+.canvas-interaction-toolbar__depth-mode-select :deep(.p-select-dropdown) {
+  width: 1.9rem;
+}
+
+.canvas-interaction-toolbar__annotation-mode :deep(.p-selectbutton) {
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.canvas-interaction-toolbar__annotation-mode :deep(.p-togglebutton) {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+}
+
+.canvas-interaction-toolbar__annotation-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.canvas-interaction-toolbar__overflow-trigger {
+  width: 28px;
+  height: 28px;
+}
+
+.canvas-interaction-toolbar__overflow-trigger--active {
+  color: var(--color-accent-primary-strong);
+  background: color-mix(in srgb, var(--color-accent-primary) 15%, transparent);
+}
+
+.canvas-interaction-toolbar__secondary-panel {
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 28px));
+}
+
+.canvas-interaction-toolbar__secondary-title {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.canvas-interaction-toolbar__secondary-action {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.canvas-interaction-toolbar__secondary-action--active {
+  border-color: color-mix(in srgb, var(--color-accent-primary-strong) 70%, transparent);
+  background: color-mix(in srgb, var(--color-accent-primary) 14%, transparent);
+  color: var(--color-accent-primary-strong);
+}
+
+.canvas-interaction-toolbar__secondary-setting {
+  display: grid;
+  gap: 4px;
+}
+
+.canvas-interaction-toolbar__secondary-setting-label {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.canvas-interaction-toolbar__secondary-setting-select :deep(.p-select-label) {
+  padding-top: 0.36rem;
+  padding-bottom: 0.36rem;
   font-size: 0.72rem;
 }
 
-.canvas-interaction-toolbar__magnifier-mode-select :deep(.p-select-dropdown),
-.canvas-interaction-toolbar__depth-mode-select :deep(.p-select-dropdown) {
-  width: 2rem;
+.canvas-interaction-toolbar__secondary-chevron {
+  margin-left: auto;
 }
 
-.canvas-interaction-toolbar__popover :deep(.control-group) {
+.canvas-interaction-toolbar__display-controls-stage {
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-elevated) 96%, transparent);
+}
+
+.canvas-interaction-toolbar__display-controls-stage :deep(.control-group) {
   margin: 0;
-  width: min(340px, calc(100vw - 24px));
+  width: 100%;
 }
 
 @media (max-width: 1199px) {
   .canvas-interaction-toolbar {
-    flex-wrap: wrap;
-    white-space: normal;
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .canvas-interaction-toolbar__divider {
-    display: none;
+  .canvas-interaction-toolbar__core-strip {
+    min-width: 0;
+    max-width: calc(100% - 34px);
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
 }
 </style>

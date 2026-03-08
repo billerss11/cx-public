@@ -54,30 +54,30 @@ describe('SurfaceAssemblyComposerDialog', () => {
     setActivePinia(createPinia());
   });
 
-  it('adds trunk blocks to the draft assembly from the palette', async () => {
+  it('switches families through the guided family controls', async () => {
     const { surfaceAssemblyStore, wrapper } = mountDialog();
     surfaceAssemblyStore.openComposer();
     await nextTick();
 
-    const beforeCount = surfaceAssemblyStore.draftAssembly.components.length;
+    await wrapper.get('[data-testid="surface-assembly-family-horizontal-tree"]').trigger('click');
 
-    await wrapper.get('[data-testid="surface-assembly-add-trunk-valve"]').trigger('click');
-
-    expect(surfaceAssemblyStore.draftAssembly.components.length).toBe(beforeCount + 1);
+    expect(surfaceAssemblyStore.draftAssembly.familyKey).toBe('horizontal-tree');
+    expect(wrapper.text()).toContain('Horizontal Tree');
   });
 
-  it('applies the draft assembly and closes the composer', async () => {
+  it('applies guided engineering edits and closes the composer', async () => {
     const { surfaceAssemblyStore, wrapper } = mountDialog();
     surfaceAssemblyStore.openComposer();
     await nextTick();
 
-    await wrapper.get('[data-testid="surface-assembly-add-right-outlet"]').trigger('click');
+    await wrapper.get('[data-testid="surface-assembly-family-vertical-tree"]').trigger('click');
+    await wrapper.get('[data-testid="surface-assembly-device-state-wingValve-closed"]').trigger('click');
     await wrapper.get('[data-testid="surface-assembly-apply"]').trigger('click');
 
     expect(surfaceAssemblyStore.isComposerVisible).toBe(false);
     expect(surfaceAssemblyStore.committedAssemblyForActiveWell).not.toBe(null);
     expect(
-      surfaceAssemblyStore.committedAssemblyForActiveWell.components.some((component) => component.typeKey === 'outlet')
-    ).toBe(true);
+      surfaceAssemblyStore.committedAssemblyForActiveWell.devices.find((device) => device.slotKey === 'wingValve')?.state
+    ).toBe('closed');
   });
 });

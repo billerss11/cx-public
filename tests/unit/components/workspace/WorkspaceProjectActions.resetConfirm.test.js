@@ -1,6 +1,6 @@
 import { shallowMount } from '@vue/test-utils';
 import { defineComponent } from 'vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import WorkspaceProjectActions from '@/components/workspace/WorkspaceProjectActions.vue';
 import { resetData } from '@/app/importWorkflows.js';
 
@@ -111,28 +111,28 @@ const ButtonStub = defineComponent({
   `
 });
 
-const SplitButtonStub = defineComponent({
-  name: 'SplitButton',
+const MenuStub = defineComponent({
+  name: 'Menu',
   props: {
-    label: {
-      type: String,
-      default: ''
-    },
     model: {
       type: Array,
       default: () => []
     }
   },
-  emits: ['click'],
+  methods: {
+    toggle() {
+      // Popup visibility is not relevant for unit tests; action buttons are always rendered.
+    }
+  },
   template: `
     <div>
-      <button type="button" @click="$emit('click')">{{ label }}</button>
       <button
         v-for="(item, index) in model"
-        :key="index"
+        v-show="item && typeof item.command === 'function' && !item.disabled"
+        :key="index + '-' + String(item?.label ?? '')"
         type="button"
         :data-testid="'action-' + String(item.label)"
-        @click="item.command && item.command()"
+        @click="item.command()"
       >
         {{ item.label }}
       </button>
@@ -146,12 +146,12 @@ const passthroughStub = (name) => defineComponent({
 });
 
 function mountWorkspaceActions() {
-  return shallowMount(WorkspaceProjectActions, {
+  const wrapper = shallowMount(WorkspaceProjectActions, {
     global: {
       stubs: {
         Dialog: DialogStub,
         Button: ButtonStub,
-        SplitButton: SplitButtonStub,
+        Menu: MenuStub,
         Select: passthroughStub('Select'),
         SelectButton: passthroughStub('SelectButton'),
         InputText: passthroughStub('InputText'),
@@ -160,16 +160,27 @@ function mountWorkspaceActions() {
       }
     }
   });
+  mountedWrappers.push(wrapper);
+  return wrapper;
+}
+
+const mountedWrappers = [];
+
+function getOverflowActionButton(wrapper, actionLabel) {
+  return wrapper.find(`[data-testid="action-${actionLabel}"]`);
 }
 
 describe('WorkspaceProjectActions reset warning', () => {
-  beforeEach(() => {
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount();
+    }
     vi.clearAllMocks();
   });
 
   it('shows new project warning dialog and only creates a blank project after confirmation', async () => {
     const wrapper = mountWorkspaceActions();
-    const newProjectActionButton = wrapper.find('[data-testid="action-ui.project_new"]');
+    const newProjectActionButton = getOverflowActionButton(wrapper, 'ui.project_new');
 
     expect(newProjectActionButton.exists()).toBe(true);
     await newProjectActionButton.trigger('click');
@@ -182,12 +193,11 @@ describe('WorkspaceProjectActions reset warning', () => {
     await confirmButton.trigger('click');
 
     expect(projectStoreMock.createBlankProject).toHaveBeenCalledTimes(1);
-    wrapper.unmount();
   });
 
   it('shows reset warning dialog and only resets after confirmation', async () => {
     const wrapper = mountWorkspaceActions();
-    const resetActionButton = wrapper.find('[data-testid="action-ui.reset"]');
+    const resetActionButton = getOverflowActionButton(wrapper, 'ui.reset');
 
     expect(resetActionButton.exists()).toBe(true);
     await resetActionButton.trigger('click');
@@ -200,7 +210,6 @@ describe('WorkspaceProjectActions reset warning', () => {
     await confirmButton.trigger('click');
 
     expect(resetData).toHaveBeenCalledTimes(1);
-    wrapper.unmount();
   });
 
   it('handles Ctrl+Z by restoring last deleted row selection', async () => {
@@ -222,7 +231,5 @@ describe('WorkspaceProjectActions reset warning', () => {
       entityType: 'line',
       rowId: 'line-1'
     });
-
-    wrapper.unmount();
   });
 });

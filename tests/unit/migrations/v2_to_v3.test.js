@@ -56,6 +56,46 @@ describe('v2_to_v3 migration', () => {
     keys.forEach((key) => {
       expect(Array.isArray(emptyData[key])).toBe(true);
     });
+    expect(emptyData.surfaceAssembly).toBe(null);
+  });
+
+  it('preserves optional surface assembly payloads on v3 normalization', () => {
+    const payload = ensureProjectSchemaV3({
+      projectSchemaVersion: '3.0',
+      projectName: 'Surface Project',
+      activeWellId: 'well-1',
+      wells: [
+        {
+          id: 'well-1',
+          name: 'Well 1',
+          data: {
+            casingData: [],
+            tubingData: [],
+            drillStringData: [],
+            equipmentData: [],
+            horizontalLines: [],
+            annotationBoxes: [],
+            userAnnotations: [],
+            cementPlugs: [],
+            annulusFluids: [],
+            markers: [],
+            topologySources: [],
+            trajectory: [],
+            surfaceAssembly: {
+              familyKey: 'unitized-wellhead',
+            },
+          },
+          config: {},
+        },
+      ],
+      meta: {},
+    });
+
+    expect(payload.wells[0].data.surfaceAssembly).toEqual(
+      expect.objectContaining({
+        familyKey: 'unitized-wellhead',
+      })
+    );
   });
 
   it('throws on unsupported payload shapes', () => {
