@@ -40,6 +40,20 @@ describe('PlotSettings camera-control precedence contract', () => {
     expect(source).toContain('data-i18n="ui.directional_label_scale_hint"');
   });
 
+  it('exposes a directional viewport fit control backed by the view config store', () => {
+    const source = readPlotSettingsSource();
+
+    expect(source).toContain('const directionalViewportFitModeOptions = Object.freeze([');
+    expect(source).toContain("value: 'contain'");
+    expect(source).toContain("value: 'fill-width'");
+    expect(source).toContain('const directionalViewportFitModeModel = computed({');
+    expect(source).toContain('viewConfigStore.setDirectionalViewportFitMode(value);');
+    expect(source).toContain('v-model="directionalViewportFitModeModel"');
+    expect(source).toContain('data-i18n="ui.directional_viewport_fit"');
+    expect(source).toContain('data-i18n="ui.directional_viewport_fit_hint"');
+    expect(source).toContain(':disabled="isCameraTransformEnabledForCurrentView"');
+  });
+
   it('exposes a vertical-only label scale control backed by the view config store', () => {
     const source = readPlotSettingsSource();
 

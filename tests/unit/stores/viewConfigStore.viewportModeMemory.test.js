@@ -44,7 +44,8 @@ describe('viewConfigStore viewport mode memory', () => {
     store.updateConfig({
       figHeight: 1480,
       canvasWidthMultiplier: 1.7,
-      xExaggeration: 0.65
+      xExaggeration: 0.65,
+      directionalViewportFitMode: 'fill-width'
     });
 
     store.setViewMode('vertical');
@@ -54,5 +55,6 @@ describe('viewConfigStore viewport mode memory', () => {
     expect(store.config.figHeight).toBe(1480);
     expect(store.config.canvasWidthMultiplier).toBe(1.7);
     expect(store.config.xExaggeration).toBe(0.65);
+    expect(store.config.directionalViewportFitMode).toBe('fill-width');
   });
 });

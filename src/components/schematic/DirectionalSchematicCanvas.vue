@@ -72,7 +72,15 @@ import { createClientPointerResolver } from '@/composables/useClientPointerResol
 
 const EPSILON = 1e-6;
 const AUTO_FIT_HEIGHT_DELTA_THRESHOLD = 2;
+const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';
+const DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH = 'fill-width';
 const margin = DIRECTIONAL_MARGIN;
+
+function normalizeDirectionalViewportFitMode(value) {
+  return String(value ?? '').trim().toLowerCase() === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
+    ? DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
+    : DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN;
+}
 
 const props = defineProps({
   projectData: {
@@ -268,6 +276,9 @@ const figHeightValue = computed(() => {
 });
 
 const lockAspectRatio = computed(() => props.config?.lockAspectRatio === true);
+const directionalViewportFitMode = computed(() => (
+  normalizeDirectionalViewportFitMode(props.config?.directionalViewportFitMode)
+));
 
 const xExaggerationValue = computed(() => normalizeXExaggeration(props.config?.xExaggeration));
 
@@ -565,11 +576,14 @@ const displayScaleValue = computed(() => {
   const nextContainerWidth = Number(containerWidth.value);
   const nextContainerHeight = Number(containerHeight.value);
   if (!Number.isFinite(nextContainerWidth) || nextContainerWidth <= 0) return 1;
-  if (!Number.isFinite(nextContainerHeight) || nextContainerHeight <= 0) return 1;
   if (!Number.isFinite(svgWidthValue.value) || svgWidthValue.value <= 0) return 1;
-  if (!Number.isFinite(figHeightValue.value) || figHeightValue.value <= 0) return 1;
-
   const widthRatio = nextContainerWidth / svgWidthValue.value;
+  if (!Number.isFinite(widthRatio) || widthRatio <= 0) return 1;
+  if (directionalViewportFitMode.value === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH) {
+    return widthRatio;
+  }
+  if (!Number.isFinite(nextContainerHeight) || nextContainerHeight <= 0) return 1;
+  if (!Number.isFinite(figHeightValue.value) || figHeightValue.value <= 0) return 1;
   const heightRatio = nextContainerHeight / figHeightValue.value;
   const containRatio = Math.min(widthRatio, heightRatio);
   if (!Number.isFinite(containRatio) || containRatio <= 0) return 1;

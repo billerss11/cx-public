@@ -110,6 +110,18 @@ const xExaggerationModel = createBufferedNumberModel(() => config.xExaggeration)
 const verticalLabelScaleModel = createBufferedNumberModel(() => config.verticalLabelScale);
 const directionalLabelScaleModel = createBufferedNumberModel(() => config.directionalLabelScale);
 const intervalCalloutStandoffModel = createBufferedNumberModel(() => config.intervalCalloutStandoffPx);
+const directionalViewportFitModeOptions = Object.freeze([
+  {
+    value: 'contain',
+    label: 'Fit Whole',
+    i18nKey: 'ui.directional_viewport_fit.contain'
+  },
+  {
+    value: 'fill-width',
+    label: 'Fill Width',
+    i18nKey: 'ui.directional_viewport_fit.fill_width'
+  }
+]);
 const directionalCasingArrowModeOptions = Object.freeze([
   {
     value: 'normal-locked',
@@ -127,6 +139,18 @@ const lockAspectRatioModel = computed({
   get: () => config.lockAspectRatio === true,
   set: (value) => {
     viewConfigStore.setLockAspectRatioEnabled(value);
+    requestSchematicRender({ immediate: true });
+  }
+});
+
+const directionalViewportFitModeModel = computed({
+  get: () => (
+    config.directionalViewportFitMode === 'fill-width'
+      ? 'fill-width'
+      : 'contain'
+  ),
+  set: (value) => {
+    viewConfigStore.setDirectionalViewportFitMode(value);
     requestSchematicRender({ immediate: true });
   }
 });
@@ -374,6 +398,27 @@ onBeforeUnmount(() => {
             @change="handleXExaggerationSliderChange"
             @slideend="handleXExaggerationSliderCommit"
           />
+        </div>
+
+        <div v-if="isDirectionalView" class="mb-2">
+          <label class="form-label">
+            <span data-i18n="ui.directional_viewport_fit">Directional Viewport Fit:</span>
+          </label>
+          <small class="input-hint" data-i18n="ui.directional_viewport_fit_hint">Choose whether directional view keeps full graph visibility or prioritizes full-width usage.</small>
+          <SelectButton
+            v-model="directionalViewportFitModeModel"
+            :options="directionalViewportFitModeOptions"
+            option-label="label"
+            option-value="value"
+            size="small"
+            class="w-100"
+            :disabled="isCameraTransformEnabledForCurrentView"
+            aria-label="Directional viewport fit mode"
+          >
+            <template #option="slotProps">
+              <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
+            </template>
+          </SelectButton>
         </div>
 
         <div v-if="isDirectionalView" class="mb-2">

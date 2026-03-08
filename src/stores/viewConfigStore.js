@@ -38,6 +38,8 @@ const MAX_INTERVAL_CALLOUT_STANDOFF_PX = LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBA
 const DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX = LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_DEFAULT_PX;
 const DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED = 'normal-locked';
 const DIRECTIONAL_CASING_ARROW_MODE_DIRECT_TO_ANCHOR = 'direct-to-anchor';
+const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';
+const DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH = 'fill-width';
 const DEPTH_CURSOR_DIRECTIONAL_MODE_TVD = 'tvd';
 const DEPTH_CURSOR_DIRECTIONAL_MODE_MD = 'md';
 const OPERATION_PHASE_PRODUCTION = 'production';
@@ -82,6 +84,7 @@ export function createDefaultViewConfig() {
         xExaggeration: 1.0,
         verticalLabelScale: 1.0,
         directionalLabelScale: DEFAULT_DIRECTIONAL_LABEL_SCALE,
+        directionalViewportFitMode: DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN,
         intervalCalloutStandoffPx: DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX,
         directionalCasingArrowMode: DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED,
         verticalSectionMode: DEFAULT_VERTICAL_SECTION_MODE,
@@ -180,6 +183,12 @@ function normalizeDirectionalCasingArrowMode(value) {
     return String(value ?? '').trim().toLowerCase() === DIRECTIONAL_CASING_ARROW_MODE_DIRECT_TO_ANCHOR
         ? DIRECTIONAL_CASING_ARROW_MODE_DIRECT_TO_ANCHOR
         : DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED;
+}
+
+export function normalizeDirectionalViewportFitMode(value) {
+    return String(value ?? '').trim().toLowerCase() === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
+        ? DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
+        : DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN;
 }
 
 function normalizeVerticalSectionMode(value) {
@@ -363,15 +372,25 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         return setConfigValue('cementHatchStyle', value);
     }
 
+    function normalizeConfigValueForKey(key, value) {
+        if (key === 'directionalLabelScale') {
+            return normalizeDirectionalLabelScale(value, config.directionalLabelScale);
+        }
+        if (key === 'verticalLabelScale') {
+            return normalizeDirectionalLabelScale(value, config.verticalLabelScale);
+        }
+        if (key === 'smartLabelsEnabled') {
+            return normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled);
+        }
+        if (key === 'directionalViewportFitMode') {
+            return normalizeDirectionalViewportFitMode(value);
+        }
+        return value;
+    }
+
     function setConfigValue(key, value) {
         if (!key || !SUPPORTED_VIEW_CONFIG_KEYS.has(key)) return false;
-        const normalizedValue = key === 'directionalLabelScale'
-            ? normalizeDirectionalLabelScale(value, config.directionalLabelScale)
-            : (key === 'verticalLabelScale'
-                ? normalizeDirectionalLabelScale(value, config.verticalLabelScale)
-            : (key === 'smartLabelsEnabled'
-                ? normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled)
-                : value));
+        const normalizedValue = normalizeConfigValueForKey(key, value);
         if (Object.is(config[key], normalizedValue)) return false;
         config[key] = normalizedValue;
         return true;
@@ -554,13 +573,7 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         const changedKeys = [];
         Object.entries(patch).forEach(([key, value]) => {
             if (!SUPPORTED_VIEW_CONFIG_KEYS.has(key)) return;
-            const normalizedValue = key === 'directionalLabelScale'
-                ? normalizeDirectionalLabelScale(value, config.directionalLabelScale)
-                : (key === 'verticalLabelScale'
-                    ? normalizeDirectionalLabelScale(value, config.verticalLabelScale)
-                : (key === 'smartLabelsEnabled'
-                    ? normalizeSmartLabelsEnabled(value, config.smartLabelsEnabled)
-                    : value));
+            const normalizedValue = normalizeConfigValueForKey(key, value);
             if (Object.is(config[key], normalizedValue)) return;
             config[key] = normalizedValue;
             changedKeys.push(key);
@@ -928,6 +941,12 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         return normalized;
     }
 
+    function setDirectionalViewportFitMode(value) {
+        const normalized = normalizeDirectionalViewportFitMode(value);
+        setConfigValue('directionalViewportFitMode', normalized);
+        return normalized;
+    }
+
     function setDirectionalDataAspectRatio(value) {
         const numeric = Number(value);
         const safeAspectRatio = Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
@@ -1070,6 +1089,7 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         setVerticalLabelScale,
         setXExaggeration,
         setDirectionalLabelScale,
+        setDirectionalViewportFitMode,
         setIntervalCalloutStandoffPx,
         setDirectionalCasingArrowMode,
         syncVerticalSectionControlsFromConfig

@@ -4,6 +4,7 @@ import {
   createSurfaceAssemblyFromFamily,
   updateSurfaceAssemblyTerminationType,
 } from '@/utils/surfaceAssemblyModel.js';
+import annulusBActiveFlowFixture from '../../topology/fixtures/surface_sink_only_annulus_b_active_flow.json';
 
 function createBaseState() {
   return {
@@ -85,5 +86,27 @@ describe('surface termination subgraph', () => {
     expect(
       result.minCostPathEdgeIds.some((edgeId) => String(edgeId).includes('surface-termination-slot'))
     ).toBe(true);
+  });
+
+  it('keeps explicit ANNULUS_B source routable when a surface assembly is enabled', () => {
+    const baseState = structuredClone(annulusBActiveFlowFixture.input);
+
+    const withoutSurfaceAssembly = buildTopologyModel(baseState, {
+      requestId: 3,
+      wellId: 'surface-annulus-b-legacy',
+    });
+    const withSurfaceAssembly = buildTopologyModel(
+      {
+        ...baseState,
+        surfaceAssembly: createSurfaceAssemblyFromFamily('conventional-wellhead-stack'),
+      },
+      {
+        requestId: 4,
+        wellId: 'surface-annulus-b-subgraph',
+      }
+    );
+
+    expect(withoutSurfaceAssembly.minFailureCostToSurface).toBe(0);
+    expect(withSurfaceAssembly.minFailureCostToSurface).not.toBeNull();
   });
 });

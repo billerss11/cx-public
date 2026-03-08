@@ -50,6 +50,29 @@ describe('viewConfigStore camera migration flags contract', () => {
     expect(store.config.directionalLabelScale).toBe(1.35);
   });
 
+  it('initializes directional viewport fit mode with a persisted default and normalized setter contract', () => {
+    const store = useViewConfigStore();
+
+    expect(store.config.directionalViewportFitMode).toBe('contain');
+    expect(store.setDirectionalViewportFitMode).toBeTypeOf('function');
+
+    store.setDirectionalViewportFitMode('fill-width');
+    expect(store.config.directionalViewportFitMode).toBe('fill-width');
+
+    store.setDirectionalViewportFitMode('invalid-mode-token');
+    expect(store.config.directionalViewportFitMode).toBe('contain');
+  });
+
+  it('normalizes directional viewport fit mode during patch updates', () => {
+    const store = useViewConfigStore();
+
+    store.updateConfig({ directionalViewportFitMode: 'fill-width' });
+    expect(store.config.directionalViewportFitMode).toBe('fill-width');
+
+    store.updateConfig({ directionalViewportFitMode: 'not-supported' });
+    expect(store.config.directionalViewportFitMode).toBe('contain');
+  });
+
   it('initializes vertical label scale with a persisted default and setter contract', () => {
     const store = useViewConfigStore();
 

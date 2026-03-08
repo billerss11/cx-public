@@ -30,7 +30,12 @@ describe('DirectionalSchematicCanvas viewport auto-fit contract', () => {
   it('uses contain-fit scaling so directional viewport keeps full graph visibility', () => {
     const source = readDirectionalSchematicCanvasSource();
 
+    expect(source).toContain("const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';");
+    expect(source).toContain("const DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH = 'fill-width';");
+    expect(source).toContain('const directionalViewportFitMode = computed(() => (');
     expect(source).toContain('const widthRatio = nextContainerWidth / svgWidthValue.value;');
+    expect(source).toContain('if (directionalViewportFitMode.value === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH) {');
+    expect(source).toContain('return widthRatio;');
     expect(source).toContain('const heightRatio = nextContainerHeight / figHeightValue.value;');
     expect(source).toContain('const containRatio = Math.min(widthRatio, heightRatio);');
     expect(source).toContain('return containRatio;');
