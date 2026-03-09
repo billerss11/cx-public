@@ -1,11 +1,12 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import DesignWorkspace from '@/views/DesignWorkspace.vue';
-import AnalysisWorkspace from '@/views/AnalysisWorkspace.vue';
-import LasWorkspace from '@/views/LasWorkspace.vue';
-import SettingsWorkspace from '@/views/SettingsWorkspace.vue';
 import WorkspaceActivityShell from '@/components/workspace/WorkspaceActivityShell.vue';
 import { ACTIVITY_TO_VIEW, useWorkspaceStore } from '@/stores/workspaceStore.js';
+
+const AnalysisWorkspace = defineAsyncComponent(() => import('@/views/AnalysisWorkspace.vue'));
+const LasWorkspace = defineAsyncComponent(() => import('@/views/LasWorkspace.vue'));
+const SettingsWorkspace = defineAsyncComponent(() => import('@/views/SettingsWorkspace.vue'));
 
 const workspaceStore = useWorkspaceStore();
 

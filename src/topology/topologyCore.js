@@ -76,11 +76,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
         hasExplicitScenarioRows: sourceResolution?.sourcePolicy?.explicitScenarioDerived === true
     });
 
-    const termination = buildTerminationEdges(
-        intervals,
-        intervalNodeByKind,
-        safeState.surfaceAssembly
-    );
+    const termination = buildTerminationEdges(intervals, intervalNodeByKind);
     const nodes = [...baseNodes, ...termination.nodes];
 
     const edges = [
@@ -141,6 +137,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
                 ...radial.validationWarnings,
                 ...scenarioRadial.validationWarnings
             ],
+            terminationWarnings: termination.validationWarnings,
             explicitWarnings: explicit.validationWarnings,
             fluidWarnings: [
                 ...fluid.validationWarnings,

@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="tables-tabs-panel">
     <div class="tables-tabs-panel__main">
-      <Tabs v-model:value="activeTabValue" :lazy="false">
+      <Tabs v-model:value="activeTabValue" :lazy="true">
         <TabList>
           <Tab value="casing">
             <span id="casing-tab" data-i18n="ui.tabs.casing">Casing</span>

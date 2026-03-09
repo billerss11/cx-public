@@ -53,4 +53,11 @@ describe('TablesTabsPanel', () => {
     const wrapper = mountTabsPanel({ viewMode: 'directional' });
     expect(wrapper.find('#topology-breakouts-tab').exists()).toBe(true);
   });
+
+  it('enables lazy tab panel mounting for performance', () => {
+    const wrapper = mountTabsPanel();
+    const tabs = wrapper.findComponent({ name: 'Tabs' });
+    expect(tabs.exists()).toBe(true);
+    expect(tabs.attributes('lazy')).toBe('true');
+  });
 });

@@ -33,6 +33,7 @@ export function buildSourcePolicyWarnings({
 export function buildTopologyValidationWarnings({
     verticalWarnings = [],
     radialWarnings = [],
+    terminationWarnings = [],
     explicitWarnings = [],
     fluidWarnings = [],
     sourceResolutionWarnings = [],
@@ -41,6 +42,7 @@ export function buildTopologyValidationWarnings({
     return [
         ...(Array.isArray(verticalWarnings) ? verticalWarnings : []),
         ...(Array.isArray(radialWarnings) ? radialWarnings : []),
+        ...(Array.isArray(terminationWarnings) ? terminationWarnings : []),
         ...(Array.isArray(explicitWarnings) ? explicitWarnings : []),
         ...(Array.isArray(fluidWarnings) ? fluidWarnings : []),
         ...(Array.isArray(sourceResolutionWarnings) ? sourceResolutionWarnings : []),

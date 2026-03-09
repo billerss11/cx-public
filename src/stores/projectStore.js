@@ -3,7 +3,6 @@ import { defineStore } from 'pinia';
 import { cloneSnapshot } from '@/utils/general.js';
 import { withDefaultPipeComponentType } from '@/utils/pipeRows.js';
 import { PROJECT_DATA_KEYS, useProjectDataStore } from '@/stores/projectDataStore.js';
-import { normalizeSurfaceAssembly } from '@/utils/surfaceAssemblyModel.js';
 import {
     DEFAULT_X_EXAGGERATION,
     normalizeViewMode,
@@ -92,7 +91,6 @@ function normalizeWellData(data = {}) {
     normalized.casingData = withDefaultPipeComponentType(normalized.casingData);
     normalized.tubingData = withDefaultPipeComponentType(normalized.tubingData);
     normalized.drillStringData = withDefaultPipeComponentType(normalized.drillStringData);
-    normalized.surfaceAssembly = normalizeSurfaceAssembly(source.surfaceAssembly ?? defaults.surfaceAssembly);
 
     return normalized;
 }
@@ -207,12 +205,10 @@ export const useProjectStore = defineStore('project', () => {
         PROJECT_DATA_KEYS.forEach((key) => {
             snapshot[key] = cloneSnapshot(projectDataStore[key] ?? []);
         });
-        snapshot.surfaceAssembly = cloneSnapshot(projectDataStore.surfaceAssembly ?? null);
         return snapshot;
     }
 
     function isRuntimeWellDataEmpty() {
-        if (projectDataStore.surfaceAssembly) return false;
         return Array.from(PROJECT_DATA_KEYS).every((key) => {
             const rows = projectDataStore[key];
             return !Array.isArray(rows) || rows.length === 0;
@@ -224,7 +220,6 @@ export const useProjectStore = defineStore('project', () => {
         PROJECT_DATA_KEYS.forEach((key) => {
             projectDataStore.setProjectData(key, cloneSnapshot(normalizedData[key]));
         });
-        projectDataStore.setSurfaceAssembly(cloneSnapshot(normalizedData.surfaceAssembly));
         projectDataStore.setPhysicsIntervals([]);
     }
 

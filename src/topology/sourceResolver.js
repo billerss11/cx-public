@@ -29,7 +29,6 @@ import {
     TOPOLOGY_WARNING_CODES,
     createTopologyValidationWarning
 } from '@/topology/warningCatalog.js';
-import { normalizeSurfaceAssembly } from '@/utils/surfaceAssemblyModel.js';
 
 function toSafeArray(value) {
     return Array.isArray(value) ? value : [];
@@ -70,7 +69,6 @@ export function normalizeStateSnapshot(stateSnapshot = {}) {
         annulusFluids: toSafeArray(source.annulusFluids),
         markers: toSafeArray(source.markers),
         topologySources: toSafeArray(source.topologySources),
-        surfaceAssembly: normalizeSurfaceAssembly(source.surfaceAssembly),
         trajectory: toSafeArray(source.trajectory),
         config: source?.config && typeof source.config === 'object' ? source.config : {},
         interaction: source?.interaction && typeof source.interaction === 'object' ? source.interaction : {}

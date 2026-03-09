@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import { useBottomDockResize } from '@/composables/useBottomDockResize.js';
 import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
@@ -15,10 +15,11 @@ import {
 } from '@/stores/workspaceStore.js';
 import CanvasInteractionToolbar from '@/components/workspace/CanvasInteractionToolbar.vue';
 import LeftHierarchyDock from '@/components/workspace/LeftHierarchyDock.vue';
-import ResizableBottomDock from '@/components/workspace/ResizableBottomDock.vue';
 import RightContextDock from '@/components/workspace/RightContextDock.vue';
 import WorkspaceProjectActions from '@/components/workspace/WorkspaceProjectActions.vue';
 import WorkspaceViewStateControls from '@/components/workspace/WorkspaceViewStateControls.vue';
+
+const ResizableBottomDock = defineAsyncComponent(() => import('@/components/workspace/ResizableBottomDock.vue'));
 
 const workspaceStore = useWorkspaceStore();
 const shellRef = ref(null);

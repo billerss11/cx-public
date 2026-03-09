@@ -56,10 +56,9 @@ describe('v2_to_v3 migration', () => {
     keys.forEach((key) => {
       expect(Array.isArray(emptyData[key])).toBe(true);
     });
-    expect(emptyData.surfaceAssembly).toBe(null);
   });
 
-  it('preserves optional surface assembly payloads on v3 normalization', () => {
+  it('ignores optional legacy surface assembly payloads on v3 normalization', () => {
     const payload = ensureProjectSchemaV3({
       projectSchemaVersion: '3.0',
       projectName: 'Surface Project',
@@ -82,7 +81,7 @@ describe('v2_to_v3 migration', () => {
             topologySources: [],
             trajectory: [],
             surfaceAssembly: {
-              familyKey: 'unitized-wellhead',
+              familyKey: 'legacy-family',
             },
           },
           config: {},
@@ -91,11 +90,7 @@ describe('v2_to_v3 migration', () => {
       meta: {},
     });
 
-    expect(payload.wells[0].data.surfaceAssembly).toEqual(
-      expect.objectContaining({
-        familyKey: 'unitized-wellhead',
-      })
-    );
+    expect(payload.wells[0].data.surfaceAssembly).toBeUndefined();
   });
 
   it('throws on unsupported payload shapes', () => {
