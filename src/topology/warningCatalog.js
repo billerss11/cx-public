@@ -34,6 +34,12 @@ export const TOPOLOGY_WARNING_CODES = Object.freeze({
     STRUCTURAL_TRANSITION_NOT_MODELED: 'structural_transition_not_modeled',
     TUBING_END_TRANSFER_UNRESOLVED: 'tubing_end_transfer_unresolved',
 
+    SURFACE_MISSING_VOLUME: 'surface_missing_volume',
+    SURFACE_UNRESOLVED_ATTACH_TARGET: 'surface_unresolved_attach_target',
+    SURFACE_SELF_REFERENCE: 'surface_self_reference',
+    SURFACE_MULTIPLE_ROOTS_SAME_VOLUME: 'surface_multiple_roots_same_volume',
+    SURFACE_OUTLET_REQUIRES_PARENT: 'surface_outlet_requires_parent',
+
     ILLUSTRATIVE_FLUID_SOURCE_MODE_ENABLED: 'illustrative_fluid_source_mode_enabled',
     EXPLICIT_SCENARIO_SOURCE_MODE_ACTIVE: 'explicit_scenario_source_mode_active'
 });
@@ -42,6 +48,7 @@ export const TOPOLOGY_WARNING_CATEGORIES = Object.freeze({
     EQUIPMENT: 'equipment',
     MARKER: 'marker',
     SOURCE: 'source',
+    SURFACE: 'surface',
     POLICY: 'policy'
 });
 
@@ -143,7 +150,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
 
     [TOPOLOGY_WARNING_CODES.FLUID_ROWS_WITHOUT_MODELED_SOURCE_NODES]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Use marker/default sources, explicit topology sources, or enable illustrative fluid-source mode intentionally.'
+        recommendation: 'Use perforations, open-hole derived sources, manual source overrides, or enable illustrative fluid-source mode intentionally.'
     }),
     [TOPOLOGY_WARNING_CODES.FLUID_IN_UNMODELED_OUTER_ANNULUS]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
@@ -159,15 +166,15 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_MISSING_DEPTH_RANGE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Provide depth, or valid top/bottom values for the scenario source row.'
+        recommendation: 'Provide depth, or valid top/bottom values for the manual source override row.'
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_SOURCE_NO_RESOLVABLE_INTERVAL]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Adjust scenario source depth range so it intersects at least one modeled topology interval.'
+        recommendation: 'Adjust the manual source override depth range so it intersects at least one modeled topology interval.'
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_ROWS_WITH_NO_RESOLVED_NODES]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
-        recommendation: 'Review scenario source rows for valid depth ranges and volume keys so they resolve to source nodes.'
+        recommendation: 'Review manual source override rows for valid depth ranges and volume keys so they resolve to source nodes.'
     }),
     [TOPOLOGY_WARNING_CODES.SCENARIO_BREAKOUT_MISSING_VOLUME_PAIR]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
@@ -197,14 +204,39 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.SOURCE,
         recommendation: 'Align tubing-end boundary geometry so ANNULUS_A can be resolved for tubing-end transfer, and verify boundary equipment sealing intent.'
     }),
+    [TOPOLOGY_WARNING_CODES.SURFACE_MISSING_VOLUME]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SURFACE,
+        fields: ['properties.volumeKey'],
+        recommendation: `Select a supported flow channel: ${SUPPORTED_VOLUME_KEYS_WITH_LEGACY_LABEL}.`
+    }),
+    [TOPOLOGY_WARNING_CODES.SURFACE_UNRESOLVED_ATTACH_TARGET]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SURFACE,
+        fields: ['attachToDisplay', 'attachToId'],
+        recommendation: 'Select an existing upstream component, or leave Upstream Component blank to mark this as the first surface component on the flow path.'
+    }),
+    [TOPOLOGY_WARNING_CODES.SURFACE_SELF_REFERENCE]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SURFACE,
+        fields: ['attachToDisplay', 'attachToId'],
+        recommendation: 'Choose a different upstream component; a surface flow component cannot point to itself.'
+    }),
+    [TOPOLOGY_WARNING_CODES.SURFACE_MULTIPLE_ROOTS_SAME_VOLUME]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SURFACE,
+        fields: ['attachToDisplay', 'properties.volumeKey'],
+        recommendation: 'Keep only one first surface component per flow channel, or attach the extra components beneath the intended upstream component.'
+    }),
+    [TOPOLOGY_WARNING_CODES.SURFACE_OUTLET_REQUIRES_PARENT]: Object.freeze({
+        category: TOPOLOGY_WARNING_CATEGORIES.SURFACE,
+        fields: ['attachToDisplay', 'familyKey'],
+        recommendation: 'Set an upstream component for outlet rows before running analysis.'
+    }),
 
     [TOPOLOGY_WARNING_CODES.ILLUSTRATIVE_FLUID_SOURCE_MODE_ENABLED]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.POLICY,
-        recommendation: 'Use this mode for exploratory analysis only; rely on explicit scenario/marker-driven sources for engineering decisions.'
+        recommendation: 'Use this mode for exploratory analysis only; rely on perforations, open hole, and manual source overrides for engineering decisions.'
     }),
     [TOPOLOGY_WARNING_CODES.EXPLICIT_SCENARIO_SOURCE_MODE_ACTIVE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.POLICY,
-        recommendation: 'When explicit scenario rows are active, marker/fluid fallback is disabled for this run.'
+        recommendation: 'Manual source overrides should supplement real physical sources, not replace them.'
     })
 });
 

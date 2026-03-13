@@ -53,38 +53,38 @@ function createFieldContract(field, controlType, options = {}) {
 
 export function buildDefaultEquipmentEditorFields() {
     return Object.freeze([
-        createFieldContract('actuationState', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
+        createFieldContract('state.actuationState', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
             tableAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.hidden,
             options: () => buildEquipmentRuleOptions(
                 EQUIPMENT_ACTUATION_STATE_OPTIONS,
                 'Use equipment default'
             )
         }),
-        createFieldContract('integrityStatus', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
+        createFieldContract('state.integrityStatus', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
             tableAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.hidden,
             options: () => buildEquipmentRuleOptions(
                 EQUIPMENT_INTEGRITY_STATUS_OPTIONS,
                 'Use equipment default'
             )
         }),
-        createFieldContract('boreSeal', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
+        createFieldContract('properties.boreSeal', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
             tableAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.hidden,
             options: () => buildEquipmentRuleOptions(
                 EQUIPMENT_SEAL_OVERRIDE_OPTIONS,
                 'Use equipment default'
             )
         }),
-        createFieldContract('annularSeal', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
+        createFieldContract('properties.annularSeal', EQUIPMENT_EDITOR_CONTROL_TYPES.select, {
             tableAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.hidden,
             options: () => buildEquipmentRuleOptions(
                 EQUIPMENT_SEAL_OVERRIDE_OPTIONS,
                 'Use equipment default'
             )
         }),
-        createFieldContract('sealByVolume', EQUIPMENT_EDITOR_CONTROL_TYPES.json, {
+        createFieldContract('properties.sealByVolume', EQUIPMENT_EDITOR_CONTROL_TYPES.json, {
             dataTabAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.readOnly,
             tableAccess: EQUIPMENT_EDITOR_FIELD_ACCESS.hidden,
-            showWhen: ({ rowData }) => rowData?.sealByVolume && typeof rowData.sealByVolume === 'object'
+            showWhen: ({ rowData }) => rowData?.properties?.sealByVolume && typeof rowData.properties.sealByVolume === 'object'
         })
     ]);
 }

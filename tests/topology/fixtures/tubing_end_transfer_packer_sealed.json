@@ -73,17 +73,15 @@
     "edgeCount": 9,
     "activeFlowNodeCount": 1,
     "sourceEntityCount": 1,
-    "sourcePolicyMode": "scenario_explicit",
+    "sourcePolicyMode": "marker_default",
     "minFailureCostToSurface": 1,
     "minCostPathLength": 4,
     "spofEdgeCount": 1,
-    "validationWarningCount": 2,
+    "validationWarningCount": 1,
     "validationWarningCodes": [
-      "explicit_scenario_source_mode_active",
       "tubing_end_transfer_unresolved"
     ],
     "validationWarningCodeCounts": {
-      "explicit_scenario_source_mode_active": 1,
       "tubing_end_transfer_unresolved": 1
     },
     "uncodedValidationWarningCount": 0,

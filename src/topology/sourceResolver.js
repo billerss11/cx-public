@@ -292,7 +292,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
         if (!volumeKey) {
             validationWarnings.push(createTopologyValidationWarning(
                 SOURCE_WARNING_SCENARIO_SOURCE_UNSUPPORTED_VOLUME,
-                `Scenario source row has an unsupported volume key. Use ${SUPPORTED_SCENARIO_SOURCE_VOLUME_LIST.replace('TUBING_INNER', 'TUBING_INNER (legacy BORE)')} for MVP (OPEN_HOLE maps to FORMATION_ANNULUS).`,
+                `Manual source override row has an unsupported volume key. Use ${SUPPORTED_SCENARIO_SOURCE_VOLUME_LIST.replace('TUBING_INNER', 'TUBING_INNER (legacy BORE)')} for MVP (OPEN_HOLE maps to FORMATION_ANNULUS).`,
                 {
                     rowId: rowId || undefined
                 }
@@ -304,7 +304,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
         if (!depthRange) {
             validationWarnings.push(createTopologyValidationWarning(
                 SOURCE_WARNING_SCENARIO_SOURCE_MISSING_DEPTH_RANGE,
-                'Scenario source row is missing a valid depth/depth range.',
+                'Manual source override row is missing a valid depth/depth range.',
                 {
                     rowId: rowId || undefined
                 }
@@ -325,7 +325,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
         if (matchedNodeIds.size === 0) {
             validationWarnings.push(createTopologyValidationWarning(
                 SOURCE_WARNING_SCENARIO_SOURCE_NO_RESOLVABLE_INTERVAL,
-                'Scenario source row does not intersect a resolvable topology volume interval.',
+                'Manual source override row does not intersect a resolvable topology volume interval.',
                 {
                     rowId: rowId || undefined,
                     depth: depthRange.top
@@ -341,7 +341,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
             depthTop: depthRange.top,
             depthBottom: depthRange.bottom,
             rowId,
-            origin: 'scenario',
+            origin: 'manual-override',
             nodeIds: [...matchedNodeIds]
         });
     });
@@ -367,60 +367,56 @@ export function resolveSourceChannels({
     const explicitSourceNodeIds = toSafeArray(explicit?.sourceNodeIds);
     const explicitSourceEntities = toSafeArray(explicit?.sourceEntities);
     const hasResolvedExplicitSourceNodes = explicitSourceNodeIds.length > 0;
-
-    if (explicitScenarioRowsPresent && !hasResolvedExplicitSourceNodes) {
-        warnings.push(createTopologyValidationWarning(
-            SOURCE_WARNING_SCENARIO_ROWS_WITH_NO_RESOLVED_NODES,
-            'Scenario source rows are present, but no source nodes were resolved for this run.'
-        ));
-    }
-
-    if (explicitScenarioRowsPresent && hasResolvedExplicitSourceNodes) {
-        return {
-            sourceNodeIds: explicitSourceNodeIds,
-            sourceEntities: explicitSourceEntities,
-            sourcePolicy: {
-                mode: SOURCE_POLICY_MODE_SCENARIO_EXPLICIT,
-                markerDerived: false,
-                illustrativeFluidDerived: false,
-                explicitScenarioDerived: true
-            },
-            validationWarnings: warnings
-        };
-    }
-
     const markerSourceNodeIds = toSafeArray(radial?.sourceNodeIds);
+    const markerSourceEntities = toSafeArray(radial?.sourceEntities);
     const illustrativeSourceNodeIds = useIllustrativeFluidSource
         ? toSafeArray(fluid?.sourceNodeIds)
+        : [];
+    const illustrativeSourceEntities = useIllustrativeFluidSource
+        ? toSafeArray(fluid?.sourceEntities)
         : [];
     const openHoleSourceNodeIds = useOpenHoleSource
         ? toSafeArray(openHole?.sourceNodeIds)
         : [];
+    const openHoleSourceEntities = useOpenHoleSource
+        ? toSafeArray(openHole?.sourceEntities)
+        : [];
+
+    if (explicitScenarioRowsPresent && !hasResolvedExplicitSourceNodes) {
+        warnings.push(createTopologyValidationWarning(
+            SOURCE_WARNING_SCENARIO_ROWS_WITH_NO_RESOLVED_NODES,
+            'Manual source override rows are present, but no source nodes were resolved for this run.'
+        ));
+    }
+
     const sourceNodeIds = [...new Set([
         ...markerSourceNodeIds,
         ...illustrativeSourceNodeIds,
-        ...openHoleSourceNodeIds
+        ...openHoleSourceNodeIds,
+        ...explicitSourceNodeIds
     ])];
 
     const sourceEntities = [
-        ...toSafeArray(radial?.sourceEntities),
-        ...(useIllustrativeFluidSource ? toSafeArray(fluid?.sourceEntities) : []),
-        ...(useOpenHoleSource ? toSafeArray(openHole?.sourceEntities) : [])
+        ...markerSourceEntities,
+        ...openHoleSourceEntities,
+        ...explicitSourceEntities,
+        ...illustrativeSourceEntities
     ];
 
-    const fallbackSourcePolicyMode = useIllustrativeFluidSource
+    const fallbackSourcePolicyMode = illustrativeSourceNodeIds.length > 0
         ? SOURCE_POLICY_MODE_FLUID_OPT_IN
-        : (useOpenHoleSource ? SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN : SOURCE_POLICY_MODE_MARKER_DEFAULT);
+        : (openHoleSourceNodeIds.length > 0 ? SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN : SOURCE_POLICY_MODE_MARKER_DEFAULT);
 
     return {
         sourceNodeIds,
         sourceEntities,
         sourcePolicy: {
             mode: fallbackSourcePolicyMode,
-            markerDerived: true,
-            illustrativeFluidDerived: useIllustrativeFluidSource,
-            openHoleDerived: useOpenHoleSource,
-            explicitScenarioDerived: false
+            markerDerived: markerSourceNodeIds.length > 0,
+            illustrativeFluidDerived: illustrativeSourceNodeIds.length > 0,
+            openHoleDerived: openHoleSourceNodeIds.length > 0,
+            manualOverrideDerived: explicitSourceNodeIds.length > 0,
+            explicitScenarioDerived: explicitSourceNodeIds.length > 0
         },
         validationWarnings: warnings
     };
@@ -431,7 +427,7 @@ export function shouldUseIllustrativeFluidSource(stateSnapshot = {}) {
 }
 
 export function shouldUseOpenHoleSource(stateSnapshot = {}) {
-    return stateSnapshot?.config?.[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] === true;
+    return true;
 }
 
 export default {

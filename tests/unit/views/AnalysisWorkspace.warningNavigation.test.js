@@ -164,6 +164,9 @@ function mountAnalysisWorkspace(options = {}) {
         />
       `
     },
+    TopologySourcesTablePane: {
+      template: '<div class="topology-sources-table-pane-stub" />'
+    },
     ...(options?.stubs ?? {})
   };
 
@@ -363,6 +366,38 @@ describe('AnalysisWorkspace warning navigation', () => {
     mockState.setTablesAccordionOpen.mockReset();
     mockState.setActiveTableTabKey.mockReset();
     mockState.requestTableRowFocus.mockReset();
+  });
+
+  it('summarizes flow starts in plain language', () => {
+    mockState.topologyStore.activeWellTopology = {
+      result: {
+        requestId: 7,
+        wellId: 'well-test',
+        nodes: [],
+        edges: [],
+        sourceEntities: [
+          { origin: 'marker' },
+          { origin: 'open-hole-default' },
+          { origin: 'manual-override' },
+          { origin: 'manual-override' }
+        ],
+        sourcePolicy: {
+          mode: 'open_hole_opt_in',
+          markerDerived: true,
+          openHoleDerived: true,
+          manualOverrideDerived: true,
+          illustrativeFluidDerived: false
+        },
+        activeFlow: { nodeIds: [] },
+        minimumFailurePath: { nodeIds: [], edgeIds: [], cost: null },
+        spof: { edgeIds: [] },
+        validationWarnings: []
+      }
+    };
+
+    const wrapper = mountAnalysisWorkspace();
+
+    expect(wrapper.vm.topologySourceSummaryText).toBe('Flow starts from perforations, open hole, and 2 manual overrides.');
   });
 
   it('does not trigger topology recompute for non-topology view config changes', async () => {
@@ -856,9 +891,8 @@ describe('AnalysisWorkspace warning navigation', () => {
 
     await rowLinks[0].trigger('click');
 
-    expect(mockState.setTablesAccordionOpen).toHaveBeenCalledWith(true);
-    expect(mockState.setActiveTableTabKey).toHaveBeenCalledWith('topologySources');
-    expect(mockState.requestTableRowFocus).toHaveBeenCalledWith('topologySource', 0);
+    expect(wrapper.vm.manualSourceOverridesOpen).toBe(true);
+    expect(mockState.setActiveTableTabKey).not.toHaveBeenCalledWith('topologySources');
   });
 
   it('navigates to topology breakouts row when breakout warning row link is clicked', async () => {
@@ -1014,9 +1048,7 @@ describe('AnalysisWorkspace warning navigation', () => {
 
     await sourceRowLink.trigger('click');
 
-    expect(mockState.setTablesAccordionOpen).toHaveBeenCalledWith(true);
-    expect(mockState.setActiveTableTabKey).toHaveBeenLastCalledWith('topologySources');
-    expect(mockState.requestTableRowFocus).toHaveBeenLastCalledWith('topologySource', 0);
+    expect(wrapper.vm.manualSourceOverridesOpen).toBe(true);
 
     wrapper.unmount();
   });
@@ -1041,8 +1073,7 @@ describe('AnalysisWorkspace warning navigation', () => {
     expect(filteredLinks[0].text()).toContain('#src-1');
 
     await filteredLinks[0].trigger('click');
-    expect(mockState.setActiveTableTabKey).toHaveBeenLastCalledWith('topologySources');
-    expect(mockState.requestTableRowFocus).toHaveBeenLastCalledWith('topologySource', 0);
+    expect(wrapper.vm.manualSourceOverridesOpen).toBe(true);
 
     wrapper.vm.warningTableControls.categoryFilter = 'marker';
     await wrapper.vm.$nextTick();
@@ -1093,8 +1124,7 @@ describe('AnalysisWorkspace warning navigation', () => {
     expect(visibleRowLinks[0].text()).toContain('#src-1');
 
     await visibleRowLinks[0].trigger('click');
-    expect(mockState.setActiveTableTabKey).toHaveBeenLastCalledWith('topologySources');
-    expect(mockState.requestTableRowFocus).toHaveBeenLastCalledWith('topologySource', 0);
+    expect(wrapper.vm.manualSourceOverridesOpen).toBe(true);
 
     wrapper.vm.handleWarningCodeChipClick('unknown_type', 'equipment');
     await wrapper.vm.$nextTick();

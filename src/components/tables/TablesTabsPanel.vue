@@ -13,7 +13,6 @@ import LinesTablePane from './panes/LinesTablePane.vue';
 import PlugsTablePane from './panes/PlugsTablePane.vue';
 import FluidsTablePane from './panes/FluidsTablePane.vue';
 import MarkersTablePane from './panes/MarkersTablePane.vue';
-import TopologySourcesTablePane from './panes/TopologySourcesTablePane.vue';
 import TopologyBreakoutsTablePane from './panes/TopologyBreakoutsTablePane.vue';
 import BoxesTablePane from './panes/BoxesTablePane.vue';
 import TrajectoryTablePane from './panes/TrajectoryTablePane.vue';
@@ -46,7 +45,7 @@ const showEquipmentTable = computed(() => (
 const baseTabKeys = computed(() => {
   return visibleTableEntries.value
     .map((entry) => String(entry?.table?.tabKey ?? '').trim())
-    .filter((tabKey) => tabKey.length > 0);
+    .filter((tabKey) => tabKey.length > 0 && tabKey !== 'topologySources');
 });
 
 const tabKeys = computed(() => {
@@ -128,9 +127,6 @@ onBeforeUnmount(() => {
           <Tab value="markers">
             <span id="markers-tab" data-i18n="ui.tabs.markers">Markers</span>
           </Tab>
-          <Tab value="topologySources">
-            <span id="topology-sources-tab" data-i18n="ui.tabs.topology_sources">Inflow Points</span>
-          </Tab>
           <Tab value="topologyBreakouts">
             <span id="topology-breakouts-tab" data-i18n="ui.tabs.topology_breakouts">Crossflow Paths</span>
           </Tab>
@@ -168,9 +164,6 @@ onBeforeUnmount(() => {
           </TabPanel>
           <TabPanel value="markers">
             <MarkersTablePane />
-          </TabPanel>
-          <TabPanel value="topologySources">
-            <TopologySourcesTablePane />
           </TabPanel>
           <TabPanel value="topologyBreakouts">
             <TopologyBreakoutsTablePane />

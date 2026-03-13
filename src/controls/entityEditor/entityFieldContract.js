@@ -81,18 +81,29 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   azi: 'Azi (Dir)',
   actuationState: 'Actuation State',
   annularSeal: 'Annular Seal Override',
+  'properties.annularSeal': 'Annular Seal Override',
+  channelKey: 'Flow Channel',
   attachToDisplay: 'Attach To',
   attachToHostType: 'Attach Host Type',
   attachToId: 'Attach To ID',
   attachToRow: 'Attach To',
   boc: 'BOC',
   comment: 'Comments',
+  componentKey: 'Component Type',
   componentType: 'Component Type',
+  sectionKey: 'Section',
   boreSeal: 'Bore Seal Override',
+  'properties.boreSeal': 'Bore Seal Override',
   fromVolumeKey: 'From volume',
   inc: 'Inc (Dev)',
   idOverride: 'ID (Optional)',
   integrityStatus: 'Integrity Status',
+  'properties.volumeKey': 'Volume',
+  'properties.direction': 'Direction',
+  'properties.functionKey': 'Function Key',
+  'properties.sinkRoleKey': 'Sink Role',
+  'state.actuationState': 'Actuation State',
+  'state.integrityStatus': 'Integrity Status',
   manualHoleSize: 'Hole Size',
   manualParent: 'Connect to Row #',
   manualDepth: 'Label Depth',
@@ -100,9 +111,20 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   manualWidth: 'Manual Width',
   md: 'MD (Depth)',
   od: 'OD',
+  parentEquipmentDisplay: 'Upstream Equipment',
+  parentEquipmentId: 'Upstream Equipment ID',
+  parentComponentDisplay: 'Upstream Component',
+  parentComponentId: 'Upstream Component ID',
+  pathId: 'Flow Path ID',
   placementRefId: 'Placement Ref ID',
   rowId: 'Row ID',
+  roleKey: 'Role',
+  templateKey: 'Template',
+  templateSlotKey: 'Template Slot',
+  sourceVolumeKey: 'Source Volume',
+  variantKey: 'Variant',
   sealByVolume: 'Seal By Volume',
+  'properties.sealByVolume': 'Seal By Volume',
   showBottom: 'Show Bottom',
   showLabel: 'Show Label',
   showTop: 'Show Top',
@@ -111,7 +133,9 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   topDepth: 'Top',
   bottomDepth: 'Bottom',
   toVolumeKey: 'To volume',
-  volumeKey: 'Volume'
+  volumeKey: 'Volume',
+  'state.operatingState': 'Operating State',
+  'state.integrityState': 'Integrity State'
 });
 
 function normalizeToken(value) {
@@ -202,8 +226,8 @@ function resolveEquipmentDomainFieldContracts(options = {}) {
       resolveEquipmentEditorFields(definition?.schema?.key ?? null, definitionContext)
     ));
   const dynamicFieldContracts = mergeEquipmentEditorFieldContracts(definitionFieldSets);
-  const trailingDynamicFields = dynamicFieldContracts.filter((fieldDefinition) => fieldDefinition?.field === 'sealByVolume');
-  const inlineDynamicFields = dynamicFieldContracts.filter((fieldDefinition) => fieldDefinition?.field !== 'sealByVolume');
+  const trailingDynamicFields = dynamicFieldContracts.filter((fieldDefinition) => fieldDefinition?.field === 'properties.sealByVolume');
+  const inlineDynamicFields = dynamicFieldContracts.filter((fieldDefinition) => fieldDefinition?.field !== 'properties.sealByVolume');
 
   return Object.freeze([
     ...EQUIPMENT_COMMON_DATA_FIELD_CONTRACTS,
@@ -328,14 +352,19 @@ const DOMAIN_FIELD_CONTRACTS = Object.freeze({
   topologySources: Object.freeze([
     createFieldContract('top', ENTITY_EDITOR_CONTROL_TYPES.number),
     createFieldContract('bottom', ENTITY_EDITOR_CONTROL_TYPES.number),
-    createFieldContract('sourceType', ENTITY_EDITOR_CONTROL_TYPES.select, {
-      options: () => TOPOLOGY_SOURCE_TYPE_OPTIONS
+    createFieldContract('sourceType', ENTITY_EDITOR_CONTROL_TYPES.text, {
+      dataTabAccess: ENTITY_FIELD_ACCESS.hidden,
+      tableAccess: ENTITY_FIELD_ACCESS.hidden,
+      showWhen: ({ rowData }) => normalizeToken(rowData?.sourceType).length > 0
     }),
     createFieldContract('volumeKey', ENTITY_EDITOR_CONTROL_TYPES.select, {
       options: () => TOPOLOGY_VOLUME_KINDS
     }),
     createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
-    createFieldContract('show', ENTITY_EDITOR_CONTROL_TYPES.toggle),
+    createFieldContract('show', ENTITY_EDITOR_CONTROL_TYPES.toggle, {
+      dataTabAccess: ENTITY_FIELD_ACCESS.hidden,
+      tableAccess: ENTITY_FIELD_ACCESS.hidden
+    }),
     READ_ONLY_ROW_ID_FIELD
   ]),
   topologyBreakouts: Object.freeze([

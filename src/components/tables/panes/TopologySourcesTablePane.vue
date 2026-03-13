@@ -1,19 +1,10 @@
 <script setup>
-import { computed } from 'vue';
+import { nextTick } from 'vue';
 import { HotTable } from '@handsontable/vue3';
-import ToggleSwitch from 'primevue/toggleswitch';
 import { useTableController } from '@/composables/useTableController.js';
-import { useViewConfigStore } from '@/stores/viewConfigStore.js';
+import { focusHandsontableRow } from '@/composables/useTableHelpers.js';
 
 const { hotRef, hotSettings, tableData, addRow, deleteSelectedRow } = useTableController('topologySource', 'topologySources');
-const viewConfigStore = useViewConfigStore();
-
-const openHoleSourceEnabled = computed({
-  get: () => viewConfigStore.config?.topologyUseOpenHoleSource === true,
-  set: (value) => {
-    viewConfigStore.setConfigValue('topologyUseOpenHoleSource', value === true);
-  }
-});
 
 function handleAddRow() {
   addRow();
@@ -22,26 +13,21 @@ function handleAddRow() {
 function handleDeleteRow() {
   deleteSelectedRow();
 }
+
+async function focusRow(rowIndex) {
+  await nextTick();
+  return focusHandsontableRow(hotRef.value?.hotInstance ?? null, rowIndex);
+}
+
+defineExpose({
+  focusRow
+});
 </script>
 
 <template>
   <div class="table-pane-content">
     <div class="info-box" data-i18n-html="ui.info.topology_sources">
-      <strong>Inflow points:</strong> define explicit inflow rows for analysis runs.
-    </div>
-    <div class="d-flex flex-column gap-1 mb-2">
-      <div class="d-flex align-items-center gap-2">
-        <ToggleSwitch
-          input-id="topologyOpenHoleSourceToggle"
-          v-model="openHoleSourceEnabled"
-        />
-        <label for="topologyOpenHoleSourceToggle" data-i18n="ui.topology.open_hole_source_toggle">
-          Treat open hole as inflow point (basic mode)
-        </label>
-      </div>
-      <small class="text-muted" data-i18n="ui.topology.open_hole_source_toggle_help">
-        Adds inflow seeds on open-hole intervals when explicit inflow rows are absent/unresolved.
-      </small>
+      <strong>Manual source overrides:</strong> add a source only when a real inflow origin is known but not represented elsewhere in the model.
     </div>
     <div class="handsontable-container">
       <HotTable ref="hotRef" :settings="hotSettings" :data="tableData" />

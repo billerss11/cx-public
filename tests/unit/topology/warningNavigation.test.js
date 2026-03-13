@@ -41,13 +41,11 @@ describe('warningNavigation helpers', () => {
     const navigationByRowId = buildTopologySourceNavigationByRowId(sourceRows);
 
     expect(navigationByRowId.get('src-1')).toEqual({
-      tabKey: 'topologySources',
-      tableType: 'topologySource',
+      panelKey: 'manualSourceOverrides',
       rowIndex: 0
     });
     expect(navigationByRowId.get('src-2')).toEqual({
-      tabKey: 'topologySources',
-      tableType: 'topologySource',
+      panelKey: 'manualSourceOverrides',
       rowIndex: 2
     });
     expect(navigationByRowId.get('br-1')).toEqual({
@@ -74,8 +72,7 @@ describe('warningNavigation helpers', () => {
     ]);
 
     expect(resolveTopologyWarningRowNavigationTarget('src-1', navigationByRowId)).toEqual({
-      tabKey: 'topologySources',
-      tableType: 'topologySource',
+      panelKey: 'manualSourceOverrides',
       rowIndex: 0
     });
     expect(resolveTopologyWarningRowNavigationTarget('missing', navigationByRowId)).toBeNull();
@@ -127,8 +124,7 @@ describe('warningNavigation helpers', () => {
       rowIndex: 1
     });
     expect(resolveTopologyWarningRowNavigationTarget('src-1', warningNavigation)).toEqual({
-      tabKey: 'topologySources',
-      tableType: 'topologySource',
+      panelKey: 'manualSourceOverrides',
       rowIndex: 0
     });
     expect(resolveTopologyWarningRowNavigationTarget('br-1', warningNavigation)).toEqual({
@@ -169,4 +165,5 @@ describe('warningNavigation helpers', () => {
       rowIndex: 1
     });
   });
+
 });

@@ -322,7 +322,9 @@ function updateNonPipeHighlights(activeEntity) {
     Object.entries(NON_PIPE_CONFIG).forEach(([type, cfg]) => {
         const activeIndex = activeEntity?.type === type ? activeEntity.id : null;
         updateTableHighlights(type, activeIndex);
-        updatePlotHighlightsForType(cfg.dataAttr, activeIndex);
+        if (cfg.dataAttr) {
+            updatePlotHighlightsForType(cfg.dataAttr, activeIndex);
+        }
     });
 }
 

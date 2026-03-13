@@ -1,6 +1,7 @@
 <script setup>
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
+import Message from 'primevue/message';
 import { useBottomDockResize } from '@/composables/useBottomDockResize.js';
 import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
 import { useLeftDockResize } from '@/composables/useLeftDockResize.js';
@@ -13,6 +14,7 @@ import {
   RIGHT_DOCK_MIN_WIDTH,
   useWorkspaceStore
 } from '@/stores/workspaceStore.js';
+import { useProjectStore } from '@/stores/projectStore.js';
 import CanvasInteractionToolbar from '@/components/workspace/CanvasInteractionToolbar.vue';
 import LeftHierarchyDock from '@/components/workspace/LeftHierarchyDock.vue';
 import RightContextDock from '@/components/workspace/RightContextDock.vue';
@@ -22,6 +24,7 @@ import WorkspaceViewStateControls from '@/components/workspace/WorkspaceViewStat
 const ResizableBottomDock = defineAsyncComponent(() => import('@/components/workspace/ResizableBottomDock.vue'));
 
 const workspaceStore = useWorkspaceStore();
+const projectStore = useProjectStore();
 const shellRef = ref(null);
 const languageTick = ref(0);
 const isCompactToolbarMode = ref(false);
@@ -69,6 +72,11 @@ const floatingBottomDockVisible = computed({
 const activeActivity = computed(() => (
   activityMeta[workspaceStore.currentActivity] ?? activityMeta.design
 ));
+const loadWarningMessage = computed(() => {
+  const warnings = Array.isArray(projectStore.loadWarnings) ? projectStore.loadWarnings : [];
+  const warning = warnings.find((entry) => String(entry?.message ?? '').trim().length > 0);
+  return String(warning?.message ?? '').trim() || null;
+});
 const actionButtonLabels = computed(() => {
   void languageTick.value;
   return {
@@ -264,6 +272,15 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
+
+      <Message
+        v-if="loadWarningMessage"
+        severity="warn"
+        :closable="false"
+        class="workspace-activity-shell__warning"
+      >
+        {{ loadWarningMessage }}
+      </Message>
     </header>
 
     <main class="workspace-activity-shell__content">
@@ -547,6 +564,10 @@ onBeforeUnmount(() => {
   grid-row: 2;
   min-width: 0;
   min-height: 0;
+}
+
+.workspace-activity-shell__warning {
+  margin: 0 var(--spacing-md) var(--spacing-sm);
 }
 
 .workspace-activity-shell__left-splitter::before,

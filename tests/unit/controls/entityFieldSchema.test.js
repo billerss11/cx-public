@@ -19,11 +19,15 @@ describe('entityFieldSchema', () => {
         attachToDisplay: 'Tubing | #1 (Tubing A)',
         attachToHostType: 'tubing',
         attachToId: 'tbg-1',
-        actuationState: 'open',
-        integrityStatus: 'intact',
-        boreSeal: 'true',
-        annularSeal: 'false',
-        sealByVolume: { ANNULUS_A: 'open' },
+        state: {
+          actuationState: 'open',
+          integrityStatus: 'intact'
+        },
+        properties: {
+          boreSeal: 'true',
+          annularSeal: 'false',
+          sealByVolume: { ANNULUS_A: 'open' }
+        },
         hostType: 'tubing',
         hostRowId: 'tbg-1',
         label: 'Packer 1',
@@ -46,15 +50,15 @@ describe('entityFieldSchema', () => {
       'depth',
       'type',
       'attachToDisplay',
-      'actuationState',
-      'integrityStatus',
-      'boreSeal',
-      'annularSeal',
+      'state.actuationState',
+      'state.integrityStatus',
+      'properties.boreSeal',
+      'properties.annularSeal',
       'label',
       'rowId',
       'attachToHostType',
       'attachToId',
-      'sealByVolume'
+      'properties.sealByVolume'
     ]);
     expect(fieldNames).not.toContain('color');
     expect(fieldNames).not.toContain('scale');
@@ -67,7 +71,7 @@ describe('entityFieldSchema', () => {
     expect(Array.isArray(attachToDefinition?.options)).toBe(true);
     expect(attachToDefinition.options.length).toBeGreaterThan(0);
 
-    const actuationDefinition = definitions.find((definition) => definition.field === 'actuationState');
+    const actuationDefinition = definitions.find((definition) => definition.field === 'state.actuationState');
     expect(actuationDefinition?.controlType).toBe(ENTITY_EDITOR_CONTROL_TYPES.select);
     expect(Array.isArray(actuationDefinition?.options)).toBe(true);
     expect(actuationDefinition?.options.some((option) => option.value === '')).toBe(true);
@@ -75,7 +79,7 @@ describe('entityFieldSchema', () => {
     const readOnlyFields = definitions
       .filter((definition) => definition.readOnly === true)
       .map((definition) => definition.field);
-    expect(readOnlyFields).toEqual(['rowId', 'attachToHostType', 'attachToId', 'sealByVolume']);
+    expect(readOnlyFields).toEqual(['rowId', 'attachToHostType', 'attachToId', 'properties.sealByVolume']);
   });
 
   it('can suppress read-only transparency fields when includeReadOnly is false', () => {
@@ -90,11 +94,15 @@ describe('entityFieldSchema', () => {
         attachToDisplay: 'Tubing | #1 (Tubing A)',
         attachToHostType: 'tubing',
         attachToId: 'tbg-1',
-        actuationState: 'open',
-        integrityStatus: 'intact',
-        boreSeal: 'true',
-        annularSeal: 'false',
-        sealByVolume: { ANNULUS_A: 'open' },
+        state: {
+          actuationState: 'open',
+          integrityStatus: 'intact'
+        },
+        properties: {
+          boreSeal: 'true',
+          annularSeal: 'false',
+          sealByVolume: { ANNULUS_A: 'open' }
+        },
         label: 'Packer 1'
       }
     });
@@ -104,10 +112,10 @@ describe('entityFieldSchema', () => {
       'depth',
       'type',
       'attachToDisplay',
-      'actuationState',
-      'integrityStatus',
-      'boreSeal',
-      'annularSeal',
+      'state.actuationState',
+      'state.integrityStatus',
+      'properties.boreSeal',
+      'properties.annularSeal',
       'label'
     ]);
     expect(definitions.some((definition) => definition.readOnly === true)).toBe(false);
@@ -256,4 +264,5 @@ describe('entityFieldSchema', () => {
       expect(overlap).toEqual([]);
     });
   });
+
 });

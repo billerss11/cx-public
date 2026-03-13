@@ -109,6 +109,22 @@ function setDraftValue(fieldDefinition, value) {
   draftValues[fieldDefinition.field] = value;
 }
 
+function getNestedFieldValue(source, fieldPath) {
+  const target = source && typeof source === 'object' ? source : null;
+  const pathTokens = String(fieldPath ?? '')
+    .split('.')
+    .map((token) => String(token ?? '').trim())
+    .filter((token) => token.length > 0);
+  if (!target || pathTokens.length === 0) return null;
+
+  let cursor = target;
+  for (const token of pathTokens) {
+    if (!cursor || typeof cursor !== 'object' || !(token in cursor)) return null;
+    cursor = cursor[token];
+  }
+  return cursor ?? null;
+}
+
 function normalizeCommittedValue(fieldDefinition, value) {
   if (fieldDefinition.controlType === ENTITY_EDITOR_CONTROL_TYPES.number) {
     const numeric = Number(value);
@@ -128,7 +144,7 @@ function normalizeCommittedValue(fieldDefinition, value) {
     try {
       return JSON.parse(normalized);
     } catch (_error) {
-      return selectedRowTarget.value?.row?.[fieldDefinition.field] ?? null;
+      return getNestedFieldValue(selectedRowTarget.value?.row, fieldDefinition.field);
     }
   }
   return String(value ?? '');
@@ -159,7 +175,7 @@ function resolveReadOnlySelectLabel(fieldDefinition, value) {
 }
 
 function getReadOnlyDisplayValue(fieldDefinition) {
-  const rawValue = selectedRowTarget.value?.row?.[fieldDefinition.field];
+  const rawValue = getNestedFieldValue(selectedRowTarget.value?.row, fieldDefinition.field);
   if (fieldDefinition.controlType === ENTITY_EDITOR_CONTROL_TYPES.select) {
     const label = resolveReadOnlySelectLabel(fieldDefinition, rawValue);
     return label || 'N/A';
@@ -179,7 +195,7 @@ watch(
   [selectedRowTarget, fieldDefinitions],
   ([rowTarget, nextFieldDefinitions]) => {
     nextFieldDefinitions.forEach((fieldDefinition) => {
-      const currentValue = rowTarget?.row?.[fieldDefinition.field];
+      const currentValue = getNestedFieldValue(rowTarget?.row, fieldDefinition.field);
       if (fieldDefinition.controlType === ENTITY_EDITOR_CONTROL_TYPES.json) {
         draftValues[fieldDefinition.field] = currentValue ? JSON.stringify(currentValue, null, 2) : '';
         return;

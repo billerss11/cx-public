@@ -58,10 +58,11 @@ import { solveOptimalFigureHeight } from '@/utils/autoFitMath.js';
 import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgTransformMath.js';
 import {
   DIRECTIONAL_BASE_SVG_WIDTH,
+  DIRECTIONAL_MAX_SVG_WIDTH,
   DIRECTIONAL_MARGIN,
+  DIRECTIONAL_MIN_SVG_WIDTH,
   resolveDirectionalHorizontalPadding,
   resolveVerticalEquivalentXHalf,
-  resolveDirectionalSvgWidthFromHeight
 } from '@/utils/directionalSizing.js';
 import {
   DEFAULT_MAGNIFIER_ZOOM_LEVEL,
@@ -74,12 +75,26 @@ const EPSILON = 1e-6;
 const AUTO_FIT_HEIGHT_DELTA_THRESHOLD = 2;
 const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';
 const DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH = 'fill-width';
-const margin = DIRECTIONAL_MARGIN;
+const baseMargin = DIRECTIONAL_MARGIN;
 
 function normalizeDirectionalViewportFitMode(value) {
   return String(value ?? '').trim().toLowerCase() === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
     ? DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
     : DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN;
+}
+
+function clampDirectionalSvgWidth(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DIRECTIONAL_MIN_SVG_WIDTH;
+  return Math.max(DIRECTIONAL_MIN_SVG_WIDTH, Math.min(DIRECTIONAL_MAX_SVG_WIDTH, Math.round(numeric)));
+}
+
+function resolveDirectionalSvgWidthFromHeightWithMargin(figHeight, dataAspectRatio, marginBox = DIRECTIONAL_MARGIN) {
+  const safeHeight = Math.max(520, Math.round(Number(figHeight) || 520));
+  const plotHeight = Math.max(10, safeHeight - Number(marginBox?.top || 0) - Number(marginBox?.bottom || 0));
+  const safeAspect = Math.max(1, Math.abs(Number(dataAspectRatio) || 1));
+  const plotWidth = plotHeight * safeAspect;
+  return clampDirectionalSvgWidth(plotWidth + Number(marginBox?.left || 0) + Number(marginBox?.right || 0));
 }
 
 const props = defineProps({
@@ -267,6 +282,12 @@ function resolveDepthBounds(rows = [], topKey = 'top', bottomKey = 'bottom') {
 
 const unitsLabel = computed(() => String(props.config?.units || 'ft'));
 const plotTitle = computed(() => String(props.config?.plotTitle ?? '').trim());
+const margin = computed(() => ({
+  top: baseMargin.top,
+  right: baseMargin.right,
+  bottom: baseMargin.bottom,
+  left: baseMargin.left
+}));
 
 const figHeightValue = computed(() => {
   const parsed = Number(props.config?.figHeight);
@@ -549,7 +570,7 @@ const trajectorySignature = computed(() => {
   ].join('|');
 });
 
-const plotHeightValue = computed(() => Math.max(10, figHeightValue.value - margin.top - margin.bottom));
+const plotHeightValue = computed(() => Math.max(10, figHeightValue.value - margin.value.top - margin.value.bottom));
 const dataWidthValue = computed(() => Math.max(1, Math.abs(maxXData.value - minXData.value)));
 const dataHeightValue = computed(() => Math.max(1, Math.abs(maxYData.value - minYData.value)));
 const dataAspectRatioValue = computed(() => dataWidthValue.value / dataHeightValue.value);
@@ -561,7 +582,11 @@ const canvasWidthMultiplierValue = computed(() => {
 
 const svgWidthValue = computed(() => {
   if (lockAspectRatio.value) {
-    return resolveDirectionalSvgWidthFromHeight(figHeightValue.value, dataAspectRatioValue.value);
+    return resolveDirectionalSvgWidthFromHeightWithMargin(
+      figHeightValue.value,
+      dataAspectRatioValue.value,
+      margin.value
+    );
   }
 
   return Math.round(DIRECTIONAL_BASE_SVG_WIDTH * canvasWidthMultiplierValue.value);
@@ -571,7 +596,7 @@ watch(dataAspectRatioValue, (nextAspect) => {
   viewConfigStore.setDirectionalDataAspectRatio(nextAspect);
 }, { immediate: true });
 
-const plotWidthValue = computed(() => Math.max(10, svgWidthValue.value - margin.left - margin.right));
+const plotWidthValue = computed(() => Math.max(10, svgWidthValue.value - margin.value.left - margin.value.right));
 const displayScaleValue = computed(() => {
   const nextContainerWidth = Number(containerWidth.value);
   const nextContainerHeight = Number(containerHeight.value);
@@ -594,11 +619,11 @@ const displayHeightValue = computed(() => Math.round(figHeightValue.value * disp
 
 const xScale = computed(() => d3.scaleLinear()
   .domain([minXData.value, maxXData.value])
-  .range([margin.left, margin.left + plotWidthValue.value]));
+  .range([margin.value.left, margin.value.left + plotWidthValue.value]));
 
 const yScale = computed(() => d3.scaleLinear()
   .domain([minYData.value, maxYData.value])
-  .range([margin.top, margin.top + plotHeightValue.value]));
+  .range([margin.value.top, margin.value.top + plotHeightValue.value]));
 
 const directionalProjector = computed(() => (
   buildDirectionalProjector(
@@ -982,7 +1007,7 @@ function executeSmartAutoFit(options = {}) {
       width: containerWidth.value,
       height: containerHeight.value
     },
-    margin
+    margin.value
   );
   if (!Number.isFinite(recommendedHeight)) return false;
 
@@ -1264,6 +1289,7 @@ function handleCanvasMouseLeave() {
   handleLeaveBox();
   handleLeaveMarker();
   handleLeaveEquipment();
+  handleLeaveSurfaceAssembly();
   handleLeavePlug();
   handleLeaveFluid();
   crossSectionDepthInteraction.handleMouseLeave();
@@ -1440,7 +1466,6 @@ defineExpose({
         :x-exaggeration="xExaggerationValue"
         :x-origin="xOriginValue"
       />
-
       <DirectionalBandLayer
         :intervals="directionalIntervals"
         :trajectory-points="trajectoryPoints"

@@ -56,6 +56,35 @@ describe('topology equipment resolved seal effects', () => {
     expect(effects.validationWarnings).toHaveLength(0);
   });
 
+  it('applies canonical packer bore and annular seal overrides to boundary effects', () => {
+    const effects = resolveBoundaryEquipmentEffects(
+      1200,
+      [{
+        rowId: 'eq-packer-override',
+        type: 'Packer',
+        depth: 1200,
+        attachToHostType: 'tubing',
+        attachToId: 'tbg-1',
+        sealNodeKind: 'ANNULUS_A',
+        sealSlotIndex: 0,
+        properties: {
+          boreSeal: 'true',
+          annularSeal: 'false',
+          sealByVolume: {}
+        },
+        show: true
+      }],
+      {
+        tubingRows: [{ rowId: 'tbg-1', top: 0, bottom: 3000 }]
+      }
+    );
+
+    expect(effects.byVolume.BORE.blocked).toBe(true);
+    expect(effects.byVolume.ANNULUS_A.blocked).toBe(false);
+    expect(effects.byVolume.ANNULUS_B.blocked).toBe(false);
+    expect(effects.validationWarnings).toHaveLength(0);
+  });
+
   it('emits deterministic attach warning and does not block when packer resolution is orphaned', () => {
     const effects = resolveBoundaryEquipmentEffects(1200, [{
       rowId: 'eq-orphaned',

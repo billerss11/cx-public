@@ -158,13 +158,14 @@ export function useEntityEditorActions() {
     );
   }
 
-  function addRow({ entityType, afterRowId = null } = {}) {
+  function addRow({ entityType, afterRowId = null, initialValues = null } = {}) {
     const context = resolveDomainContext(entityType);
     if (!context) return null;
 
     const defaultRow = createHierarchyDefaultRow(context.domainKey);
     const nextRow = {
       ...defaultRow,
+      ...(initialValues && typeof initialValues === 'object' ? initialValues : {}),
       rowId: createRowId(getRowIdPrefixForKey(context.domainMeta.storeKey))
     };
 
@@ -197,6 +198,7 @@ export function useEntityEditorActions() {
     const rows = context.domainRows.slice();
     rows.splice(sourceIndex + 1, 0, duplicatedRow);
     commitDomainRows(context, rows);
+
     return duplicatedRow.rowId;
   }
 

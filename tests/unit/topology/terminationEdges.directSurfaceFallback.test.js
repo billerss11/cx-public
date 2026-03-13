@@ -66,7 +66,7 @@ describe('direct surface termination edges', () => {
     expect(result.minFailureCostToSurface).toBe(0);
   });
 
-  it('ignores legacy surfaceAssembly payloads and keeps fallback behavior unchanged', () => {
+  it('ignores legacy removed-surface payloads and keeps fallback behavior unchanged', () => {
     const baselineState = createBaseState();
     const legacyState = {
       ...createBaseState(),

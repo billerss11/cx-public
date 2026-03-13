@@ -73,7 +73,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
     const policyWarnings = buildSourcePolicyWarnings({
         useIllustrativeFluidSource,
         hasVisibleFluidRows: safeState.annulusFluids.some((row) => row?.show !== false),
-        hasExplicitScenarioRows: sourceResolution?.sourcePolicy?.explicitScenarioDerived === true
+        hasManualOverrideSources: sourceResolution?.sourcePolicy?.manualOverrideDerived === true
     });
 
     const termination = buildTerminationEdges(intervals, intervalNodeByKind);
@@ -137,6 +137,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
                 ...radial.validationWarnings,
                 ...scenarioRadial.validationWarnings
             ],
+            surfaceWarnings: [],
             terminationWarnings: termination.validationWarnings,
             explicitWarnings: explicit.validationWarnings,
             fluidWarnings: [

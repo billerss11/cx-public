@@ -64,6 +64,10 @@ describe('importWorkflows sample source', () => {
     expect(data.tubingData.length).toBe(1);
     expect(data.equipmentData.length).toBe(3);
     expect(data.markers.length).toBe(3);
+    expect(data.surfaceEquipmentData).toBeUndefined();
+    expect(data.surfaceFlowPathData).toBeUndefined();
+    expect(data.surfaceFlowComponentData).toBeUndefined();
+    expect(data.surfaceAssemblyData).toBeUndefined();
   });
 
   it('resets active well to sample project fixture content', async () => {
@@ -76,5 +80,9 @@ describe('importWorkflows sample source', () => {
     expect(data.tubingData.length).toBe(1);
     expect(data.equipmentData.length).toBe(3);
     expect(data.markers.length).toBe(3);
+    expect(data.surfaceEquipmentData).toBeUndefined();
+    expect(data.surfaceFlowPathData).toBeUndefined();
+    expect(data.surfaceFlowComponentData).toBeUndefined();
+    expect(data.surfaceAssemblyData).toBeUndefined();
   });
 });

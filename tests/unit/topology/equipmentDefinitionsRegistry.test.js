@@ -82,8 +82,10 @@ describe('equipment definition registry', () => {
       }
     });
 
-    expect(editorFields.some((field) => field.field === 'actuationState')).toBe(true);
-    expect(editorFields.some((field) => field.field === 'integrityStatus')).toBe(true);
+    expect(editorFields.some((field) => field.field === 'state.actuationState')).toBe(true);
+    expect(editorFields.some((field) => field.field === 'state.integrityStatus')).toBe(true);
+    expect(editorFields.some((field) => field.field === 'properties.boreSeal')).toBe(true);
+    expect(editorFields.some((field) => field.field === 'properties.annularSeal')).toBe(true);
   });
 
   it('supports isolated test registries with injected definitions', () => {

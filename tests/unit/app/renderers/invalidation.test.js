@@ -45,6 +45,18 @@ describe('render invalidation classifier', () => {
     expect(result.annotationDirty).toBe(false);
   });
 
+  it('treats equipment edits as geometry invalidation', () => {
+    const result = classifyStoreMutation({
+      section: 'equipmentData',
+      keys: ['0.label']
+    });
+
+    expect(shouldSkipRender(result)).toBe(false);
+    expect(result.geometryDirty).toBe(true);
+    expect(result.stylingDirty).toBe(true);
+    expect(result.annotationDirty).toBe(true);
+  });
+
   it('prefers non-selection invalidation when merging selection-only with geometry changes', () => {
     const selectionOnly = normalizeRenderInvalidation({ selectionOnly: true });
     const geometryChange = normalizeRenderInvalidation({

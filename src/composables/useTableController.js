@@ -105,7 +105,7 @@ const TABLE_STATE_KEY_MAP = Object.freeze({
 const PIPE_COMPONENT_TYPE_OPTIONS = Object.freeze(['pipe', 'packer', 'collar', 'stabilizer', 'bit']);
 const DROPDOWN_EDITOR_DEFAULTS = Object.freeze({
     visibleRows: 6,
-    trimDropdown: false
+    trimDropdown: true
 });
 
 function tf(key, fallback) {

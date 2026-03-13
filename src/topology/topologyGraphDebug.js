@@ -26,13 +26,12 @@ const GRAPH_LANE_INDEX_BY_KIND = new Map(
 
 const DEFAULT_LANE_SPACING = 180;
 const DEFAULT_LANE_OFFSET = 80;
-const DEFAULT_DEPTH_TO_Y_SCALE = 0.02;
-const DEFAULT_TOP_OFFSET_Y = 36;
 const DEFAULT_SURFACE_Y = -72;
-const DEFAULT_MINIMUM_VERTICAL_GAP = 34;
+const DEFAULT_TOP_BAND_Y = 44;
+const DEFAULT_ROW_BAND_SPACING = 72;
+const DEFAULT_DEPTH_BAND_TOLERANCE = 250;
 const DEFAULT_LANE_HORIZONTAL_JITTER = 14;
 const DEFAULT_LANE_HEADER_Y = -116;
-const DENSE_KIND_LABEL_THRESHOLD = 4;
 
 const NODE_KIND_LABEL_BY_TOKEN = Object.freeze({
   TUBING_INNER: 'Tubing Inner',
@@ -128,11 +127,11 @@ function resolveLaneIndex(kind, laneIndexByKind = new Map()) {
   return laneIndexByKind.size;
 }
 
-function resolveNodeY(nodeRow, depthToYScale = DEFAULT_DEPTH_TO_Y_SCALE) {
+function resolveNodeDepthMidpoint(nodeRow = {}) {
   const top = toFiniteNumber(nodeRow?.depthTop);
   const bottom = toFiniteNumber(nodeRow?.depthBottom);
-  if (!Number.isFinite(top) || !Number.isFinite(bottom)) return DEFAULT_SURFACE_Y;
-  return DEFAULT_TOP_OFFSET_Y + ((top + bottom) * 0.5 * depthToYScale);
+  if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
+  return (top + bottom) * 0.5;
 }
 
 function resolveNodeTone(kind) {
@@ -150,33 +149,6 @@ function resolveEdgeTone(kind, cost) {
   return Number(cost) === 1
     ? 'var(--color-analysis-graph-line-barrier)'
     : 'var(--color-analysis-graph-line-open)';
-}
-
-function applyMinimumLaneVerticalGap(
-  layoutNodesById = {},
-  laneNodeEntries = new Map(),
-  minimumVerticalGap = DEFAULT_MINIMUM_VERTICAL_GAP
-) {
-  const safeGap = Number(minimumVerticalGap);
-  if (!(safeGap > 0)) return;
-
-  laneNodeEntries.forEach((entries = []) => {
-    const sortedEntries = [...entries].sort((left, right) => Number(left?.y) - Number(right?.y));
-    let previousY = null;
-
-    sortedEntries.forEach((entry) => {
-      const nodeId = toToken(entry?.nodeId);
-      if (!nodeId) return;
-      const layoutNode = layoutNodesById[nodeId];
-      if (!layoutNode) return;
-      const rawY = Number(entry?.y);
-      const safeY = Number.isFinite(rawY) ? rawY : Number(layoutNode.y);
-      if (!Number.isFinite(safeY)) return;
-      const nextY = previousY === null ? safeY : Math.max(safeY, previousY + safeGap);
-      layoutNode.y = nextY;
-      previousY = nextY;
-    });
-  });
 }
 
 function applyLaneHorizontalJitter(
@@ -201,16 +173,6 @@ function applyLaneHorizontalJitter(
       layoutNode.x = Number(layoutNode.x) + (jitterMultiplier * safeJitter);
     });
   });
-}
-
-function buildNodeKindCountMap(nodeRows = []) {
-  const kindCountMap = new Map();
-  nodeRows.forEach((row) => {
-    const kind = toToken(row?.kind);
-    if (!kind) return;
-    kindCountMap.set(kind, (kindCountMap.get(kind) ?? 0) + 1);
-  });
-  return kindCountMap;
 }
 
 function formatTopologyGraphDepthLabel(nodeRow = {}, options = {}) {
@@ -261,16 +223,112 @@ function buildTopologyGraphEdgeTooltipLines(edgeRow = {}) {
   return lines;
 }
 
+function compareNodeRowsByDepth(left = {}, right = {}) {
+  const leftMidpoint = resolveNodeDepthMidpoint(left);
+  const rightMidpoint = resolveNodeDepthMidpoint(right);
+  if (Number.isFinite(leftMidpoint) && Number.isFinite(rightMidpoint) && leftMidpoint !== rightMidpoint) {
+    return leftMidpoint - rightMidpoint;
+  }
+
+  const leftTop = toFiniteNumber(left?.depthTop);
+  const rightTop = toFiniteNumber(right?.depthTop);
+  if (Number.isFinite(leftTop) && Number.isFinite(rightTop) && leftTop !== rightTop) {
+    return leftTop - rightTop;
+  }
+
+  return String(left?.nodeId ?? '').localeCompare(String(right?.nodeId ?? ''));
+}
+
+function buildNodeRowBands(nodeRows = [], options = {}) {
+  const safeTolerance = Number(options?.depthBandTolerance) > 0
+    ? Number(options.depthBandTolerance)
+    : DEFAULT_DEPTH_BAND_TOLERANCE;
+  const surfaceRows = [];
+  const nonSurfaceRows = [];
+
+  nodeRows.forEach((row) => {
+    if (toToken(row?.kind) === 'SURFACE') {
+      surfaceRows.push(row);
+      return;
+    }
+    nonSurfaceRows.push(row);
+  });
+
+  const bands = [];
+  [...nonSurfaceRows]
+    .sort(compareNodeRowsByDepth)
+    .forEach((row) => {
+      const midpoint = resolveNodeDepthMidpoint(row);
+      const currentBand = bands[bands.length - 1] ?? null;
+      if (!currentBand) {
+        bands.push({
+          anchorDepthMidpoint: midpoint,
+          rows: [row]
+        });
+        return;
+      }
+
+      const currentAnchor = Number(currentBand.anchorDepthMidpoint);
+      const canShareBand = Number.isFinite(midpoint)
+        && Number.isFinite(currentAnchor)
+        && Math.abs(midpoint - currentAnchor) <= safeTolerance;
+      if (!canShareBand) {
+        bands.push({
+          anchorDepthMidpoint: midpoint,
+          rows: [row]
+        });
+        return;
+      }
+
+      currentBand.rows.push(row);
+      const finiteMidpoints = currentBand.rows
+        .map((bandRow) => resolveNodeDepthMidpoint(bandRow))
+        .filter((value) => Number.isFinite(value));
+      currentBand.anchorDepthMidpoint = finiteMidpoints.length > 0
+        ? finiteMidpoints.reduce((sum, value) => sum + value, 0) / finiteMidpoints.length
+        : midpoint;
+    });
+
+  return {
+    surfaceRows,
+    bands
+  };
+}
+
+function buildLaneGuides(laneHeaders = [], layouts = {}, options = {}) {
+  const laneSpacing = Number(options?.laneSpacing) > 0 ? Number(options.laneSpacing) : DEFAULT_LANE_SPACING;
+  const nodeLayouts = Object.values(layouts?.nodes ?? {});
+  const yValues = nodeLayouts
+    .map((layout) => Number(layout?.y))
+    .filter((value) => Number.isFinite(value));
+  const top = yValues.length > 0
+    ? Math.min(DEFAULT_SURFACE_Y - 18, ...yValues.map((value) => value - 26))
+    : DEFAULT_SURFACE_Y - 18;
+  const bottom = yValues.length > 0
+    ? Math.max(...yValues.map((value) => value + 26))
+    : DEFAULT_TOP_BAND_Y + DEFAULT_ROW_BAND_SPACING;
+  const width = Math.max(104, laneSpacing - 44);
+
+  return laneHeaders.map((laneHeader) => ({
+    kind: laneHeader.kind,
+    label: laneHeader.label,
+    x: laneHeader.x,
+    y: top,
+    width,
+    height: Math.max(56, bottom - top)
+  }));
+}
+
 function buildGraphNodes(nodeRows = [], options = {}) {
   const depthUnitsLabel = toToken(options?.depthUnitsLabel) ?? 'ft';
   const laneSpacing = Number(options?.laneSpacing) > 0 ? Number(options.laneSpacing) : DEFAULT_LANE_SPACING;
   const laneOffset = Number.isFinite(Number(options?.laneOffset)) ? Number(options.laneOffset) : DEFAULT_LANE_OFFSET;
-  const depthToYScale = Number(options?.depthToYScale) > 0
-    ? Number(options.depthToYScale)
-    : DEFAULT_DEPTH_TO_Y_SCALE;
-  const minimumVerticalGap = Number(options?.minimumVerticalGap) > 0
-    ? Number(options.minimumVerticalGap)
-    : DEFAULT_MINIMUM_VERTICAL_GAP;
+  const topBandY = Number.isFinite(Number(options?.topBandY))
+    ? Number(options.topBandY)
+    : DEFAULT_TOP_BAND_Y;
+  const rowBandSpacing = Number(options?.rowBandSpacing) > 0
+    ? Number(options.rowBandSpacing)
+    : DEFAULT_ROW_BAND_SPACING;
   const laneHorizontalJitter = Number(options?.laneHorizontalJitter) > 0
     ? Number(options.laneHorizontalJitter)
     : DEFAULT_LANE_HORIZONTAL_JITTER;
@@ -278,7 +336,7 @@ function buildGraphNodes(nodeRows = [], options = {}) {
     ? Number(options.laneHeaderY)
     : DEFAULT_LANE_HEADER_Y;
   const laneIndexByKind = buildCompactLaneIndexByKind(nodeRows);
-  const kindCountMap = buildNodeKindCountMap(nodeRows);
+  const { surfaceRows, bands } = buildNodeRowBands(nodeRows, options);
   const laneHeaders = [...laneIndexByKind.entries()]
     .sort((left, right) => Number(left[1]) - Number(right[1]))
     .map(([kind, laneIndex]) => ({
@@ -291,32 +349,49 @@ function buildGraphNodes(nodeRows = [], options = {}) {
   const nodes = {};
   const layouts = { nodes: {} };
   const laneNodeEntries = new Map();
+  const rowsWithBandMetadata = [];
 
-  nodeRows.forEach((row) => {
+  surfaceRows.forEach((row) => {
+    rowsWithBandMetadata.push({
+      row,
+      bandIndex: -1,
+      y: DEFAULT_SURFACE_Y
+    });
+  });
+
+  bands.forEach((band, bandIndex) => {
+    const y = topBandY + (bandIndex * rowBandSpacing);
+    band.rows.forEach((row) => {
+      rowsWithBandMetadata.push({ row, bandIndex, y });
+    });
+  });
+
+  rowsWithBandMetadata.forEach(({ row, bandIndex, y }) => {
     const nodeId = toToken(row?.nodeId);
     if (!nodeId) return;
     const nodeKind = toToken(row?.kind) ?? 'unknown';
-    const nodeKindCount = kindCountMap.get(nodeKind) ?? 0;
-    const shouldCompactLabel = nodeKind !== 'SURFACE' && nodeKindCount >= DENSE_KIND_LABEL_THRESHOLD;
     const laneIndex = resolveLaneIndex(row?.kind, laneIndexByKind);
     const x = laneOffset + (laneIndex * laneSpacing);
-    const y = resolveNodeY(row, depthToYScale);
+    const kindLabel = formatTopologyGraphNodeKindLabel(nodeKind);
+    const depthLabel = formatTopologyGraphDepthLabel(row, { depthUnitsLabel });
     nodes[nodeId] = {
       name: nodeId,
       kind: nodeKind,
-      displayLabel: shouldCompactLabel
-        ? formatTopologyGraphDepthLabel(row, { depthUnitsLabel })
-        : formatTopologyGraphNodeLabel(row, { depthUnitsLabel }),
+      displayLabel: nodeKind === 'SURFACE' ? kindLabel : depthLabel,
+      detailLines: nodeKind === 'SURFACE'
+        ? [kindLabel]
+        : [kindLabel, depthLabel],
       tone: resolveNodeTone(row?.kind)
     };
     layouts.nodes[nodeId] = { x, y, fixed: true };
     if (!laneNodeEntries.has(laneIndex)) laneNodeEntries.set(laneIndex, []);
-    laneNodeEntries.get(laneIndex).push({ nodeId, y });
+    laneNodeEntries.get(laneIndex).push({ nodeId, y, bandIndex });
   });
-  applyMinimumLaneVerticalGap(layouts.nodes, laneNodeEntries, minimumVerticalGap);
   applyLaneHorizontalJitter(layouts.nodes, laneNodeEntries, laneHorizontalJitter);
 
-  return { nodes, layouts, laneHeaders };
+  const laneGuides = buildLaneGuides(laneHeaders, layouts, { laneSpacing });
+
+  return { nodes, layouts, laneHeaders, laneGuides };
 }
 
 function buildGraphEdges(edgeRows = [], nodes = {}) {
@@ -334,6 +409,7 @@ function buildGraphEdges(edgeRows = [], nodes = {}) {
       cost: Number.isFinite(Number(row?.cost)) ? Number(row.cost) : null,
       displayLabel: formatTopologyGraphEdgeLabel(row),
       tooltipLines: buildTopologyGraphEdgeTooltipLines(row),
+      detailLines: buildTopologyGraphEdgeTooltipLines(row),
       tone: resolveEdgeTone(row?.kind, row?.cost),
       dasharray: Number(row?.cost) === 1 ? '6 4' : 0
     };
@@ -354,7 +430,7 @@ export function buildTopologyDebugGraph(topologyResult = {}, options = {}) {
     scope,
     selectedBarrierEdgeIds
   });
-  const { nodes, layouts, laneHeaders } = buildGraphNodes(nodeRows, options);
+  const { nodes, layouts, laneHeaders, laneGuides } = buildGraphNodes(nodeRows, options);
   const edges = buildGraphEdges(edgeRows, nodes);
 
   return {
@@ -362,6 +438,7 @@ export function buildTopologyDebugGraph(topologyResult = {}, options = {}) {
     edges,
     layouts,
     laneHeaders,
+    laneGuides,
     scope,
     nodeCount: Object.keys(nodes).length,
     edgeCount: Object.keys(edges).length

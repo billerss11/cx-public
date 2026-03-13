@@ -36,6 +36,27 @@ function resolveItemRowId(row, index) {
   return normalizeRowId(row?.rowId) ?? `index-${index}`;
 }
 
+function createHierarchyItemNode(wellId, domainKey, row, rowIndex, options = {}) {
+  const rowId = resolveItemRowId(row, rowIndex);
+  const childNodes = Array.isArray(options.children) ? options.children : [];
+  return {
+    key: createHierarchyItemNodeKey(wellId, domainKey, rowId),
+    label: resolveHierarchyItemLabel(domainKey, row, rowIndex),
+    leaf: childNodes.length === 0,
+    children: childNodes.length > 0 ? childNodes : undefined,
+    data: {
+      kind: 'item',
+      wellId,
+      domainKey,
+      rowId,
+      rowIndex,
+      storeKey: options.storeKey,
+      entityType: options.entityType,
+      canHighlight: options.canHighlight === true
+    }
+  };
+}
+
 export function createHierarchyProjectNodeKey() {
   return PROJECT_NODE_KEY;
 }
@@ -76,24 +97,13 @@ export function useHierarchyTreeModel() {
         const rows = resolveHierarchyRowsForDomain(domainKey, wellData);
         const domainLabel = translateLabel(domainMeta.labelKey, domainMeta.fallbackLabel);
 
-        const itemNodes = rows.map((row, rowIndex) => {
-          const rowId = resolveItemRowId(row, rowIndex);
-          return {
-            key: createHierarchyItemNodeKey(wellId, domainKey, rowId),
-            label: resolveHierarchyItemLabel(domainKey, row, rowIndex),
-            leaf: true,
-            data: {
-              kind: 'item',
-              wellId,
-              domainKey,
-              rowId,
-              rowIndex,
-              storeKey: domainMeta.storeKey,
-              entityType: domainMeta.entityType,
-              canHighlight: domainMeta.canHighlight === true
-            }
-          };
-        });
+        const itemNodes = rows.map((row, rowIndex) => (
+          createHierarchyItemNode(wellId, domainKey, row, rowIndex, {
+            storeKey: domainMeta.storeKey,
+            entityType: domainMeta.entityType,
+            canHighlight: domainMeta.canHighlight === true
+          })
+        ));
 
         return {
           key: createHierarchyDomainNodeKey(wellId, domainKey),

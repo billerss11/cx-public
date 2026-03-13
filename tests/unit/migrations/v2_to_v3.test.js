@@ -56,9 +56,53 @@ describe('v2_to_v3 migration', () => {
     keys.forEach((key) => {
       expect(Array.isArray(emptyData[key])).toBe(true);
     });
+
+    expect(emptyData.surfaceAssemblyData).toBeUndefined();
   });
 
-  it('ignores optional legacy surface assembly payloads on v3 normalization', () => {
+  it('silently strips additive removed-surface payloads on v3 normalization', () => {
+    const payload = ensureProjectSchemaV3({
+      projectSchemaVersion: '3.0',
+      projectName: 'Surface Project',
+      activeWellId: 'well-1',
+      wells: [
+        {
+          id: 'well-1',
+          name: 'Well 1',
+          data: {
+            casingData: [],
+            tubingData: [],
+            drillStringData: [],
+            equipmentData: [],
+            horizontalLines: [],
+            annotationBoxes: [],
+            userAnnotations: [],
+            cementPlugs: [],
+            annulusFluids: [],
+            markers: [],
+            topologySources: [],
+            surfaceAssemblyData: [
+              {
+                rowId: 'sa-1',
+                entityType: 'connection_feature',
+                familyKey: 'surface-outlet',
+                properties: {
+                  volumeKey: 'TUBING_INNER'
+                }
+              }
+            ],
+            trajectory: [],
+          },
+          config: {},
+        },
+      ],
+      meta: {},
+    });
+
+    expect(payload.wells[0].data.surfaceAssemblyData).toBeUndefined();
+  });
+
+  it('ignores optional legacy removed-surface payloads on v3 normalization', () => {
     const payload = ensureProjectSchemaV3({
       projectSchemaVersion: '3.0',
       projectName: 'Surface Project',

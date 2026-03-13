@@ -41,6 +41,11 @@ vi.mock('@/controls/entityEditor/entityFieldSchema.js', () => ({
       controlType: 'text'
     },
     {
+      field: 'state.actuationState',
+      label: 'Actuation State',
+      controlType: 'text'
+    },
+    {
       field: 'rowId',
       label: 'Row ID',
       controlType: 'text',
@@ -86,7 +91,15 @@ describe('AdvancedEntityEditor', () => {
               },
               projectData: {
                 horizontalLines: [
-                  { rowId: 'line-1', depth: 1000, label: 'Line 1', show: true }
+                  {
+                    rowId: 'line-1',
+                    depth: 1000,
+                    label: 'Line 1',
+                    state: {
+                      actuationState: 'closed'
+                    },
+                    show: true
+                  }
                 ],
                 casingData: [],
                 tubingData: [],
@@ -106,18 +119,29 @@ describe('AdvancedEntityEditor', () => {
       }
     });
 
-    const labelInput = wrapper.find('[data-testid="advanced-field-label"]');
+    const labelInput = wrapper.get('input[data-testid="advanced-field-label"]');
+    const nestedStateInput = wrapper.get('input[data-testid="advanced-field-state-actuationstate"]');
     expect(labelInput.exists()).toBe(true);
+    expect(nestedStateInput.exists()).toBe(true);
+    expect(nestedStateInput.element.value).toBe('closed');
     expect(wrapper.find('[data-testid="advanced-readonly-rowid"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Read-only Transparency');
     await labelInput.setValue('Updated Line');
     await labelInput.trigger('blur');
+    await nestedStateInput.setValue('open');
+    await nestedStateInput.trigger('blur');
 
     expect(updateFieldSpy).toHaveBeenCalledWith({
       entityType: 'lines',
       rowId: 'line-1',
       field: 'label',
       value: 'Updated Line'
+    });
+    expect(updateFieldSpy).toHaveBeenCalledWith({
+      entityType: 'lines',
+      rowId: 'line-1',
+      field: 'state.actuationState',
+      value: 'open'
     });
   });
 });

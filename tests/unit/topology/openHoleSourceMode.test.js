@@ -42,21 +42,22 @@ function createBaseState() {
 }
 
 describe('open-hole source mode', () => {
-  it('keeps marker_default without sources when open-hole source mode is disabled', () => {
+  it('derives open-hole source nodes by default', () => {
     const state = createBaseState();
 
     const result = buildTopologyModel(state, { requestId: 1, wellId: 'open-hole-disabled' });
+    const openHoleSources = result.sourceEntities.filter((source) => source.origin === 'open-hole-default');
 
-    expect(result.sourcePolicy?.mode).toBe('marker_default');
-    expect(result.sourceEntities).toHaveLength(0);
-    expect(result.activeFlowNodeIds).toHaveLength(0);
+    expect(result.sourcePolicy?.mode).toBe('open_hole_opt_in');
+    expect(openHoleSources.length).toBeGreaterThan(0);
+    expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);
   });
 
-  it('seeds open-hole source nodes when open-hole source mode is enabled', () => {
+  it('keeps deriving open-hole source nodes even when the legacy toggle is false', () => {
     const state = createBaseState();
     state.config = {
       ...state.config,
-      topologyUseOpenHoleSource: true
+      topologyUseOpenHoleSource: false
     };
 
     const result = buildTopologyModel(state, { requestId: 2, wellId: 'open-hole-enabled' });

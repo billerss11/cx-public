@@ -12,11 +12,21 @@ function normalizeRowId(value) {
   return rowId.length > 0 ? rowId : null;
 }
 
-function createNavigationTarget(tabKey, tableType, rowIndex) {
+function createNavigationTarget(tabKey, tableType, rowIndex, extras = {}) {
   if (!tabKey || !tableType || !Number.isInteger(rowIndex) || rowIndex < 0) return null;
   return {
     tabKey,
     tableType,
+    rowIndex,
+    ...extras
+  };
+}
+
+function createPanelNavigationTarget(panelKey, rowIndex) {
+  const normalizedPanelKey = String(panelKey ?? '').trim();
+  if (!normalizedPanelKey || !Number.isInteger(rowIndex) || rowIndex < 0) return null;
+  return {
+    panelKey: normalizedPanelKey,
     rowIndex
   };
 }
@@ -30,7 +40,14 @@ function appendNavigationTargetsByRowId(navigationByRowId, rows, options = {}) {
     const rowId = normalizeRowId(row?.rowId);
     if (!rowId) return;
 
-    const navigationTarget = createNavigationTarget(tabKey, tableType, rowIndex);
+    const navigationTarget = createNavigationTarget(
+      tabKey,
+      tableType,
+      rowIndex,
+      typeof options?.buildExtras === 'function'
+        ? options.buildExtras(row)
+        : {}
+    );
     if (!navigationTarget) return;
     navigationByRowId.set(rowId, navigationTarget);
   });
@@ -44,7 +61,7 @@ export function buildTopologySourceNavigationByRowId(sourceRows = []) {
     const rowId = normalizeRowId(row?.rowId);
     if (!rowId || isScenarioBreakoutRow(row)) return;
 
-    const navigationTarget = createNavigationTarget('topologySources', 'topologySource', rowIndex);
+    const navigationTarget = createPanelNavigationTarget('manualSourceOverrides', rowIndex);
     if (!navigationTarget) return;
     navigationByRowId.set(rowId, navigationTarget);
   });

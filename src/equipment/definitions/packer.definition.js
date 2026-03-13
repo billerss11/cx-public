@@ -154,11 +154,12 @@ function validate(row = {}, context = {}) {
 }
 
 function resolveSealContext(row = {}) {
+    const resolvedNodeKind = normalizeSourceVolumeKind(row?.sealNodeKind);
     return {
         defaultSealByVolume: resolveSealByVolumeFromResolvedHost(row),
-        resolvedBoreSeal: false,
-        resolvedAnnularSeal: false,
-        applyAnnularOverride: false
+        annularOverrideVolumeKeys: resolvedNodeKind && resolvedNodeKind !== NODE_KIND_BORE && TOPOLOGY_VOLUME_KINDS.includes(resolvedNodeKind)
+            ? [resolvedNodeKind]
+            : []
     };
 }
 

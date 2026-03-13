@@ -70,17 +70,13 @@
     "edgeCount": 4,
     "activeFlowNodeCount": 3,
     "sourceEntityCount": 1,
-    "sourcePolicyMode": "scenario_explicit",
+    "sourcePolicyMode": "marker_default",
     "minFailureCostToSurface": 0,
     "minCostPathLength": 1,
     "spofEdgeCount": 0,
-    "validationWarningCount": 1,
-    "validationWarningCodes": [
-      "explicit_scenario_source_mode_active"
-    ],
-    "validationWarningCodeCounts": {
-      "explicit_scenario_source_mode_active": 1
-    },
+    "validationWarningCount": 0,
+    "validationWarningCodes": [],
+    "validationWarningCodeCounts": {},
     "uncodedValidationWarningCount": 0,
     "barrierPrimaryElementCount": 0,
     "barrierSecondaryElementCount": 0,

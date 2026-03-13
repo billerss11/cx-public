@@ -262,7 +262,7 @@ export const DOMAIN_REGISTRY_ORDER = Object.freeze([
 ]);
 
 const DOMAIN_KEY_BY_ALIAS = Object.freeze(
-  DOMAIN_REGISTRY_ORDER.reduce((accumulator, domainKey) => {
+  Object.keys(DOMAIN_REGISTRY).reduce((accumulator, domainKey) => {
     const entry = DOMAIN_REGISTRY[domainKey];
     if (!entry) return accumulator;
 

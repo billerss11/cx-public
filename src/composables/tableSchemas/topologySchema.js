@@ -9,7 +9,6 @@ import {
   mergeScenarioSourceRows
 } from '@/topology/sourceRows.js';
 import {
-  TOPOLOGY_SOURCE_TYPE_OPTIONS,
   TOPOLOGY_SOURCE_VOLUME_OPTIONS,
   buildTopologySourceVolumeRenderer
 } from './baseSchemaUtils.js';
@@ -40,21 +39,12 @@ export function buildTopologySourceSchema(domainState, options = {}) {
     colHeaders: () => [
       tf('table.topology_sources.top', 'Top'),
       tf('table.topology_sources.bottom', 'Bottom'),
-      tf('table.topology_sources.source_type', 'Source type'),
       tf('table.topology_sources.volume_key', 'Volume'),
-      tf('table.topology_sources.label', 'Label'),
-      tf('table.topology_sources.show', 'Show')
+      tf('table.topology_sources.label', 'Label')
     ],
     columns: () => [
       { data: 'top', type: 'numeric' },
       { data: 'bottom', type: 'numeric' },
-      {
-        data: 'sourceType',
-        type: 'dropdown',
-        source: TOPOLOGY_SOURCE_TYPE_OPTIONS,
-        strict: false,
-        allowInvalid: true
-      },
       {
         data: 'volumeKey',
         type: 'dropdown',
@@ -63,10 +53,9 @@ export function buildTopologySourceSchema(domainState, options = {}) {
         allowInvalid: true,
         renderer: topologyVolumeRenderer
       },
-      { data: 'label', type: 'text' },
-      { data: 'show', type: 'checkbox', className: 'htCenter' }
+      { data: 'label', type: 'text' }
     ],
-    requiredFields: ['top', 'bottom', 'sourceType', 'volumeKey'],
+    requiredFields: ['top', 'bottom', 'volumeKey'],
     numericFields: TOPOLOGY_SOURCE_NUMERIC_FIELDS,
     sampleKeyFields: ['label'],
     afterChangeIgnoreSources: ['loadData', 'normalize'],
@@ -76,7 +65,7 @@ export function buildTopologySourceSchema(domainState, options = {}) {
     buildDefaultRow: () => ({
       top: 9000,
       bottom: 9000,
-      sourceType: 'formation_inflow',
+      sourceType: SOURCE_KIND_SCENARIO,
       volumeKey: NODE_KIND_FORMATION_ANNULUS,
       fromVolumeKey: null,
       toVolumeKey: null,

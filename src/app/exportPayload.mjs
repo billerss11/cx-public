@@ -1,4 +1,4 @@
-const PROJECT_SCHEMA_VERSION_V3 = '3.0';
+const PROJECT_SCHEMA_VERSION_V6 = '6.0';
 const DEFAULT_SOURCE = 'CasingSchematicPlotter';
 const DEFAULT_PROJECT_NAME = 'Project';
 const DEFAULT_PROJECT_AUTHOR = '';
@@ -46,7 +46,7 @@ export function buildProjectSavePayload(projectSnapshot = {}, options = {}) {
         : (wells[0]?.id ?? null);
 
     return {
-        projectSchemaVersion: PROJECT_SCHEMA_VERSION_V3,
+        projectSchemaVersion: PROJECT_SCHEMA_VERSION_V6,
         projectName: String(sourceSnapshot.projectName ?? '').trim() || DEFAULT_PROJECT_NAME,
         projectAuthor: normalizeProjectAuthor(
             sourceSnapshot.projectAuthor ?? sourceSnapshot?.meta?.author
@@ -60,7 +60,7 @@ export function buildProjectSavePayload(projectSnapshot = {}, options = {}) {
         wells,
         meta: {
             ...toRecord(sourceSnapshot.meta),
-            schemaVersion: PROJECT_SCHEMA_VERSION_V3,
+            schemaVersion: PROJECT_SCHEMA_VERSION_V6,
             timestamp,
             source: String(sourceSnapshot?.meta?.source ?? options.source ?? DEFAULT_SOURCE).trim() || DEFAULT_SOURCE,
             author: normalizeProjectAuthor(

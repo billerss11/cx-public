@@ -405,12 +405,17 @@ async function handleAdd() {
   const itemData = selectedItemData.value;
   const domainData = selectedDomainData.value;
   const targetWellId = itemData?.wellId ?? domainData?.wellId ?? null;
-  const domainEntityType = itemData?.entityType ?? resolveDomainEntityType(domainData?.domainKey);
-  if (!targetWellId || !domainEntityType) return;
+  if (!targetWellId) return;
+
+  let domainEntityType = itemData?.entityType ?? resolveDomainEntityType(domainData?.domainKey);
+  let initialValues = null;
+
+  if (!domainEntityType) return;
 
   ensureWellActivated(targetWellId);
   const nextRowId = addRow({
-    entityType: domainEntityType
+    entityType: domainEntityType,
+    initialValues
   });
   if (!nextRowId) return;
 

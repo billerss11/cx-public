@@ -318,9 +318,13 @@ function buildResolvedSealByVolume({
     resolvedBoreSeal = false,
     resolvedAnnularSeal = false,
     applyAnnularOverride = false,
+    annularOverrideVolumeKeys = null,
     volumeOverrides = {}
 } = {}) {
     const sealByVolume = {};
+    const targetedOverrideVolumeSet = Array.isArray(annularOverrideVolumeKeys)
+        ? new Set(annularOverrideVolumeKeys.filter((volumeKey) => TOPOLOGY_VOLUME_KINDS.includes(volumeKey) && volumeKey !== NODE_KIND_BORE))
+        : null;
     TOPOLOGY_VOLUME_KINDS.forEach((volumeKey) => {
         if (volumeKey === NODE_KIND_BORE) {
             sealByVolume[volumeKey] = Boolean(resolvedBoreSeal);
@@ -329,8 +333,11 @@ function buildResolvedSealByVolume({
         const defaultAnnulusValue = typeof defaultSealByVolume[volumeKey] === 'boolean'
             ? defaultSealByVolume[volumeKey]
             : false;
+        const shouldApplyAnnularOverride = targetedOverrideVolumeSet
+            ? targetedOverrideVolumeSet.has(volumeKey)
+            : true;
         sealByVolume[volumeKey] = applyAnnularOverride
-            ? Boolean(resolvedAnnularSeal)
+            ? (shouldApplyAnnularOverride ? Boolean(resolvedAnnularSeal) : defaultAnnulusValue)
             : defaultAnnulusValue;
     });
 
@@ -452,6 +459,9 @@ function resolveRowRule(row = {}, options = {}) {
     const applyAnnularOverride = typeof definitionSealContext?.applyAnnularOverride === 'boolean'
         ? definitionSealContext.applyAnnularOverride
         : annularSealOverride !== null;
+    const annularOverrideVolumeKeys = Array.isArray(definitionSealContext?.annularOverrideVolumeKeys)
+        ? definitionSealContext.annularOverrideVolumeKeys
+        : null;
     const suppressNoSealWarningCodes = resolveDefinitionNoSealSuppressionCodes(definition);
 
     const sealByVolume = buildResolvedSealByVolume({
@@ -459,6 +469,7 @@ function resolveRowRule(row = {}, options = {}) {
         resolvedBoreSeal,
         resolvedAnnularSeal,
         applyAnnularOverride,
+        annularOverrideVolumeKeys,
         volumeOverrides: volumeOverrideResult.overrides
     });
 

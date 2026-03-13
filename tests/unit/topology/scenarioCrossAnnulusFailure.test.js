@@ -79,6 +79,39 @@ describe('scenario cross-annulus failure entities', () => {
     expect(result.sourcePolicy?.mode).toBe('marker_default');
   });
 
+  it('adds manual source overrides on top of marker-derived sources', () => {
+    const state = createBaseState();
+    state.markers = [
+      {
+        rowId: 'perf-source-1',
+        type: 'Perforation',
+        top: 6500,
+        bottom: 6600,
+        attachToId: 'csg-inner',
+        attachToHostType: 'casing',
+        show: true
+      }
+    ];
+    state.topologySources = [
+      {
+        rowId: 'manual-source-1',
+        top: 6500,
+        bottom: 6600,
+        volumeKey: 'ANNULUS_A',
+        label: 'Manual override',
+        show: true
+      }
+    ];
+
+    const result = buildTopologyModel(state, { requestId: 15, wellId: 'marker-plus-manual-override' });
+    const sourceOrigins = new Set(result.sourceEntities.map((source) => source.origin));
+
+    expect(result.sourcePolicy?.mode).toBe('marker_default');
+    expect(result.sourcePolicy?.manualOverrideDerived).toBe(true);
+    expect(sourceOrigins.has('marker')).toBe(true);
+    expect(sourceOrigins.has('manual-override')).toBe(true);
+  });
+
   it('emits deterministic warning when breakout pair is incomplete', () => {
     const state = createBaseState();
     state.topologySources = [
@@ -129,6 +162,7 @@ describe('scenario cross-annulus failure entities', () => {
     const scenarioSource = result.sourceEntities.find((source) => source.rowId === 'source-tbg-annulus-unresolved');
 
     expect(result.sourcePolicy?.mode).toBe('marker_default');
+    expect(result.sourcePolicy?.manualOverrideDerived).toBe(false);
     expect(perforationSource?.origin).toBe('marker');
     expect(scenarioSource).toBeUndefined();
     expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);

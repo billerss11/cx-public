@@ -10,7 +10,7 @@ const passthroughStub = (name) => defineComponent({
   template: '<div><slot /></div>'
 });
 
-function mountTabsPanel({ viewMode = 'vertical' } = {}) {
+function mountTabsPanel({ viewMode = 'vertical', operationPhase = 'production' } = {}) {
   return shallowMount(TablesTabsPanel, {
     global: {
       plugins: [
@@ -21,7 +21,7 @@ function mountTabsPanel({ viewMode = 'vertical' } = {}) {
             viewConfig: {
               config: {
                 viewMode,
-                operationPhase: 'production',
+                operationPhase,
                 showPhysicsDebug: false
               }
             }
@@ -44,6 +44,11 @@ describe('TablesTabsPanel', () => {
     activeTableTabKey.value = 'casing';
   });
 
+  it('does not render manual source overrides as a main data-table tab', () => {
+    const wrapper = mountTabsPanel();
+    expect(wrapper.find('#topology-sources-tab').exists()).toBe(false);
+  });
+
   it('renders topology breakouts tab in production mode', () => {
     const wrapper = mountTabsPanel();
     expect(wrapper.find('#topology-breakouts-tab').exists()).toBe(true);
@@ -52,6 +57,14 @@ describe('TablesTabsPanel', () => {
   it('renders topology breakouts tab in directional mode', () => {
     const wrapper = mountTabsPanel({ viewMode: 'directional' });
     expect(wrapper.find('#topology-breakouts-tab').exists()).toBe(true);
+  });
+
+  it('shows equipment in production mode and hides it in drilling mode', () => {
+    const productionWrapper = mountTabsPanel({ operationPhase: 'production' });
+    expect(productionWrapper.find('#equipment-tab').exists()).toBe(true);
+
+    const drillingWrapper = mountTabsPanel({ operationPhase: 'drilling' });
+    expect(drillingWrapper.find('#equipment-tab').exists()).toBe(false);
   });
 
   it('enables lazy tab panel mounting for performance', () => {

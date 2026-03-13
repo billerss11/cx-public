@@ -51,6 +51,12 @@ describe('topologySchema', () => {
     expect(sourceRows).toHaveLength(1);
     expect(sourceRows[0].rowId).toBe('src-1');
     expect(schema.enableRowSelection).toBe(true);
+    expect(schema.columns().map((column) => column.data)).toEqual([
+      'top',
+      'bottom',
+      'volumeKey',
+      'label'
+    ]);
 
     const mergedRows = schema.mapRowsForStore([
       {

@@ -362,6 +362,7 @@ const canvasWidthMultiplierValue = computed(() => {
 });
 const legacyBaseWidth = 1000;
 const svgWidthValue = computed(() => Math.round(legacyBaseWidth * canvasWidthMultiplierValue.value));
+const schematicMargin = Object.freeze({ top: 60, right: 150, bottom: 80, left: 120 });
 
 const {
   width,
@@ -375,12 +376,7 @@ const {
   minDepth: plotTopDepthValue,
   maxDepth: plotBottomDepthValue,
   xHalf: xHalfValue,
-  margin: {
-    top: 60,
-    right: 150,
-    bottom: 80,
-    left: 120
-  }
+  margin: schematicMargin
 }, svgWidthValue, figHeightValue);
 const displayScaleValue = computed(() => {
   const containerWidth = Number(containerClientWidth.value);
@@ -934,6 +930,7 @@ function handleCanvasMouseLeave() {
   handleLeaveEquipment();
   handleLeavePlug();
   handleLeaveFluid();
+  handleLeaveSurfaceAssembly();
   crossSectionDepthInteraction.handleMouseLeave();
   depthCursor.hide();
   magnifierOverlay.handleMouseLeave();
@@ -1120,7 +1117,6 @@ onBeforeUnmount(() => {
         :units-label="unitsLabel"
         :title-text="plotTitle"
       />
-
       <AnnotationLayer
         :boxes="annotationBoxRows"
         :config="config || {}"

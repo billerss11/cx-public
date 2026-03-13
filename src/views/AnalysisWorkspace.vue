@@ -1,13 +1,11 @@
 <script setup>
 defineOptions({ name: 'AnalysisWorkspace' });
 
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import Select from 'primevue/select';
 import Splitter from 'primevue/splitter';
 import SplitterPanel from 'primevue/splitterpanel';
-import { VNetworkGraph, defineConfigs } from 'v-network-graph';
-import 'v-network-graph/lib/style.css';
 import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 import { useProjectStore } from '@/stores/projectStore.js';
@@ -19,9 +17,10 @@ import {
   requestTopologyModelInWorker
 } from '@/composables/useTopologyWorker.js';
 import { useFeatureTiming } from '@/composables/useFeatureTiming.js';
-import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.js';
 import SchematicCanvas from '@/components/schematic/SchematicCanvas.vue';
 import DirectionalSchematicCanvas from '@/components/schematic/DirectionalSchematicCanvas.vue';
+import TopologyGraphDebugDialog from '@/components/analysis/TopologyGraphDebugDialog.vue';
+import TopologySourcesTablePane from '@/components/tables/panes/TopologySourcesTablePane.vue';
 import { resolveWarningMetadata } from '@/topology/warningCatalog.js';
 import {
   createTopologyInspectorEdgeRows,
@@ -45,6 +44,7 @@ import {
   buildTopologyWarningNavigationByRowId,
   resolveTopologyWarningRowNavigationTarget
 } from '@/topology/warningNavigation.js';
+import { filterScenarioSourceRows } from '@/topology/sourceRows.js';
 import {
   requestTableRowFocus,
   setActiveTableTabKey,
@@ -84,34 +84,9 @@ const topologyGraphControls = reactive({
 });
 const selectedInspectorNodeId = ref(null);
 const selectedInspectorEdgeId = ref(null);
-const TOPOLOGY_GRAPH_MIN_WIDTH = 520;
-const TOPOLOGY_GRAPH_MIN_HEIGHT = 360;
-const TOPOLOGY_GRAPH_DEFAULT_WIDTH = 1180;
-const TOPOLOGY_GRAPH_DEFAULT_HEIGHT = 820;
-let detachTopologyGraphResizeListener = null;
-
-const {
-  dialogSize: topologyGraphDialogSize,
-  reconcileDialogSize: reconcileTopologyGraphDialogSize,
-  resizeDialogBy: resizeTopologyGraphDialogBy,
-  startDialogResize: startTopologyGraphDialogResize,
-  stopDialogResize: stopTopologyGraphDialogResize
-} = useFloatingDialogResize({
-  minWidth: TOPOLOGY_GRAPH_MIN_WIDTH,
-  minHeight: TOPOLOGY_GRAPH_MIN_HEIGHT,
-  defaultWidth: TOPOLOGY_GRAPH_DEFAULT_WIDTH,
-  defaultHeight: TOPOLOGY_GRAPH_DEFAULT_HEIGHT,
-  maxViewportWidthRatio: 0.96,
-  maxViewportHeightRatio: 0.88,
-  cursorClass: 'resizing-both'
-});
-
-const topologyGraphDialogStyle = computed(() => ({
-  width: `${topologyGraphDialogSize.value.width}px`,
-  height: `${topologyGraphDialogSize.value.height}px`,
-  maxWidth: '96vw',
-  maxHeight: '88vh'
-}));
+const manualSourceOverridesOpen = ref(false);
+const manualSourceOverridesPaneRef = ref(null);
+const manualSourceOverridesSectionRef = ref(null);
 
 const WARNING_CATEGORY_UI = Object.freeze({
   equipment: Object.freeze({
@@ -121,6 +96,10 @@ const WARNING_CATEGORY_UI = Object.freeze({
   marker: Object.freeze({
     label: 'Marker',
     i18nKey: 'ui.analysis.topology.warnings.filter.category.marker'
+  }),
+  surface: Object.freeze({
+    label: 'Surface',
+    i18nKey: 'ui.analysis.topology.warnings.filter.category.surface'
   }),
   source: Object.freeze({
     label: 'Source',
@@ -165,119 +144,22 @@ const topologyGraphScopeOptions = [
   { value: 'active_flow', label: 'Active flow', i18nKey: 'ui.analysis.topology.inspector.scope.active_flow' },
   { value: 'selected_barrier', label: 'Selected barrier', i18nKey: 'ui.analysis.topology.graph.scope.selected_barrier' }
 ];
-const topologyGraphLayers = Object.freeze({
-  'lane-headers': 'base'
-});
-
 const TOPOLOGY_GRAPH_EDGE_TOOLTIP_WRAP_LIMIT = 52;
 
-const topologyGraphConfigs = defineConfigs({
-  view: {
-    autoPanAndZoomOnLoad: 'fit-content',
-    fitContentMargin: {
-      top: 44,
-      left: 72,
-      right: 72,
-      bottom: 36
-    },
-    minZoomLevel: 0.18,
-    maxZoomLevel: 8,
-    grid: {
-      visible: false
-    }
-  },
-  node: {
-    draggable: false,
-    selectable: true,
-    normal: {
-      type: 'circle',
-      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
-      color: (node) => String(node?.tone ?? 'var(--color-analysis-graph-node-default)'),
-      strokeColor: 'var(--color-analysis-graph-node-stroke)',
-      strokeWidth: 1
-    },
-    hover: {
-      type: 'circle',
-      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
-      color: 'var(--color-analysis-graph-node-hover-fill)',
-      strokeColor: 'var(--color-analysis-graph-node-hover-stroke)',
-      strokeWidth: 1.4
-    },
-    selected: {
-      type: 'circle',
-      radius: (node) => (node?.kind === 'SURFACE' ? 15 : 13),
-      color: 'var(--color-analysis-graph-node-selected-fill)',
-      strokeColor: 'var(--color-analysis-graph-node-selected-stroke)',
-      strokeWidth: 2
-    },
-    label: {
-      visible: true,
-      text: (node) => String(node?.displayLabel ?? node?.name ?? ''),
-      color: 'var(--color-analysis-graph-node-label-text)',
-      fontSize: 10,
-      lineHeight: 1.05,
-      direction: 'east',
-      margin: 10,
-      background: {
-        visible: true,
-        color: 'var(--color-analysis-graph-node-label-bg)',
-        borderRadius: 3,
-        padding: {
-          vertical: 2,
-          horizontal: 4
-        }
-      }
-    }
-  },
-  edge: {
-    selectable: true,
-    type: 'straight',
-    normal: {
-      width: 2.3,
-      color: (edge) => String(edge?.tone ?? 'var(--color-analysis-graph-edge-default)'),
-      dasharray: (edge) => edge?.dasharray ?? 0,
-      animate: false,
-      animationSpeed: 50
-    },
-    selected: {
-      width: 3.2,
-      color: 'var(--color-analysis-graph-edge-selected)',
-      dasharray: 0,
-      animate: false,
-      animationSpeed: 50
-    },
-    label: {
-      visible: false,
-      text: (edge) => String(edge?.displayLabel ?? ''),
-      color: 'var(--color-analysis-graph-edge-label-text)',
-      fontSize: 9,
-      lineHeight: 1.02,
-      margin: 4,
-      padding: 3,
-      background: {
-        visible: true,
-        color: 'var(--color-analysis-graph-edge-label-bg)',
-        borderRadius: 3
-      }
-    }
-  }
-});
-
-const {
-  casingData,
-  tubingData,
-  drillStringData,
-  equipmentData,
-  horizontalLines,
-  annotationBoxes,
-  userAnnotations,
-  cementPlugs,
-  annulusFluids,
-  markers,
-  topologySources,
-  physicsIntervals,
-  trajectory
-} = storeToRefs(projectDataStore);
+const projectDataRefs = storeToRefs(projectDataStore);
+const casingData = computed(() => projectDataRefs.casingData?.value ?? []);
+const tubingData = computed(() => projectDataRefs.tubingData?.value ?? []);
+const drillStringData = computed(() => projectDataRefs.drillStringData?.value ?? []);
+const equipmentData = computed(() => projectDataRefs.equipmentData?.value ?? []);
+const horizontalLines = computed(() => projectDataRefs.horizontalLines?.value ?? []);
+const annotationBoxes = computed(() => projectDataRefs.annotationBoxes?.value ?? []);
+const userAnnotations = computed(() => projectDataRefs.userAnnotations?.value ?? []);
+const cementPlugs = computed(() => projectDataRefs.cementPlugs?.value ?? []);
+const annulusFluids = computed(() => projectDataRefs.annulusFluids?.value ?? []);
+const markers = computed(() => projectDataRefs.markers?.value ?? []);
+const topologySources = computed(() => projectDataRefs.topologySources?.value ?? []);
+const physicsIntervals = computed(() => projectDataRefs.physicsIntervals?.value ?? []);
+const trajectory = computed(() => projectDataRefs.trajectory?.value ?? []);
 const { activeWellTopology } = storeToRefs(topologyStore);
 
 const declarativeProjectData = computed(() => ({
@@ -369,35 +251,6 @@ watch(activeWellId, (wellId, previousWellId) => {
   directionalGeometryReadyRequestId.value = null;
 });
 
-watch(() => topologyGraphControls.visible, (isVisible) => {
-  if (isVisible === true) return;
-  stopTopologyGraphDialogResize();
-});
-
-function handleTopologyGraphResizerKeydown(event) {
-  const key = String(event?.key ?? '');
-  const step = event?.shiftKey === true ? 36 : 18;
-  if (key === 'ArrowRight') {
-    event.preventDefault();
-    resizeTopologyGraphDialogBy(step, 0);
-    return;
-  }
-  if (key === 'ArrowLeft') {
-    event.preventDefault();
-    resizeTopologyGraphDialogBy(-step, 0);
-    return;
-  }
-  if (key === 'ArrowDown') {
-    event.preventDefault();
-    resizeTopologyGraphDialogBy(0, step);
-    return;
-  }
-  if (key === 'ArrowUp') {
-    event.preventDefault();
-    resizeTopologyGraphDialogBy(0, -step);
-  }
-}
-
 watch(
   [topologyStateSnapshot, activeWellId, isAnalysisWorkspaceActive],
   ([snapshot, wellId, isActive]) => {
@@ -464,21 +317,7 @@ watch(
   { immediate: true, deep: true }
 );
 
-onMounted(() => {
-  reconcileTopologyGraphDialogSize();
-  const handleResize = () => {
-    reconcileTopologyGraphDialogSize();
-  };
-  window.addEventListener('resize', handleResize);
-  detachTopologyGraphResizeListener = () => {
-    window.removeEventListener('resize', handleResize);
-  };
-});
-
 onBeforeUnmount(() => {
-  stopTopologyGraphDialogResize();
-  detachTopologyGraphResizeListener?.();
-  detachTopologyGraphResizeListener = null;
   cancelTopologyWorkerJobs('Analysis workspace unmounted');
 });
 
@@ -879,6 +718,11 @@ function handleWarningRowNavigation(warning) {
   if (!navigationTarget) return;
   if (!Number.isInteger(navigationTarget.rowIndex) || navigationTarget.rowIndex < 0) return;
 
+  if (navigationTarget.panelKey === 'manualSourceOverrides') {
+    focusManualSourceOverrideRow(navigationTarget.rowIndex);
+    return;
+  }
+
   setTablesAccordionOpen(true);
   setActiveTableTabKey(navigationTarget.tabKey);
   requestTableRowFocus(navigationTarget.tableType, navigationTarget.rowIndex);
@@ -895,19 +739,80 @@ const topologyMetaText = computed(() => {
   return `request=${requestId} | well=${wellId}`;
 });
 
-const topologySourcePolicyKey = computed(() => {
-  const sourcePolicy = topologyResult.value?.sourcePolicy;
-  if (sourcePolicy?.mode === 'scenario_explicit' || sourcePolicy?.explicitScenarioDerived === true) {
-    return 'ui.analysis.topology.source_policy.scenario_explicit';
-  }
-  if (sourcePolicy?.illustrativeFluidDerived === true) {
-    return 'ui.analysis.topology.source_policy.fluid_opt_in';
-  }
-  if (sourcePolicy?.mode === 'open_hole_opt_in' || sourcePolicy?.openHoleDerived === true) {
-    return 'ui.analysis.topology.source_policy.open_hole_opt_in';
-  }
-  return 'ui.analysis.topology.source_policy.marker_default';
+const manualSourceOverrideRows = computed(() => (
+  filterScenarioSourceRows(topologySources.value).filter((row) => row?.show !== false)
+));
+
+const topologySourceSummaryCounts = computed(() => {
+  const sourceEntities = Array.isArray(topologyResult.value?.sourceEntities)
+    ? topologyResult.value.sourceEntities
+    : [];
+
+  return sourceEntities.reduce((counts, sourceEntity) => {
+    const origin = String(sourceEntity?.origin ?? '').trim().toLowerCase();
+    if (origin === 'marker') counts.marker += 1;
+    if (origin === 'open-hole-default') counts.openHole += 1;
+    if (origin === 'manual-override') counts.manualOverride += 1;
+    if (origin === 'illustrative-fluid') counts.illustrativeFluid += 1;
+    return counts;
+  }, {
+    marker: 0,
+    openHole: 0,
+    manualOverride: 0,
+    illustrativeFluid: 0
+  });
 });
+
+function formatSummaryList(values = []) {
+  const safeValues = values.filter(Boolean);
+  if (safeValues.length <= 1) return safeValues[0] ?? '';
+  if (safeValues.length === 2) return `${safeValues[0]} and ${safeValues[1]}`;
+  return `${safeValues.slice(0, -1).join(', ')}, and ${safeValues[safeValues.length - 1]}`;
+}
+
+const topologySourceSummaryText = computed(() => {
+  if (!topologyResult.value) return 'Run topology analysis to resolve flow starts.';
+
+  const counts = topologySourceSummaryCounts.value;
+  const parts = [];
+  if (counts.marker > 0) parts.push('perforations');
+  if (counts.openHole > 0) parts.push('open hole');
+  if (counts.manualOverride > 0) {
+    parts.push(counts.manualOverride === 1 ? '1 manual override' : `${counts.manualOverride} manual overrides`);
+  }
+  if (counts.illustrativeFluid > 0) parts.push('illustrative fluid');
+
+  if (parts.length === 0) return 'No flow start sources are resolved.';
+  return `Flow starts from ${formatSummaryList(parts)}.`;
+});
+
+const topologySourcePolicyDebugText = computed(() => {
+  const sourcePolicy = topologyResult.value?.sourcePolicy;
+  if (!sourcePolicy) return 'mode=unknown';
+
+  const counts = topologySourceSummaryCounts.value;
+  const parts = [`mode=${String(sourcePolicy?.mode ?? 'unknown').trim() || 'unknown'}`];
+  if (sourcePolicy?.markerDerived === true) parts.push('perforations');
+  if (sourcePolicy?.openHoleDerived === true) parts.push('open-hole');
+  if (sourcePolicy?.manualOverrideDerived === true) {
+    parts.push(`manual-overrides=${counts.manualOverride}`);
+  }
+  if (sourcePolicy?.illustrativeFluidDerived === true) parts.push('illustrative-fluid');
+  return parts.join(' | ');
+});
+
+async function focusManualSourceOverrideRow(rowIndex) {
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
+  manualSourceOverridesOpen.value = true;
+  await nextTick();
+  manualSourceOverridesSectionRef.value?.scrollIntoView?.({ block: 'nearest' });
+  await nextTick();
+  await manualSourceOverridesPaneRef.value?.focusRow?.(rowIndex);
+}
+
+function handleManualSourceOverridesToggle(event) {
+  manualSourceOverridesOpen.value = event?.target?.open === true;
+}
 
 function normalizeTraversalDirectionToken(value, fallback = 'bidirectional') {
   const token = String(value ?? '').trim().toLowerCase();
@@ -1235,10 +1140,6 @@ const minCostPathSummaryRows = computed(() => (
   createTopologyPathEdgeSummaryRows(topologyResult.value)
 ));
 
-const selectedTopologyGraphScopeOption = computed(() => (
-  topologyGraphScopeOptions.find((option) => option.value === topologyGraphControls.scope) ?? null
-));
-
 const topologyDepthUnitsLabel = computed(() => {
   const unitsToken = String(projectStore.projectConfig?.defaultUnits ?? '').trim();
   return unitsToken || 'ft';
@@ -1265,12 +1166,10 @@ const topologyGraphRequiresBarrierSelection = computed(() => (
   && selectedBarrierEdgeIds.value.length === 0
 ));
 
-const topologyGraphHasData = computed(() => (
-  topologyDebugGraph.value.nodeCount > 0 && topologyDebugGraph.value.edgeCount > 0
-));
-
 function handleTopologyGraphNodeClick(payload = {}) {
-  const nodeId = String(payload?.node ?? '').trim();
+  const nodeId = typeof payload === 'string'
+    ? String(payload).trim()
+    : String(payload?.node ?? '').trim();
   if (!nodeId) return;
   selectedInspectorEdgeId.value = null;
   selectedInspectorNodeId.value = selectedInspectorNodeId.value === nodeId ? null : nodeId;
@@ -1283,16 +1182,11 @@ function resolveTopologyGraphEdgeId(payload = {}) {
 }
 
 function handleTopologyGraphEdgeClick(payload = {}) {
-  const edgeId = resolveTopologyGraphEdgeId(payload);
+  const edgeId = typeof payload === 'string' ? payload : resolveTopologyGraphEdgeId(payload);
   if (!edgeId) return;
   selectedInspectorNodeId.value = null;
   selectedInspectorEdgeId.value = selectedInspectorEdgeId.value === edgeId ? null : edgeId;
 }
-
-const topologyGraphEventHandlers = {
-  'node:click': handleTopologyGraphNodeClick,
-  'edge:click': handleTopologyGraphEdgeClick
-};
 
 function wrapTopologyGraphTooltipLine(line, maxCharacters = TOPOLOGY_GRAPH_EDGE_TOOLTIP_WRAP_LIMIT) {
   const safeLine = String(line ?? '').trim();
@@ -1322,7 +1216,9 @@ function wrapTopologyGraphTooltipLine(line, maxCharacters = TOPOLOGY_GRAPH_EDGE_
 }
 
 function resolveTopologyGraphEdgeTooltipLines(edge = {}) {
-  const sourceLines = Array.isArray(edge?.tooltipLines) ? edge.tooltipLines : [];
+  const sourceLines = Array.isArray(edge?.detailLines)
+    ? edge.detailLines
+    : (Array.isArray(edge?.tooltipLines) ? edge.tooltipLines : []);
   return sourceLines.flatMap((line) => wrapTopologyGraphTooltipLine(line));
 }
 
@@ -1473,6 +1369,29 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
           </article>
         </div>
 
+        <p class="analysis-topology__meta">{{ topologySourceSummaryText }}</p>
+
+        <details
+          ref="manualSourceOverridesSectionRef"
+          class="analysis-topology__diagnostics analysis-topology__diagnostics--manual-sources"
+          :open="manualSourceOverridesOpen"
+          @toggle="handleManualSourceOverridesToggle"
+        >
+          <summary class="analysis-topology__diagnostics-summary" data-i18n="ui.analysis.topology.manual_source_overrides.title">
+            Manual Source Overrides (advanced)
+          </summary>
+          <div class="analysis-topology__diagnostics-body">
+            <p class="analysis-topology__meta" data-i18n="ui.analysis.topology.manual_source_overrides.description">
+              Use manual source overrides only when a real source is known but not represented elsewhere in the model.
+            </p>
+            <p class="analysis-topology__meta">
+              <span data-i18n="ui.analysis.topology.manual_source_overrides.count_label">Visible overrides:</span>
+              <span>{{ manualSourceOverrideRows.length }}</span>
+            </p>
+            <TopologySourcesTablePane ref="manualSourceOverridesPaneRef" />
+          </div>
+        </details>
+
         <details class="analysis-topology__diagnostics">
           <summary class="analysis-topology__diagnostics-summary" data-i18n="ui.analysis.topology.diagnostics.title">
             Advanced diagnostics (debug)
@@ -1481,17 +1400,7 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
         <p v-if="topologyMetaText" class="analysis-topology__meta">{{ topologyMetaText }}</p>
         <p class="analysis-topology__meta">
           <span data-i18n="ui.analysis.topology.source_policy.label">Source policy:</span>
-          <span :data-i18n="topologySourcePolicyKey">
-            {{
-              topologySourcePolicyKey === 'ui.analysis.topology.source_policy.scenario_explicit'
-                ? 'Explicit scenario source rows'
-                : topologySourcePolicyKey === 'ui.analysis.topology.source_policy.fluid_opt_in'
-                  ? 'Marker + illustrative fluid (opt-in)'
-                  : topologySourcePolicyKey === 'ui.analysis.topology.source_policy.open_hole_opt_in'
-                    ? 'Marker + open-hole source (opt-in)'
-                  : 'Marker-driven default'
-            }}
-          </span>
+          <span>{{ topologySourcePolicyDebugText }}</span>
         </p>
         <p class="analysis-topology__meta" data-i18n="ui.analysis.topology.source_policy.volume_guide">
           Volume guide: use ANNULUS_A for the first annulus; use ANNULUS_B for the first casing-casing annulus when tubing is present.
@@ -2179,133 +2088,19 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
     </SplitterPanel>
   </Splitter>
 
-  <Dialog
-    v-model:visible="topologyGraphControls.visible"
-    data-vue-owned="true"
-    class="analysis-topology__graph-dialog"
-    :modal="false"
-    :draggable="true"
-    :maximizable="true"
-    :style="topologyGraphDialogStyle"
-    :breakpoints="{ '1200px': '94vw', '768px': '98vw' }"
-  >
-    <template #header>
-      <span data-i18n="ui.analysis.topology.graph.title">Topology graph debug pane</span>
-    </template>
-
-    <div class="analysis-topology__graph-pane analysis-topology__graph-pane--dialog">
-      <p class="analysis-topology__meta" data-i18n="ui.analysis.topology.graph.description">
-        Fixed-lane graph view for explainability. Click a node or edge to sync selection with inspector and overlay.
-      </p>
-      <div class="analysis-topology__graph-controls">
-        <label class="analysis-topology__control-label" data-i18n="ui.analysis.topology.graph.scope.label">
-          Graph scope:
-        </label>
-        <Select
-          v-model="topologyGraphControls.scope"
-          :options="topologyGraphScopeOptions"
-          option-label="label"
-          option-value="value"
-          size="small"
-          class="analysis-topology__control-select"
-        >
-          <template #value="slotProps">
-            <span v-if="selectedTopologyGraphScopeOption" :data-i18n="selectedTopologyGraphScopeOption.i18nKey">
-              {{ selectedTopologyGraphScopeOption.label }}
-            </span>
-            <span v-else>{{ slotProps.placeholder }}</span>
-          </template>
-          <template #option="slotProps">
-            <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
-          </template>
-        </Select>
-      </div>
-      <p class="analysis-topology__meta">
-        <span data-i18n="ui.analysis.topology.graph.visible_nodes">Graph nodes:</span>
-        <span>{{ topologyDebugGraph.nodeCount }}</span>
-      </p>
-      <p class="analysis-topology__meta">
-        <span data-i18n="ui.analysis.topology.graph.visible_edges">Graph edges:</span>
-        <span>{{ topologyDebugGraph.edgeCount }}</span>
-      </p>
-      <p
-        v-if="topologyGraphRequiresBarrierSelection"
-        class="analysis-topology__graph-hint"
-        data-i18n="ui.analysis.topology.graph.empty_selected_barrier"
-      >
-        Select a barrier element row to render the selected-barrier graph scope.
-      </p>
-      <p
-        v-else-if="!topologyGraphHasData"
-        class="analysis-topology__graph-hint"
-        data-i18n="ui.analysis.topology.graph.empty"
-      >
-        No topology subgraph data is available for the selected scope.
-      </p>
-      <div v-else class="analysis-topology__graph-canvas-shell">
-        <VNetworkGraph
-          class="analysis-topology__graph-canvas analysis-topology__graph-canvas--dialog"
-          :nodes="topologyDebugGraph.nodes"
-          :edges="topologyDebugGraph.edges"
-          :layouts="topologyDebugGraph.layouts"
-          :configs="topologyGraphConfigs"
-          :layers="topologyGraphLayers"
-          :selected-nodes="topologyGraphSelectedNodeIds"
-          :selected-edges="topologyGraphSelectedEdgeIds"
-          :event-handlers="topologyGraphEventHandlers"
-        >
-          <template #lane-headers>
-            <g class="analysis-topology__graph-lane-headers" aria-hidden="true">
-              <g
-                v-for="laneHeader in topologyDebugGraph.laneHeaders"
-                :key="`topology-lane-header-${laneHeader.kind}`"
-                :transform="`translate(${laneHeader.x} ${laneHeader.y})`"
-              >
-                <rect class="analysis-topology__graph-lane-header-bg" x="-60" y="-12" width="120" height="22" rx="4" ry="4" />
-                <text class="analysis-topology__graph-lane-header-text" x="0" y="-1" text-anchor="middle" dominant-baseline="central">
-                  {{ laneHeader.label }}
-                </text>
-              </g>
-            </g>
-          </template>
-        </VNetworkGraph>
-        <div v-if="selectedTopologyGraphEdgeTooltipLines.length > 0" class="analysis-topology__graph-hover-detail">
-          <p
-            v-for="(line, lineIndex) in selectedTopologyGraphEdgeTooltipLines"
-            :key="`topology-edge-hover-line-${lineIndex}`"
-            class="analysis-topology__graph-hover-detail-line"
-          >
-            {{ line }}
-          </p>
-        </div>
-      </div>
-      <div class="analysis-topology__graph-legend">
-        <p class="analysis-topology__graph-legend-item">
-          <span class="analysis-topology__graph-line analysis-topology__graph-line--open" />
-          <span data-i18n="ui.analysis.topology.graph.legend.open">Solid line = open continuity (cost 0)</span>
-        </p>
-        <p class="analysis-topology__graph-legend-item">
-          <span class="analysis-topology__graph-line analysis-topology__graph-line--barrier" />
-          <span data-i18n="ui.analysis.topology.graph.legend.barrier">Dashed red line = barrier/failable boundary (cost 1)</span>
-        </p>
-        <p class="analysis-topology__graph-legend-item">
-          <span class="analysis-topology__graph-line analysis-topology__graph-line--radial" />
-          <span data-i18n="ui.analysis.topology.graph.legend.radial">Orange line = radial communication edge</span>
-        </p>
-        <p class="analysis-topology__graph-legend-item">
-          <span class="analysis-topology__graph-line analysis-topology__graph-line--termination" />
-          <span data-i18n="ui.analysis.topology.graph.legend.termination">Green line = termination edge to surface</span>
-        </p>
-      </div>
-      <button
-        type="button"
-        class="analysis-topology__graph-resizer"
-        aria-label="Resize topology graph dialog"
-        @keydown="handleTopologyGraphResizerKeydown"
-        @pointerdown="startTopologyGraphDialogResize"
-      ></button>
-    </div>
-  </Dialog>
+  <TopologyGraphDebugDialog
+    :visible="topologyGraphControls.visible"
+    :scope="topologyGraphControls.scope"
+    :scope-options="topologyGraphScopeOptions"
+    :graph="topologyDebugGraph"
+    :selected-node-ids="topologyGraphSelectedNodeIds"
+    :selected-edge-ids="topologyGraphSelectedEdgeIds"
+    :requires-barrier-selection="topologyGraphRequiresBarrierSelection"
+    @update:visible="topologyGraphControls.visible = $event"
+    @update:scope="topologyGraphControls.scope = $event"
+    @node-click="handleTopologyGraphNodeClick"
+    @edge-click="handleTopologyGraphEdgeClick"
+  />
 </template>
 
 <style scoped>
@@ -2852,162 +2647,6 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   color: var(--muted);
 }
 
-.analysis-topology__graph-pane {
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.analysis-topology__graph-pane--dialog {
-  border-top: 0;
-  padding-top: 0;
-  gap: 8px;
-  position: relative;
-  height: 100%;
-  box-sizing: border-box;
-  padding-right: 22px;
-  padding-bottom: 22px;
-}
-
-.analysis-topology__graph-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.analysis-topology__graph-hint {
-  margin: 0;
-  font-size: 0.76rem;
-  color: var(--muted);
-}
-
-.analysis-topology__graph-canvas {
-  width: 100%;
-  height: 340px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    180deg,
-    var(--color-analysis-graph-canvas-start),
-    var(--color-analysis-graph-canvas-end)
-  );
-}
-
-.analysis-topology__graph-canvas--dialog {
-  min-height: 420px;
-  height: min(62vh, 620px);
-}
-
-.analysis-topology__graph-canvas-shell {
-  position: relative;
-  width: 100%;
-}
-
-.analysis-topology__graph-lane-headers {
-  pointer-events: none;
-}
-
-.analysis-topology__graph-lane-header-bg {
-  fill: var(--color-analysis-graph-lane-header-fill);
-  stroke: var(--color-analysis-graph-lane-header-stroke);
-  stroke-width: 1;
-}
-
-.analysis-topology__graph-lane-header-text {
-  fill: var(--color-analysis-graph-lane-header-text);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.analysis-topology__graph-hover-detail {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
-  max-width: min(420px, 48%);
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--color-analysis-graph-hover-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-analysis-graph-hover-bg);
-  pointer-events: none;
-}
-
-.analysis-topology__graph-hover-detail-line {
-  margin: 0;
-  color: var(--color-analysis-graph-hover-text);
-  font-size: 0.73rem;
-  line-height: 1.35;
-}
-
-.analysis-topology__graph-hover-detail-line + .analysis-topology__graph-hover-detail-line {
-  margin-top: 2px;
-}
-
-:deep(.analysis-topology__graph-dialog .p-dialog-content) {
-  height: calc(100% - 0.25rem);
-  padding-top: 0.5rem;
-}
-
-.analysis-topology__graph-resizer {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 14px;
-  height: 14px;
-  border: 0;
-  padding: 0;
-  border-right: 2px solid color-mix(in srgb, var(--line) 88%, transparent);
-  border-bottom: 2px solid color-mix(in srgb, var(--line) 88%, transparent);
-  border-radius: 0 0 2px 0;
-  background: transparent;
-  cursor: nwse-resize;
-  z-index: 3;
-}
-
-.analysis-topology__graph-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-
-.analysis-topology__graph-legend-item {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--ink);
-}
-
-.analysis-topology__graph-line {
-  width: 24px;
-  height: 0;
-  border-top-width: 2px;
-  border-top-style: solid;
-  flex: 0 0 auto;
-}
-
-.analysis-topology__graph-line--open {
-  border-top-color: var(--color-analysis-graph-line-open);
-}
-
-.analysis-topology__graph-line--barrier {
-  border-top-color: var(--color-analysis-graph-line-barrier);
-  border-top-style: dashed;
-}
-
-.analysis-topology__graph-line--radial {
-  border-top-color: var(--color-analysis-graph-line-radial);
-}
-
-.analysis-topology__graph-line--termination {
-  border-top-color: var(--color-analysis-graph-line-termination);
-}
-
 :deep(.analysis-topology__envelope-table .p-datatable-table) {
   font-size: 0.75rem;
 }
@@ -3070,19 +2709,5 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
     grid-template-columns: 1fr;
   }
 
-  .analysis-topology__graph-canvas {
-    height: 280px;
-  }
-
-  .analysis-topology__graph-canvas--dialog {
-    min-height: 300px;
-    height: min(58vh, 440px);
-  }
-
-  .analysis-topology__graph-hover-detail {
-    top: 8px;
-    right: 8px;
-    max-width: calc(100% - 16px);
-  }
 }
 </style>

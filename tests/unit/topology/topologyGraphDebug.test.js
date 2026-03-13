@@ -154,7 +154,7 @@ describe('topologyGraphDebug', () => {
     })).toBe('Radial communication | cost=1 | marker-leak');
   });
 
-  it('builds min-path graph with fixed coordinates and scoped edges', () => {
+  it('builds min-path graph with scoped edges and row-based coordinates', () => {
     const graph = buildTopologyDebugGraph(TOPOLOGY_RESULT_FIXTURE, {
       scope: 'min_path',
       depthUnitsLabel: 'ft'
@@ -172,6 +172,7 @@ describe('topologyGraphDebug', () => {
     const annulusY = graph.layouts.nodes['node:ANNULUS_A:0:1000'].y;
     expect(annulusX).toBeGreaterThan(0);
     expect(annulusY).toBeGreaterThan(surfaceY);
+    expect(graph.layouts.nodes['node:SURFACE'].fixed).toBe(true);
   });
 
   it('compacts sparse lane layouts so scoped graphs remain readable', () => {
@@ -219,7 +220,7 @@ describe('topologyGraphDebug', () => {
     expect(new Set(tubingXCoordinates).size).toBeGreaterThan(1);
   });
 
-  it('uses compact depth labels for dense repeated node kinds', () => {
+  it('uses compact depth labels for graph nodes and preserves detail payloads', () => {
     const graph = buildTopologyDebugGraph(DENSE_TUBING_CHAIN_FIXTURE, {
       scope: 'min_path',
       depthUnitsLabel: 'ft'
@@ -227,6 +228,62 @@ describe('topologyGraphDebug', () => {
 
     const tubingLabel = graph.nodes['node:TUBING:1400:1800'].displayLabel;
     expect(tubingLabel).toBe('1,400-1,800 ft MD');
+
+    const tubingNode = graph.nodes['node:TUBING:1400:1800'];
+    expect(tubingNode.detailLines).toEqual([
+      'Tubing Inner',
+      '1,400-1,800 ft MD'
+    ]);
+
+    const surfaceNode = graph.nodes['node:SURFACE'];
+    expect(surfaceNode.displayLabel).toBe('Surface');
+    expect(surfaceNode.detailLines).toEqual(['Surface']);
+  });
+
+  it('adds lane guide metadata for structured-lane rendering', () => {
+    const graph = buildTopologyDebugGraph(TOPOLOGY_RESULT_FIXTURE, {
+      scope: 'selected_barrier',
+      selectedBarrierEdgeIds: ['edge:radial:a1-b1'],
+      depthUnitsLabel: 'ft'
+    });
+
+    expect(graph.laneGuides).toHaveLength(2);
+    expect(graph.laneGuides).toEqual([
+      expect.objectContaining({ kind: 'ANNULUS_A' }),
+      expect.objectContaining({ kind: 'ANNULUS_B' })
+    ]);
+  });
+
+  it('compresses large depth gaps into readable row bands', () => {
+    const sparseDepthFixture = {
+      nodes: [
+        { nodeId: 'node:SURFACE', kind: 'SURFACE', depthTop: null, depthBottom: null },
+        { nodeId: 'node:ANNULUS_A:0:1000', kind: 'ANNULUS_A', depthTop: 0, depthBottom: 1000 },
+        { nodeId: 'node:ANNULUS_A:10000:11000', kind: 'ANNULUS_A', depthTop: 10000, depthBottom: 11000 }
+      ],
+      edges: [
+        {
+          edgeId: 'edge:vertical:a0-a1',
+          kind: 'vertical',
+          cost: 0,
+          from: 'node:ANNULUS_A:0:1000',
+          to: 'node:ANNULUS_A:10000:11000'
+        }
+      ],
+      activeFlowNodeIds: [],
+      minCostPathEdgeIds: ['edge:vertical:a0-a1'],
+      spofEdgeIds: [],
+      edgeReasons: {}
+    };
+
+    const graph = buildTopologyDebugGraph(sparseDepthFixture, {
+      scope: 'min_path',
+      depthUnitsLabel: 'ft'
+    });
+
+    const shallowerY = graph.layouts.nodes['node:ANNULUS_A:0:1000'].y;
+    const deeperY = graph.layouts.nodes['node:ANNULUS_A:10000:11000'].y;
+    expect(deeperY - shallowerY).toBeLessThan(120);
   });
 
   it('supports active-flow scope for the debug graph', () => {
@@ -256,6 +313,7 @@ describe('topologyGraphDebug', () => {
     expect(radialEdge.tooltipLines).toContain('Path: Annulus A (First Annulus) -> Annulus B');
     expect(radialEdge.tooltipLines).toContain('Rule: marker-leak');
     expect(radialEdge.tooltipLines).toContain('Tubing-host leak marker creates radial communication.');
+    expect(radialEdge.detailLines).toEqual(radialEdge.tooltipLines);
   });
 
   it('emits theme-token tones so graph colors follow theme mode', () => {

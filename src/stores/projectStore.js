@@ -15,10 +15,10 @@ import { clearPendingTableRowFocus } from '@/components/tables/panes/tablePaneSt
 import { clearSelection, hidePlotTooltip, syncSelectionIndicators } from '@/app/selection.js';
 import { requestSchematicRender } from '@/composables/useSchematicRenderer.js';
 import {
-    PROJECT_SCHEMA_VERSION_V3,
+    PROJECT_SCHEMA_VERSION_V6,
     createEmptyWellData,
-    ensureProjectSchemaV3
-} from '@/utils/migrations/v2_to_v3.js';
+    ensureProjectSchemaV6
+} from '@/utils/migrations/v5_to_v6.js';
 import {
     assertViewConfigOwnershipCoverage,
     composeRuntimeViewConfigForWell,
@@ -128,7 +128,8 @@ export const useProjectStore = defineStore('project', () => {
         activeWellId: null,
         projectFilePath: null,
         projectFileName: '',
-        hasUnsavedChanges: false
+        hasUnsavedChanges: false,
+        loadWarnings: []
     });
     let dirtyTrackingInitialized = false;
     let dirtyTrackingSuspendCount = 0;
@@ -149,6 +150,7 @@ export const useProjectStore = defineStore('project', () => {
     const projectFileName = computed(() => state.projectFileName);
     const hasProjectFileTarget = computed(() => Boolean(state.projectFilePath));
     const hasUnsavedChanges = computed(() => state.hasUnsavedChanges === true);
+    const loadWarnings = computed(() => Array.isArray(state.loadWarnings) ? state.loadWarnings : []);
 
     function findWellById(wellId) {
         const normalizedId = String(wellId ?? '').trim();
@@ -361,9 +363,9 @@ export const useProjectStore = defineStore('project', () => {
         return true;
     }
 
-    function loadProject(payloadV3) {
+    function loadProject(payloadV5) {
         ensureDirtyTrackingInitialized();
-        const normalized = ensureProjectSchemaV3(payloadV3);
+        const normalized = ensureProjectSchemaV6(payloadV5);
 
         withDirtyTrackingSuspended(() => {
             finishEditingAllHotTables();
@@ -391,6 +393,9 @@ export const useProjectStore = defineStore('project', () => {
             if (!findWellById(state.activeWellId) && state.wells.length > 0) {
                 state.activeWellId = state.wells[0].id;
             }
+            state.loadWarnings = Array.isArray(normalized.loadWarnings)
+                ? cloneSnapshot(normalized.loadWarnings)
+                : [];
             hydrateRuntimeFromWell();
         });
         state.hasUnsavedChanges = false;
@@ -420,6 +425,7 @@ export const useProjectStore = defineStore('project', () => {
             };
             state.wells = [firstWell];
             state.activeWellId = firstWell.id;
+            state.loadWarnings = [];
             clearProjectFileContext();
             hydrateRuntimeFromWell(firstWell);
         });
@@ -659,9 +665,9 @@ export const useProjectStore = defineStore('project', () => {
         finishEditingAllHotTables();
         resetTransientStateForWellSwitch();
         viewConfigStore.resetCameraViewsForWellSwitch();
-        hydrateRuntimeWellData(data);
-        hydrateRuntimeWellConfig(config);
-        syncActiveWellData();
+            hydrateRuntimeWellData(data);
+            hydrateRuntimeWellConfig(config);
+            syncActiveWellData();
 
         if (options.requestRender !== false) {
             requestSchematicRender({ immediate: true });
@@ -678,7 +684,7 @@ export const useProjectStore = defineStore('project', () => {
         const activeId = findWellById(state.activeWellId)?.id ?? payloadWells[0]?.id ?? null;
 
         return {
-            projectSchemaVersion: PROJECT_SCHEMA_VERSION_V3,
+            projectSchemaVersion: PROJECT_SCHEMA_VERSION_V6,
             projectName: normalizeProjectName(state.projectName, 'Project'),
             projectAuthor: normalizeProjectAuthor(state.projectAuthor, ''),
             activeWellId: activeId,
@@ -689,7 +695,7 @@ export const useProjectStore = defineStore('project', () => {
             },
             wells: payloadWells,
             meta: {
-                schemaVersion: PROJECT_SCHEMA_VERSION_V3,
+                schemaVersion: PROJECT_SCHEMA_VERSION_V6,
                 timestamp,
                 source: 'CasingSchematicPlotter',
                 author: normalizeProjectAuthor(state.projectAuthor, '')
@@ -707,6 +713,7 @@ export const useProjectStore = defineStore('project', () => {
         projectFileName,
         hasProjectFileTarget,
         hasUnsavedChanges,
+        loadWarnings,
         activeWell,
         wellOptions,
         ensureInitialized,

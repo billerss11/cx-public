@@ -27,6 +27,39 @@ describe('useEntityEditorActions', () => {
     expect(projectDataStore.casingData[0].rowId).toBe('csg-1');
   });
 
+  it('updates canonical equipment seal override fields and keeps compatibility fields synchronized', () => {
+    const projectDataStore = useProjectDataStore();
+    projectDataStore.setEquipmentData([
+      {
+        rowId: 'eq-1',
+        type: 'Packer',
+        depth: 1200,
+        state: {
+          actuationState: '',
+          integrityStatus: ''
+        },
+        properties: {
+          boreSeal: '',
+          annularSeal: '',
+          sealByVolume: {}
+        },
+        show: true
+      }
+    ]);
+
+    const { updateField } = useEntityEditorActions();
+    const changed = updateField({
+      entityType: 'equipment',
+      rowId: 'eq-1',
+      field: 'properties.annularSeal',
+      value: 'true'
+    });
+
+    expect(changed).toBe(true);
+    expect(projectDataStore.equipmentData[0].properties.annularSeal).toBe('true');
+    expect(projectDataStore.equipmentData[0].annularSeal).toBe('true');
+  });
+
   it('adds, reorders, and deletes rows by rowId', () => {
     const projectDataStore = useProjectDataStore();
     projectDataStore.setHorizontalLines([
