@@ -213,6 +213,33 @@ const DOMAIN_REGISTRY = Object.freeze({
       tabId: 'topology-breakouts-tab'
     }
   }),
+  surfacePaths: createDomainEntry({
+    key: 'surfacePaths',
+    storeKey: 'surfacePaths',
+    canonicalEntityType: 'surfacePath',
+    entityAliases: ['surfacePath', 'surfacePaths'],
+    interactionType: null,
+    canHighlight: false,
+    table: null
+  }),
+  surfaceTransfers: createDomainEntry({
+    key: 'surfaceTransfers',
+    storeKey: 'surfaceTransfers',
+    canonicalEntityType: 'surfaceTransfer',
+    entityAliases: ['surfaceTransfer', 'surfaceTransfers'],
+    interactionType: null,
+    canHighlight: false,
+    table: null
+  }),
+  surfaceOutlets: createDomainEntry({
+    key: 'surfaceOutlets',
+    storeKey: 'surfaceOutlets',
+    canonicalEntityType: 'surfaceOutlet',
+    entityAliases: ['surfaceOutlet', 'surfaceOutlets'],
+    interactionType: null,
+    canHighlight: false,
+    table: null
+  }),
   boxes: createDomainEntry({
     key: 'boxes',
     storeKey: 'annotationBoxes',
@@ -255,6 +282,9 @@ export const DOMAIN_REGISTRY_ORDER = Object.freeze([
   'plugs',
   'fluids',
   'markers',
+  'surfacePaths',
+  'surfaceTransfers',
+  'surfaceOutlets',
   'topologySources',
   'topologyBreakouts',
   'boxes',

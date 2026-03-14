@@ -62,6 +62,15 @@ const ENTITY_TYPE_TO_DOMAIN_KEY = Object.freeze({
   topologyBreakout: 'topologyBreakouts',
   topologybreakout: 'topologyBreakouts',
   topologyBreakouts: 'topologyBreakouts',
+  surfacePath: 'surfacePaths',
+  surfacepath: 'surfacePaths',
+  surfacePaths: 'surfacePaths',
+  surfaceTransfer: 'surfaceTransfers',
+  surfacetransfer: 'surfaceTransfers',
+  surfaceTransfers: 'surfaceTransfers',
+  surfaceOutlet: 'surfaceOutlets',
+  surfaceoutlet: 'surfaceOutlets',
+  surfaceOutlets: 'surfaceOutlets',
   trajectory: 'trajectory'
 });
 
@@ -76,6 +85,8 @@ const MARKER_HOST_TYPE_OPTIONS = Object.freeze([
   PIPE_HOST_TYPE_CASING,
   PIPE_HOST_TYPE_TUBING
 ]);
+const SURFACE_TRANSFER_TYPE_OPTIONS = Object.freeze(['leak', 'crossover']);
+const SURFACE_TRANSFER_DIRECTION_OPTIONS = Object.freeze(['bidirectional', 'forward', 'reverse']);
 
 const FIELD_LABEL_OVERRIDES = Object.freeze({
   azi: 'Azi (Dir)',
@@ -119,6 +130,7 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   placementRefId: 'Placement Ref ID',
   rowId: 'Row ID',
   roleKey: 'Role',
+  transferType: 'Transfer Type',
   templateKey: 'Template',
   templateSlotKey: 'Template Slot',
   sourceVolumeKey: 'Source Volume',
@@ -403,6 +415,40 @@ const DOMAIN_FIELD_CONTRACTS = Object.freeze({
     createFieldContract('inc', ENTITY_EDITOR_CONTROL_TYPES.number),
     createFieldContract('azi', ENTITY_EDITOR_CONTROL_TYPES.number),
     createFieldContract('comment', ENTITY_EDITOR_CONTROL_TYPES.text),
+    READ_ONLY_ROW_ID_FIELD
+  ]),
+  surfacePaths: Object.freeze([
+    createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
+    createFieldContract('channelKey', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => TOPOLOGY_VOLUME_KINDS
+    }),
+    createFieldContract('show', ENTITY_EDITOR_CONTROL_TYPES.toggle),
+    READ_ONLY_ROW_ID_FIELD
+  ]),
+  surfaceTransfers: Object.freeze([
+    createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
+    createFieldContract('transferType', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => SURFACE_TRANSFER_TYPE_OPTIONS
+    }),
+    createFieldContract('fromChannelKey', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => TOPOLOGY_VOLUME_KINDS
+    }),
+    createFieldContract('toChannelKey', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => TOPOLOGY_VOLUME_KINDS
+    }),
+    createFieldContract('direction', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => SURFACE_TRANSFER_DIRECTION_OPTIONS
+    }),
+    createFieldContract('show', ENTITY_EDITOR_CONTROL_TYPES.toggle),
+    READ_ONLY_ROW_ID_FIELD
+  ]),
+  surfaceOutlets: Object.freeze([
+    createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
+    createFieldContract('channelKey', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => TOPOLOGY_VOLUME_KINDS
+    }),
+    createFieldContract('kind', ENTITY_EDITOR_CONTROL_TYPES.text),
+    createFieldContract('show', ENTITY_EDITOR_CONTROL_TYPES.toggle),
     READ_ONLY_ROW_ID_FIELD
   ])
 });

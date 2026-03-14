@@ -31,6 +31,28 @@ export const PROJECT_DATA_KEYS = new Set([
     'annulusFluids',
     'markers',
     'topologySources',
+    'surfacePaths',
+    'surfaceTransfers',
+    'surfaceOutlets',
+    'surfaceTemplate',
+    'trajectory'
+]);
+
+const ARRAY_PROJECT_DATA_KEYS = new Set([
+    'casingData',
+    'tubingData',
+    'drillStringData',
+    'equipmentData',
+    'horizontalLines',
+    'annotationBoxes',
+    'userAnnotations',
+    'cementPlugs',
+    'annulusFluids',
+    'markers',
+    'topologySources',
+    'surfacePaths',
+    'surfaceTransfers',
+    'surfaceOutlets',
     'trajectory'
 ]);
 
@@ -47,11 +69,29 @@ export function createDefaultProjectDataState() {
         annulusFluids: [],
         markers: [],
         topologySources: [],
+        surfacePaths: [],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {},
         physicsIntervals: [],
         trajectory: [
             { rowId: createRowId('trajectory'), md: 0, inc: 0, azi: 0, comment: 'Surface' }
         ]
     };
+}
+
+function normalizeSurfacePathRows(rows) {
+    const normalizedRows = ensureRowsHaveRowIds(rows, { key: 'surfacePaths' });
+    return normalizedRows.map((row) => {
+        const nextItems = ensureRowsHaveRowIds(Array.isArray(row?.items) ? row.items : [], {
+            prefix: 'surface-path-item'
+        });
+        if (nextItems === row?.items) return row;
+        return {
+            ...row,
+            items: nextItems
+        };
+    });
 }
 
 function normalizeCasingAttachReferenceRow(row, casingRefMap, casingRows) {
@@ -312,6 +352,18 @@ function normalizePlacementReferenceRow(row, casingRefMap, casingRows) {
 function normalizeArrayProjectRows(key, rows, casingRows = [], tubingRows = []) {
     if (!Array.isArray(rows)) return rows;
 
+    if (key === 'surfacePaths') {
+        return normalizeSurfacePathRows(rows);
+    }
+
+    if (key === 'surfaceTransfers') {
+        return ensureRowsHaveRowIds(rows, { key: 'surfaceTransfers' });
+    }
+
+    if (key === 'surfaceOutlets') {
+        return ensureRowsHaveRowIds(rows, { key: 'surfaceOutlets' });
+    }
+
     let normalizedRows = ensureRowsHaveRowIds(rows, { key });
     if (!Array.isArray(normalizedRows) || normalizedRows.length === 0) return normalizedRows;
 
@@ -392,7 +444,7 @@ export const useProjectDataStore = defineStore('projectData', () => {
     const stateRefs = toRefs(state);
 
     function setArrayProjectData(key, rows) {
-        if (!PROJECT_DATA_KEYS.has(key) || !Array.isArray(rows)) return false;
+        if (!ARRAY_PROJECT_DATA_KEYS.has(key) || !Array.isArray(rows)) return false;
         if (Object.is(state[key], rows)) return false;
 
         const casingRows = key === 'casingData'
@@ -434,6 +486,13 @@ export const useProjectDataStore = defineStore('projectData', () => {
             );
         }
 
+        return true;
+    }
+
+    function setObjectProjectData(key, value) {
+        if (key !== 'surfaceTemplate' || !value || typeof value !== 'object' || Array.isArray(value)) return false;
+        if (Object.is(state[key], value)) return false;
+        state[key] = { ...value };
         return true;
     }
 
@@ -481,16 +540,41 @@ export const useProjectDataStore = defineStore('projectData', () => {
         return setArrayProjectData('topologySources', rows);
     }
 
+    function setSurfacePaths(rows) {
+        return setArrayProjectData('surfacePaths', rows);
+    }
+
+    function setSurfaceTransfers(rows) {
+        return setArrayProjectData('surfaceTransfers', rows);
+    }
+
+    function setSurfaceOutlets(rows) {
+        return setArrayProjectData('surfaceOutlets', rows);
+    }
+
+    function setSurfaceTemplate(template) {
+        const safeTemplate = template && typeof template === 'object' && !Array.isArray(template)
+            ? template
+            : {};
+        return setObjectProjectData('surfaceTemplate', safeTemplate);
+    }
+
     function setTrajectory(rows) {
         return setArrayProjectData('trajectory', rows);
     }
 
     function setProjectData(key, value) {
-        return setArrayProjectData(key, value);
+        if (ARRAY_PROJECT_DATA_KEYS.has(key)) {
+            return setArrayProjectData(key, value);
+        }
+        if (key === 'surfaceTemplate') {
+            return setSurfaceTemplate(value);
+        }
+        return false;
     }
 
     function updateProjectRow(key, index, patch) {
-        if (!PROJECT_DATA_KEYS.has(key) || !Number.isInteger(index)) return false;
+        if (!ARRAY_PROJECT_DATA_KEYS.has(key) || !Number.isInteger(index)) return false;
         if (!patch || typeof patch !== 'object') return false;
 
         const rows = state[key];
@@ -553,6 +637,10 @@ export const useProjectDataStore = defineStore('projectData', () => {
         setAnnulusFluids,
         setMarkers,
         setTopologySources,
+        setSurfacePaths,
+        setSurfaceTransfers,
+        setSurfaceOutlets,
+        setSurfaceTemplate,
         setTrajectory,
         setProjectData,
         updateProjectRow,

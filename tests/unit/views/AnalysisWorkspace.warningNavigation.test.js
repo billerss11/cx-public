@@ -167,6 +167,9 @@ function mountAnalysisWorkspace(options = {}) {
     TopologySourcesTablePane: {
       template: '<div class="topology-sources-table-pane-stub" />'
     },
+    SurfaceFocusDialog: {
+      template: '<div class="surface-focus-dialog-stub" />'
+    },
     ...(options?.stubs ?? {})
   };
 

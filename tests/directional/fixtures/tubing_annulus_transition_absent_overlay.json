@@ -95,9 +95,7 @@
     "transitionEdgeCount": 0,
     "transitionEdgePairs": [],
     "transitionBoundaryDepths": [],
-    "topologyWarningCodes": [
-      "explicit_scenario_source_mode_active"
-    ],
+    "topologyWarningCodes": [],
     "overlayEntryCount": 2,
     "overlayEntryKindCounts": {
       "ANNULUS_A": 2

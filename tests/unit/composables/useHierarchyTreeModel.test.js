@@ -35,6 +35,9 @@ describe('useHierarchyTreeModel', () => {
       { rowId: 'src-1', sourceType: 'scenario', label: 'Scenario Inflow', top: 900, bottom: 900 },
       { rowId: 'br-1', sourceType: 'scenario', fromVolumeKey: 'ANNULUS_A', toVolumeKey: 'ANNULUS_B', top: 1200, bottom: 1300 }
     ]);
+    projectDataStore.setSurfacePaths([
+      { rowId: 'surface-path-1', channelKey: 'TUBING_INNER', label: 'Tubing Path', items: [], show: true }
+    ]);
 
     projectStore.appendWell({
       name: 'Well 2',
@@ -50,6 +53,12 @@ describe('useHierarchyTreeModel', () => {
         annulusFluids: [],
         markers: [],
         topologySources: [],
+        surfacePaths: [
+          { rowId: 'surface-path-2', channelKey: 'TUBING_INNER', label: 'Tubing Path', items: [], show: true }
+        ],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {},
         trajectory: []
       },
       config: { viewMode: 'directional' }
@@ -68,6 +77,7 @@ describe('useHierarchyTreeModel', () => {
     const casingDomainKey = `domain:${firstWell.id}:casing`;
     const sourceItemKey = `item:${firstWell.id}:topologySources:src-1`;
     const breakoutItemKey = `item:${firstWell.id}:topologyBreakouts:br-1`;
+    const surfacePathItemKey = `item:${projectStore.activeWellId}:surfacePaths:surface-path-1`;
 
     const casingItemNode = findNodeByKey(treeNodes.value, casingItemKey);
     expect(casingItemNode).not.toBeNull();
@@ -77,5 +87,6 @@ describe('useHierarchyTreeModel', () => {
 
     expect(findNodeByKey(treeNodes.value, sourceItemKey)).not.toBeNull();
     expect(findNodeByKey(treeNodes.value, breakoutItemKey)).not.toBeNull();
+    expect(findNodeByKey(treeNodes.value, surfacePathItemKey)).not.toBeNull();
   });
 });

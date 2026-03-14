@@ -10,6 +10,9 @@ const ROW_ID_PREFIX_BY_KEY = Object.freeze({
     annulusFluids: 'fluid',
     markers: 'marker',
     topologySources: 'topology-source',
+    surfacePaths: 'surface-path',
+    surfaceTransfers: 'surface-transfer',
+    surfaceOutlets: 'surface-outlet',
     trajectory: 'trajectory'
 });
 

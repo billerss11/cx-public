@@ -3,8 +3,7 @@ import { buildTopologyNodes } from '@/topology/nodeBuilder.js';
 import {
     buildVerticalEdges,
     buildRadialEdges,
-    buildScenarioRadialEdges,
-    buildTerminationEdges
+    buildScenarioRadialEdges
 } from '@/topology/edgeBuilder.js';
 import {
     buildFluidSourceNodes,
@@ -28,6 +27,7 @@ import {
 } from '@/topology/warningBuilder.js';
 import { evaluateBarrierEnvelopes } from '@/topology/envelopeEvaluator.js';
 import { normalizeWellId } from '@/topology/topologyTypes.js';
+import { buildSurfaceCommunicationTopology } from '@/topology/surfaceFlowCompiler.js';
 
 function cloneTraversalPolicy(policy = {}) {
     return {
@@ -73,24 +73,24 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
     const policyWarnings = buildSourcePolicyWarnings({
         useIllustrativeFluidSource,
         hasVisibleFluidRows: safeState.annulusFluids.some((row) => row?.show !== false),
-        hasManualOverrideSources: sourceResolution?.sourcePolicy?.manualOverrideDerived === true
+        hasManualOverrideSources: sourceResolution?.sourcePolicy?.explicitScenarioModeActive === true
     });
 
-    const termination = buildTerminationEdges(intervals, intervalNodeByKind);
-    const nodes = [...baseNodes, ...termination.nodes];
+    const surface = buildSurfaceCommunicationTopology(safeState, intervals, intervalNodeByKind);
+    const nodes = [...baseNodes, ...surface.nodes];
 
     const edges = [
         ...vertical.edges,
         ...radial.edges,
         ...scenarioRadial.edges,
-        ...termination.edges
+        ...surface.edges
     ];
     const edgeById = new Map(edges.map((edge) => [edge.edgeId, edge]));
     const edgeReasons = {
         ...vertical.edgeReasons,
         ...radial.edgeReasons,
         ...scenarioRadial.edgeReasons,
-        ...termination.edgeReasons
+        ...surface.edgeReasons
     };
     const sourceNodeIds = sourceResolution.sourceNodeIds;
 
@@ -130,6 +130,7 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
         },
         sourceEntities: sourceResolution.sourceEntities,
         sourcePolicy: sourceResolution.sourcePolicy,
+        surfaceSummary: surface.surfaceSummary,
         edgeReasons,
         validationWarnings: buildTopologyValidationWarnings({
             verticalWarnings: vertical.validationWarnings,
@@ -137,8 +138,8 @@ export function buildTopologyModel(stateSnapshot = {}, options = {}) {
                 ...radial.validationWarnings,
                 ...scenarioRadial.validationWarnings
             ],
-            surfaceWarnings: [],
-            terminationWarnings: termination.validationWarnings,
+            surfaceWarnings: surface.validationWarnings,
+            terminationWarnings: [],
             explicitWarnings: explicit.validationWarnings,
             fluidWarnings: [
                 ...fluid.validationWarnings,

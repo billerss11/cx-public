@@ -11,6 +11,9 @@ describe('selectionRowLocator', () => {
     expect(normalizeSelectableEntityType('drill-string')).toBe('drillString');
     expect(normalizeSelectableEntityType('topologyBreakouts')).toBe('topologyBreakout');
     expect(normalizeSelectableEntityType('topology_source')).toBe('topologySource');
+    expect(normalizeSelectableEntityType('surfacePaths')).toBe('surfacePath');
+    expect(normalizeSelectableEntityType('surfaceTransfers')).toBe('surfaceTransfer');
+    expect(normalizeSelectableEntityType('surfaceOutlets')).toBe('surfaceOutlet');
   });
 
   it('returns domain metadata for normalized entity types', () => {
@@ -21,6 +24,11 @@ describe('selectionRowLocator', () => {
     });
     expect(getSelectionRowLocatorMeta('topologyBreakouts')).toMatchObject({
       storeKey: 'topologySources',
+      interactionType: null,
+      canHighlight: false
+    });
+    expect(getSelectionRowLocatorMeta('surfaceTransfers')).toMatchObject({
+      storeKey: 'surfaceTransfers',
       interactionType: null,
       canHighlight: false
     });
@@ -69,6 +77,47 @@ describe('selectionRowLocator', () => {
       canHighlight: false,
       domainRowIndex: 0,
       storeRowIndex: 1
+    });
+  });
+
+  it('resolves top-level surface rows through their dedicated store arrays', () => {
+    const projectDataStore = {
+      surfacePaths: [
+        { rowId: 'surface-path-1', channelKey: 'TUBING_INNER', label: 'Tubing Path', show: true }
+      ],
+      surfaceTransfers: [
+        { rowId: 'surface-transfer-1', transferType: 'leak', label: 'Leak to A', show: true }
+      ],
+      surfaceOutlets: [
+        { rowId: 'surface-outlet-1', label: 'Production Outlet', channelKey: 'TUBING_INNER', show: true }
+      ]
+    };
+
+    expect(resolveSelectionRowTarget(projectDataStore, {
+      entityType: 'surfacePath',
+      rowId: 'surface-path-1'
+    })).toMatchObject({
+      rowId: 'surface-path-1',
+      entityType: 'surfacePath',
+      storeKey: 'surfacePaths'
+    });
+
+    expect(resolveSelectionRowTarget(projectDataStore, {
+      entityType: 'surfaceTransfer',
+      rowId: 'surface-transfer-1'
+    })).toMatchObject({
+      rowId: 'surface-transfer-1',
+      entityType: 'surfaceTransfer',
+      storeKey: 'surfaceTransfers'
+    });
+
+    expect(resolveSelectionRowTarget(projectDataStore, {
+      entityType: 'surfaceOutlet',
+      rowId: 'surface-outlet-1'
+    })).toMatchObject({
+      rowId: 'surface-outlet-1',
+      entityType: 'surfaceOutlet',
+      storeKey: 'surfaceOutlets'
     });
   });
 });

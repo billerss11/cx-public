@@ -166,6 +166,9 @@ function mountAnalysisWorkspace() {
               <button type="button" class="emit-edge-click" @click="$emit('edge-click', 'edge:vertical:a0-a1')">edge</button>
             </div>
           `
+        },
+        SurfaceFocusDialog: {
+          template: '<div class="surface-focus-dialog-stub" />'
         }
       }
     }

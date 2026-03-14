@@ -25,9 +25,9 @@ import { withDefaultPipeComponentType } from '@/utils/pipeRows.js';
 import { normalizeUserAnnotations } from '@/utils/userAnnotations.js';
 import {
     createEmptyWellData,
-    ensureProjectSchemaV6,
+    ensureProjectSchemaV7,
     isProjectPayloadLike
-} from '@/utils/migrations/v5_to_v6.js';
+} from '@/utils/migrations/v6_to_v7.js';
 import { useProjectStore } from '@/stores/projectStore.js';
 import {
     getImporterModule,
@@ -440,7 +440,7 @@ function parseProjectJsonContentToV3(content) {
     if (!isProjectPayloadLike(parsedPayload)) {
         throw new Error(t('alert.invalid_project'));
     }
-    const project = ensureProjectSchemaV6(parsedPayload);
+    const project = ensureProjectSchemaV7(parsedPayload);
     return normalizeImportedProjectPayload(project);
 }
 
@@ -498,7 +498,7 @@ function buildImportedExcelWellData(projectData = {}) {
 function buildBundledSampleData() {
     try {
         const normalizedProject = normalizeImportedProjectPayload(
-            ensureProjectSchemaV6(cloneSnapshot(bundledSampleProject))
+            ensureProjectSchemaV7(cloneSnapshot(bundledSampleProject))
         );
         const sampleWell = normalizedProject.wells?.[0];
         if (!sampleWell?.data) return null;

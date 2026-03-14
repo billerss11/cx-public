@@ -155,6 +155,27 @@ export const HIERARCHY_DOMAIN_META = Object.freeze({
     mergeRows: (allRows, rowsForDomain) => mergeScenarioBreakoutRows(allRows, rowsForDomain),
     resolveItemLabel: (row, index) => resolveTopologyBreakoutLabel(row, index)
   }),
+  surfacePaths: createHierarchyDomainMetaEntry('surfacePaths', {
+    labelKey: 'ui.surface.paths',
+    fallbackLabel: 'Surface Paths',
+    commonFields: Object.freeze(['label', 'channelKey', 'show']),
+    resolveRows: (wellData) => Array.isArray(wellData?.surfacePaths) ? wellData.surfacePaths : [],
+    resolveItemLabel: (row, index) => resolveRowLabel(row, `Surface Path #${index + 1}`)
+  }),
+  surfaceTransfers: createHierarchyDomainMetaEntry('surfaceTransfers', {
+    labelKey: 'ui.surface.transfers',
+    fallbackLabel: 'Transfers',
+    commonFields: Object.freeze(['label', 'transferType', 'fromChannelKey', 'toChannelKey', 'direction', 'show']),
+    resolveRows: (wellData) => Array.isArray(wellData?.surfaceTransfers) ? wellData.surfaceTransfers : [],
+    resolveItemLabel: (row, index) => resolveRowLabel(row, `Transfer #${index + 1}`)
+  }),
+  surfaceOutlets: createHierarchyDomainMetaEntry('surfaceOutlets', {
+    labelKey: 'ui.surface.outlets',
+    fallbackLabel: 'Outlets',
+    commonFields: Object.freeze(['label', 'channelKey', 'kind', 'show']),
+    resolveRows: (wellData) => Array.isArray(wellData?.surfaceOutlets) ? wellData.surfaceOutlets : [],
+    resolveItemLabel: (row, index) => resolveRowLabel(row, `Outlet #${index + 1}`)
+  }),
   boxes: createHierarchyDomainMetaEntry('boxes', {
     commonFields: Object.freeze(['label', 'topDepth', 'bottomDepth', 'show']),
     resolveRows: (wellData) => Array.isArray(wellData?.annotationBoxes) ? wellData.annotationBoxes : [],
@@ -255,6 +276,32 @@ export function createHierarchyDefaultRow(domainKey) {
       fromVolumeKey: DEFAULT_BREAKOUT_FROM_VOLUME_KEY,
       toVolumeKey: DEFAULT_BREAKOUT_TO_VOLUME_KEY,
       label: 'New Crossflow Path',
+      show: true
+    };
+  }
+  if (domainKey === 'surfacePaths') {
+    return {
+      label: 'New Surface Path',
+      channelKey: 'TUBING_INNER',
+      items: [],
+      show: true
+    };
+  }
+  if (domainKey === 'surfaceTransfers') {
+    return {
+      label: 'New Transfer',
+      transferType: 'leak',
+      fromChannelKey: 'TUBING_INNER',
+      toChannelKey: 'ANNULUS_A',
+      direction: 'bidirectional',
+      show: true
+    };
+  }
+  if (domainKey === 'surfaceOutlets') {
+    return {
+      label: 'New Outlet',
+      channelKey: 'TUBING_INNER',
+      kind: 'production',
       show: true
     };
   }

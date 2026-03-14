@@ -16,6 +16,10 @@ function createWellData(overrides = {}) {
     annulusFluids: [],
     markers: [],
     topologySources: [],
+    surfacePaths: [],
+    surfaceTransfers: [],
+    surfaceOutlets: [],
+    surfaceTemplate: {},
     trajectory: [],
     ...overrides
   };

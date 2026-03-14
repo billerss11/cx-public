@@ -69,6 +69,12 @@ export function normalizeStateSnapshot(stateSnapshot = {}) {
         annulusFluids: toSafeArray(source.annulusFluids),
         markers: toSafeArray(source.markers),
         topologySources: toSafeArray(source.topologySources),
+        surfacePaths: toSafeArray(source.surfacePaths),
+        surfaceTransfers: toSafeArray(source.surfaceTransfers),
+        surfaceOutlets: toSafeArray(source.surfaceOutlets),
+        surfaceTemplate: source?.surfaceTemplate && typeof source.surfaceTemplate === 'object' && !Array.isArray(source.surfaceTemplate)
+            ? source.surfaceTemplate
+            : {},
         trajectory: toSafeArray(source.trajectory),
         config: source?.config && typeof source.config === 'object' ? source.config : {},
         interaction: source?.interaction && typeof source.interaction === 'object' ? source.interaction : {}
@@ -280,9 +286,11 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
     const sourceNodeIds = new Set();
     const sourceEntities = [];
     const validationWarnings = [];
+    let hasPolicyActiveScenarioRows = false;
 
     sourceRows.forEach((sourceRow, sourceIndex) => {
         const rowId = String(sourceRow?.rowId ?? '').trim() || null;
+        const sourceType = normalizeSourceType(sourceRow?.sourceType ?? sourceRow?.type ?? sourceRow?.eventType);
         const volumeKey = normalizeSourceVolumeKind(
             sourceRow?.volumeKey
             ?? sourceRow?.volume
@@ -298,6 +306,9 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
                 }
             ));
             return;
+        }
+        if (sourceType === SOURCE_KIND_SCENARIO) {
+            hasPolicyActiveScenarioRows = true;
         }
 
         const depthRange = resolveSourceDepthRange(sourceRow);
@@ -336,7 +347,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
 
         sourceEntities.push({
             sourceId: `source:scenario:${rowId ?? sourceIndex}`,
-            sourceType: normalizeSourceType(sourceRow?.sourceType ?? sourceRow?.type ?? sourceRow?.eventType),
+            sourceType,
             volumeKey,
             depthTop: depthRange.top,
             depthBottom: depthRange.bottom,
@@ -348,6 +359,7 @@ export function buildExplicitScenarioSourceNodes(stateSnapshot, intervals, inter
 
     return {
         hasScenarioRows: sourceRows.length > 0,
+        hasPolicyActiveScenarioRows,
         sourceNodeIds: [...sourceNodeIds],
         sourceEntities,
         validationWarnings
@@ -416,7 +428,8 @@ export function resolveSourceChannels({
             illustrativeFluidDerived: illustrativeSourceNodeIds.length > 0,
             openHoleDerived: openHoleSourceNodeIds.length > 0,
             manualOverrideDerived: explicitSourceNodeIds.length > 0,
-            explicitScenarioDerived: explicitSourceNodeIds.length > 0
+            explicitScenarioDerived: explicit?.hasPolicyActiveScenarioRows === true,
+            explicitScenarioModeActive: explicit?.hasPolicyActiveScenarioRows === true
         },
         validationWarnings: warnings
     };

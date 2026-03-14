@@ -880,7 +880,7 @@ export function buildScenarioRadialEdges(stateSnapshot, intervals, intervalNodeB
     };
 }
 
-export function buildTerminationEdges(intervals, intervalNodeByKind) {
+export function buildTerminationEdges(intervals, intervalNodeByKind, options = {}) {
     if (!Array.isArray(intervals) || intervals.length === 0) {
         return { nodes: [], edges: [], edgeReasons: {}, validationWarnings: [] };
     }
@@ -888,8 +888,12 @@ export function buildTerminationEdges(intervals, intervalNodeByKind) {
     const topInterval = intervals[0];
     const edges = [];
     const edgeReasons = {};
+    const includeVolumeKinds = Array.isArray(options?.includeVolumeKinds)
+        ? new Set(options.includeVolumeKinds.map((kind) => String(kind ?? '').trim()).filter(Boolean))
+        : null;
 
     TOPOLOGY_VOLUME_KINDS.forEach((kind) => {
+        if (includeVolumeKinds && !includeVolumeKinds.has(kind)) return;
         const sourceNode = intervalNodeByKind.get(`${topInterval.intervalIndex}|${kind}`) ?? null;
         if (!sourceNode) return;
 

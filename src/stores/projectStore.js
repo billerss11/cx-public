@@ -15,10 +15,10 @@ import { clearPendingTableRowFocus } from '@/components/tables/panes/tablePaneSt
 import { clearSelection, hidePlotTooltip, syncSelectionIndicators } from '@/app/selection.js';
 import { requestSchematicRender } from '@/composables/useSchematicRenderer.js';
 import {
-    PROJECT_SCHEMA_VERSION_V6,
+    PROJECT_SCHEMA_VERSION_V7,
     createEmptyWellData,
-    ensureProjectSchemaV6
-} from '@/utils/migrations/v5_to_v6.js';
+    ensureProjectSchemaV7
+} from '@/utils/migrations/v6_to_v7.js';
 import {
     assertViewConfigOwnershipCoverage,
     composeRuntimeViewConfigForWell,
@@ -84,6 +84,12 @@ function normalizeWellData(data = {}) {
     const normalized = {};
 
     PROJECT_DATA_KEYS.forEach((key) => {
+        if (key === 'surfaceTemplate') {
+            normalized[key] = source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])
+                ? cloneSnapshot(source[key])
+                : cloneSnapshot(defaults[key]);
+            return;
+        }
         const rows = Array.isArray(source[key]) ? source[key] : defaults[key];
         normalized[key] = ensureRowsHaveRowIds(cloneSnapshot(rows), { key });
     });
@@ -212,6 +218,10 @@ export const useProjectStore = defineStore('project', () => {
 
     function isRuntimeWellDataEmpty() {
         return Array.from(PROJECT_DATA_KEYS).every((key) => {
+            if (key === 'surfaceTemplate') {
+                const template = projectDataStore[key];
+                return !template || Object.keys(template).length === 0;
+            }
             const rows = projectDataStore[key];
             return !Array.isArray(rows) || rows.length === 0;
         });
@@ -365,7 +375,7 @@ export const useProjectStore = defineStore('project', () => {
 
     function loadProject(payloadV5) {
         ensureDirtyTrackingInitialized();
-        const normalized = ensureProjectSchemaV6(payloadV5);
+        const normalized = ensureProjectSchemaV7(payloadV5);
 
         withDirtyTrackingSuspended(() => {
             finishEditingAllHotTables();
@@ -684,7 +694,7 @@ export const useProjectStore = defineStore('project', () => {
         const activeId = findWellById(state.activeWellId)?.id ?? payloadWells[0]?.id ?? null;
 
         return {
-            projectSchemaVersion: PROJECT_SCHEMA_VERSION_V6,
+            projectSchemaVersion: PROJECT_SCHEMA_VERSION_V7,
             projectName: normalizeProjectName(state.projectName, 'Project'),
             projectAuthor: normalizeProjectAuthor(state.projectAuthor, ''),
             activeWellId: activeId,
@@ -695,7 +705,7 @@ export const useProjectStore = defineStore('project', () => {
             },
             wells: payloadWells,
             meta: {
-                schemaVersion: PROJECT_SCHEMA_VERSION_V6,
+                schemaVersion: PROJECT_SCHEMA_VERSION_V7,
                 timestamp,
                 source: 'CasingSchematicPlotter',
                 author: normalizeProjectAuthor(state.projectAuthor, '')

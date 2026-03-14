@@ -40,6 +40,7 @@ import DirectionalPhysicsDebugLayer from './layers/DirectionalPhysicsDebugLayer.
 import DirectionalOverlayLayer from './layers/DirectionalOverlayLayer.vue';
 import DirectionalEquipmentLayer from './layers/DirectionalEquipmentLayer.vue';
 import DirectionalTopologyOverlayLayer from './layers/DirectionalTopologyOverlayLayer.vue';
+import SurfaceFlowBand from './layers/SurfaceFlowBand.vue';
 import SchematicPlotTooltip from './SchematicPlotTooltip.vue';
 import {
   buildMDSamples,
@@ -70,6 +71,7 @@ import {
   normalizeMagnifierZoomLevel
 } from '@/constants/index.js';
 import { createClientPointerResolver } from '@/composables/useClientPointerResolver.js';
+import { buildSurfaceLayoutModel } from '@/surface/layoutModel.js';
 
 const EPSILON = 1e-6;
 const AUTO_FIT_HEIGHT_DELTA_THRESHOLD = 2;
@@ -216,9 +218,28 @@ const userAnnotationRows = computed(() => (
 const trajectoryRows = computed(() => (
   Array.isArray(props.projectData?.trajectory) ? props.projectData.trajectory : []
 ));
+const surfacePathRows = computed(() => (
+  Array.isArray(props.projectData?.surfacePaths) ? props.projectData.surfacePaths : []
+));
+const surfaceTransferRows = computed(() => (
+  Array.isArray(props.projectData?.surfaceTransfers) ? props.projectData.surfaceTransfers : []
+));
+const surfaceOutletRows = computed(() => (
+  Array.isArray(props.projectData?.surfaceOutlets) ? props.projectData.surfaceOutlets : []
+));
 const hasTrajectoryDefinition = computed(() => (
   hasTrajectoryDefinitionRows(trajectoryRows.value)
 ));
+
+const surfaceLayoutModel = computed(() => (
+  buildSurfaceLayoutModel({
+    surfacePaths: surfacePathRows.value,
+    surfaceTransfers: surfaceTransferRows.value,
+    surfaceOutlets: surfaceOutletRows.value,
+    surfaceSummary: props.topologyResult?.surfaceSummary ?? null
+  })
+));
+const surfaceBandHeightValue = computed(() => surfaceLayoutModel.value.bandHeight || 0);
 
 function toFiniteDepth(value) {
   const parsed = parseOptionalNumber(value);
@@ -283,7 +304,7 @@ function resolveDepthBounds(rows = [], topKey = 'top', bottomKey = 'bottom') {
 const unitsLabel = computed(() => String(props.config?.units || 'ft'));
 const plotTitle = computed(() => String(props.config?.plotTitle ?? '').trim());
 const margin = computed(() => ({
-  top: baseMargin.top,
+  top: baseMargin.top + surfaceBandHeightValue.value,
   right: baseMargin.right,
   bottom: baseMargin.bottom,
   left: baseMargin.left
@@ -1437,6 +1458,11 @@ defineExpose({
       preserveAspectRatio="xMidYMid meet"
       @click="handleCanvasBackgroundClick"
     >
+      <SurfaceFlowBand
+        :surface-layout="surfaceLayoutModel"
+        :surface-transfers="surfaceTransferRows"
+        :width="svgWidthValue"
+      />
       <defs v-if="isMagnifierEnabled">
         <clipPath :id="magnifierClipPathId">
           <rect
@@ -1701,6 +1727,12 @@ defineExpose({
 
 .schematic-canvas__svg {
   display: block;
+}
+
+.schematic-canvas__svg :deep(text),
+.schematic-canvas__svg :deep(tspan) {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .depth-cursor-layer {

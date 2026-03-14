@@ -21,6 +21,7 @@ import SchematicCanvas from '@/components/schematic/SchematicCanvas.vue';
 import DirectionalSchematicCanvas from '@/components/schematic/DirectionalSchematicCanvas.vue';
 import TopologyGraphDebugDialog from '@/components/analysis/TopologyGraphDebugDialog.vue';
 import TopologySourcesTablePane from '@/components/tables/panes/TopologySourcesTablePane.vue';
+import SurfaceFocusDialog from '@/components/surface/SurfaceFocusDialog.vue';
 import { resolveWarningMetadata } from '@/topology/warningCatalog.js';
 import {
   createTopologyInspectorEdgeRows,
@@ -50,6 +51,7 @@ import {
   setActiveTableTabKey,
   setTablesAccordionOpen
 } from '@/components/tables/panes/tablePaneState.js';
+import { toSurfaceChannelLabel } from '@/surface/model.js';
 
 const projectDataStore = useProjectDataStore();
 const viewConfigStore = useViewConfigStore();
@@ -87,6 +89,7 @@ const selectedInspectorEdgeId = ref(null);
 const manualSourceOverridesOpen = ref(false);
 const manualSourceOverridesPaneRef = ref(null);
 const manualSourceOverridesSectionRef = ref(null);
+const surfaceFocusVisible = ref(false);
 
 const WARNING_CATEGORY_UI = Object.freeze({
   equipment: Object.freeze({
@@ -158,6 +161,10 @@ const cementPlugs = computed(() => projectDataRefs.cementPlugs?.value ?? []);
 const annulusFluids = computed(() => projectDataRefs.annulusFluids?.value ?? []);
 const markers = computed(() => projectDataRefs.markers?.value ?? []);
 const topologySources = computed(() => projectDataRefs.topologySources?.value ?? []);
+const surfacePaths = computed(() => projectDataRefs.surfacePaths?.value ?? []);
+const surfaceTransfers = computed(() => projectDataRefs.surfaceTransfers?.value ?? []);
+const surfaceOutlets = computed(() => projectDataRefs.surfaceOutlets?.value ?? []);
+const surfaceTemplate = computed(() => projectDataRefs.surfaceTemplate?.value ?? {});
 const physicsIntervals = computed(() => projectDataRefs.physicsIntervals?.value ?? []);
 const trajectory = computed(() => projectDataRefs.trajectory?.value ?? []);
 const { activeWellTopology } = storeToRefs(topologyStore);
@@ -174,6 +181,10 @@ const declarativeProjectData = computed(() => ({
   annulusFluids: annulusFluids.value,
   markers: markers.value,
   topologySources: topologySources.value,
+  surfacePaths: surfacePaths.value,
+  surfaceTransfers: surfaceTransfers.value,
+  surfaceOutlets: surfaceOutlets.value,
+  surfaceTemplate: surfaceTemplate.value,
   physicsIntervals: physicsIntervals.value,
   trajectory: trajectory.value
 }));
@@ -197,6 +208,10 @@ const topologyStateSnapshot = computed(() => ({
   annulusFluids: annulusFluids.value,
   markers: markers.value,
   topologySources: topologySources.value,
+  surfacePaths: surfacePaths.value,
+  surfaceTransfers: surfaceTransfers.value,
+  surfaceOutlets: surfaceOutlets.value,
+  surfaceTemplate: surfaceTemplate.value,
   trajectory: trajectory.value,
   config: topologyConfigSnapshot.value,
   interaction: {}
@@ -457,6 +472,21 @@ const topologyStats = computed(() => {
       value: formatMetricValue(overlapEnvelopeElementCount, '0')
     }
   ];
+});
+
+const surfaceSummaryRows = computed(() => {
+  const summaryByChannel = topologyResult.value?.surfaceSummary?.byChannel;
+  if (!summaryByChannel || typeof summaryByChannel !== 'object') return [];
+  return Object.values(summaryByChannel).map((entry) => ({
+    channelKey: String(entry?.channelKey ?? '').trim(),
+    channelLabel: toSurfaceChannelLabel(entry?.channelKey),
+    routeStatus: String(entry?.routeStatus ?? '').trim() || 'unknown',
+    currentState: String(entry?.currentState ?? '').trim() || 'unknown',
+    outletLabels: Array.isArray(entry?.outletLabels) ? entry.outletLabels.filter(Boolean) : [],
+    barrierLabels: Array.isArray(entry?.barrierLabels) ? entry.barrierLabels.filter(Boolean) : [],
+    transferLabels: Array.isArray(entry?.transferLabels) ? entry.transferLabels.filter(Boolean) : [],
+    warningMessages: Array.isArray(entry?.warningMessages) ? entry.warningMessages.filter(Boolean) : []
+  }));
 });
 
 const topologyWarningRows = computed(() => {
@@ -1369,6 +1399,50 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
           </article>
         </div>
 
+        <section
+          v-if="surfaceSummaryRows.length > 0"
+          class="analysis-topology__surface-summary"
+        >
+          <div class="analysis-topology__surface-summary-header">
+            <p class="analysis-topology__section-title">Surface route summary</p>
+            <Button
+              type="button"
+              size="small"
+              text
+              label="Surface Focus"
+              @click="surfaceFocusVisible = true"
+            />
+          </div>
+          <div class="analysis-topology__surface-summary-list">
+            <article
+              v-for="surfaceRow in surfaceSummaryRows"
+              :key="surfaceRow.channelKey"
+              class="analysis-topology__surface-summary-row"
+            >
+              <p class="analysis-topology__surface-summary-channel">{{ surfaceRow.channelLabel }}</p>
+              <p class="analysis-topology__surface-summary-state">
+                {{ surfaceRow.routeStatus }} / {{ surfaceRow.currentState }}
+              </p>
+              <p v-if="surfaceRow.outletLabels.length > 0" class="analysis-topology__surface-summary-detail">
+                {{ surfaceRow.outletLabels.join(', ') }}
+              </p>
+              <p v-if="surfaceRow.barrierLabels.length > 0" class="analysis-topology__surface-summary-detail">
+                {{ surfaceRow.barrierLabels.join(', ') }}
+              </p>
+              <p v-if="surfaceRow.transferLabels.length > 0" class="analysis-topology__surface-summary-detail">
+                {{ surfaceRow.transferLabels.join(', ') }}
+              </p>
+              <p
+                v-for="warningMessage in surfaceRow.warningMessages"
+                :key="warningMessage"
+                class="analysis-topology__surface-summary-warning"
+              >
+                {{ warningMessage }}
+              </p>
+            </article>
+          </div>
+        </section>
+
         <p class="analysis-topology__meta">{{ topologySourceSummaryText }}</p>
 
         <details
@@ -2101,6 +2175,11 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
     @node-click="handleTopologyGraphNodeClick"
     @edge-click="handleTopologyGraphEdgeClick"
   />
+
+  <SurfaceFocusDialog
+    v-model:visible="surfaceFocusVisible"
+    :topology-result="topologyResult"
+  />
 </template>
 
 <style scoped>
@@ -2371,6 +2450,55 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.analysis-topology__surface-summary {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analysis-topology__surface-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-topology__surface-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analysis-topology__surface-summary-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  padding: 8px 10px;
+}
+
+.analysis-topology__surface-summary-channel,
+.analysis-topology__surface-summary-state,
+.analysis-topology__surface-summary-detail,
+.analysis-topology__surface-summary-warning {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.analysis-topology__surface-summary-channel {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.analysis-topology__surface-summary-state {
+  color: var(--muted);
+}
+
+.analysis-topology__surface-summary-warning {
+  color: var(--color-status-warning-text, #9a6700);
 }
 
 .analysis-topology__section-title {

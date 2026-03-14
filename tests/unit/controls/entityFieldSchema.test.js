@@ -265,4 +265,46 @@ describe('entityFieldSchema', () => {
     });
   });
 
+  it('returns focused editable data fields for surface communication rows', () => {
+    const pathDefinitions = resolveEntityEditorFieldDefinitions({
+      entityType: 'surfacePath',
+      mode: 'advanced',
+      rowData: {
+        rowId: 'surface-path-1',
+        channelKey: 'TUBING_INNER',
+        label: 'Tubing Path',
+        show: true
+      }
+    });
+    expect(pathDefinitions.map((definition) => definition.field)).toEqual([
+      'label',
+      'channelKey',
+      'show',
+      'rowId'
+    ]);
+
+    const transferDefinitions = resolveEntityEditorFieldDefinitions({
+      entityType: 'surfaceTransfer',
+      mode: 'advanced',
+      rowData: {
+        rowId: 'surface-transfer-1',
+        transferType: 'leak',
+        label: 'Leak to A',
+        fromChannelKey: 'TUBING_INNER',
+        toChannelKey: 'ANNULUS_A',
+        direction: 'bidirectional',
+        show: true
+      }
+    });
+    expect(transferDefinitions.map((definition) => definition.field)).toEqual([
+      'label',
+      'transferType',
+      'fromChannelKey',
+      'toChannelKey',
+      'direction',
+      'show',
+      'rowId'
+    ]);
+  });
+
 });

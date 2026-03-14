@@ -13,6 +13,7 @@ import Menu from 'primevue/menu';
 import CrossSectionPanel from '@/components/cross-section/CrossSectionPanel.vue';
 import SchematicCanvas from './SchematicCanvas.vue';
 import DirectionalSchematicCanvas from './DirectionalSchematicCanvas.vue';
+import SurfaceFocusDialog from '@/components/surface/SurfaceFocusDialog.vue';
 
 const projectDataStore = useProjectDataStore();
 const viewConfigStore = useViewConfigStore();
@@ -22,6 +23,7 @@ const config = viewConfigStore.config;
 const plotTooltipRef = ref(null);
 const exportMenuRef = ref(null);
 const languageTick = ref(0);
+const surfaceFocusVisible = ref(false);
 const CROSS_SECTION_MIN_WIDTH = 320;
 const CROSS_SECTION_MIN_HEIGHT = 480;
 const CROSS_SECTION_DEFAULT_WIDTH = 560;
@@ -102,7 +104,11 @@ const declarativeProjectData = computed(() => ({
   annulusFluids: projectDataStore.annulusFluids,
   markers: projectDataStore.markers,
   physicsIntervals: projectDataStore.physicsIntervals,
-  trajectory: projectDataStore.trajectory
+  trajectory: projectDataStore.trajectory,
+  surfacePaths: projectDataStore.surfacePaths,
+  surfaceTransfers: projectDataStore.surfaceTransfers,
+  surfaceOutlets: projectDataStore.surfaceOutlets,
+  surfaceTemplate: projectDataStore.surfaceTemplate
 }));
 
 useSchematicRenderer({
@@ -117,6 +123,9 @@ useSchematicRenderer({
     () => projectDataStore.cementPlugs,
     () => projectDataStore.annulusFluids,
     () => projectDataStore.markers,
+    () => projectDataStore.surfacePaths,
+    () => projectDataStore.surfaceTransfers,
+    () => projectDataStore.surfaceOutlets,
     () => projectDataStore.trajectory
   ],
   styleSources: [
@@ -262,6 +271,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="plot-container__actions">
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="plot-surface-focus-trigger"
+          @click="surfaceFocusVisible = true"
+        >
+          <span>Surface Focus</span>
+        </Button>
         <div class="export-button-group">
         <Button
           type="button"
@@ -332,6 +350,8 @@ onBeforeUnmount(() => {
         ></button>
       </div>
     </Dialog>
+
+    <SurfaceFocusDialog v-model:visible="surfaceFocusVisible" />
   </div>
 </template>
 
