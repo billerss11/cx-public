@@ -1443,6 +1443,8 @@ defineExpose({
         :title-text="plotTitle"
         :x-exaggeration="xExaggerationValue"
         :x-origin="xOriginValue"
+        :left-visual-inset-px="visualInsetPaddingValue.left"
+        :right-visual-inset-px="visualInsetPaddingValue.right"
       />
       <DirectionalBandLayer
         :intervals="directionalIntervals"

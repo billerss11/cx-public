@@ -51,22 +51,36 @@ const props = defineProps({
   xOrigin: {
     type: Number,
     default: 0
+  },
+  leftVisualInsetPx: {
+    type: Number,
+    default: 0
+  },
+  rightVisualInsetPx: {
+    type: Number,
+    default: 0
   }
 });
 
 const yTicks = computed(() => props.yScale.ticks(10));
 const xTicks = computed(() => props.xScale.ticks(10));
 
-const yAxisX = computed(() => props.xScale(props.minXData) - 40);
+const geometryLeftX = computed(() => (
+  props.xScale(props.minXData) - Math.max(0, Number(props.leftVisualInsetPx) || 0)
+));
+const geometryRightX = computed(() => (
+  props.xScale(props.maxXData) + Math.max(0, Number(props.rightVisualInsetPx) || 0)
+));
+const yAxisX = computed(() => geometryLeftX.value - 36);
 const xAxisY = computed(() => props.yScale(props.maxYData) + 4);
 
-const titleX = computed(() => (props.xScale(props.minXData) + props.xScale(props.maxXData)) / 2);
+const titleX = computed(() => (geometryLeftX.value + geometryRightX.value) / 2);
 
 const datumLabelX = computed(() => (
   clamp(
-    props.xScale(props.minXData) + 6,
+    geometryLeftX.value + 6,
     6,
-    props.xScale(props.maxXData) - 6
+    geometryRightX.value - 6
   )
 ));
 
@@ -126,9 +140,9 @@ function formatOffsetTick(value) {
 
     <line
       class="directional-axis-layer__x-axis"
-      :x1="xScale(minXData)"
+      :x1="geometryLeftX"
       :y1="xAxisY"
-      :x2="xScale(maxXData)"
+      :x2="geometryRightX"
       :y2="xAxisY"
     />
 
@@ -153,9 +167,9 @@ function formatOffsetTick(value) {
 
     <line
       class="directional-axis-layer__datum"
-      :x1="xScale(minXData)"
+      :x1="geometryLeftX"
       :y1="yScale(datumDepth)"
-      :x2="xScale(maxXData)"
+      :x2="geometryRightX"
       :y2="yScale(datumDepth)"
     />
 
