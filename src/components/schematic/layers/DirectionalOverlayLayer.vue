@@ -28,6 +28,11 @@ import { isOpenHoleRow } from '@/app/domain.js';
 import { getStackAtDepth as getPhysicsStackAtDepth } from '@/composables/usePhysics.js';
 import { LAYOUT_CONSTANTS } from '@/constants/index.js';
 import {
+  resolveDirectionalLayerVisualRadii,
+  resolveDirectionalMaxVisualRadiusPx,
+  resolveDirectionalPipeVisualGeometry
+} from '@/utils/directionalSizing.js';
+import {
   DIRECTIONAL_EPSILON,
   toFiniteNumber,
   isFinitePoint,
@@ -103,6 +108,10 @@ const props = defineProps({
   totalMd: {
     type: Number,
     default: 0
+  },
+  visualSizing: {
+    type: Object,
+    default: null
   },
   diameterScale: {
     type: Number,
@@ -317,7 +326,7 @@ const frameContext = computed(() => ({
   project: project.value,
   totalMD: Math.max(0, Number(props.totalMd)),
   diameterScale: Number(props.diameterScale),
-  maxProjectedRadius: Number(props.maxProjectedRadius)
+  maxProjectedRadius: resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius))
 }));
 
 const directionalLabelScale = computed(() => normalizeDirectionalLabelScale(
@@ -416,6 +425,18 @@ const normalizedFluidRowsByIndex = computed(() => {
   });
   return map;
 });
+
+function resolvePipeVisualGeometry(row, pipeType = null) {
+  if (!row || typeof row !== 'object') return null;
+  return resolveDirectionalPipeVisualGeometry(
+    {
+      ...row,
+      pipeType: pipeType ?? row?.pipeType ?? 'casing'
+    },
+    props.visualSizing,
+    Number(props.diameterScale)
+  );
+}
 
 function resolveDirectionalLabelXRatio(value) {
   const parsed = toFiniteNumber(value, null);
@@ -877,9 +898,7 @@ const depthAnnotations = computed(() => {
       const frame = resolveScreenFrameAtMD(md, frameContext.value);
       if (!frame) return;
 
-      const rowOD = Number(row?.od);
-      if (!Number.isFinite(rowOD) || rowOD <= 0) return;
-      const halfWidth = (rowOD * Number(props.diameterScale)) / 2;
+      const halfWidth = Number(resolvePipeVisualGeometry(row, 'casing')?.outerRadius);
       const anchor = project.value(md, halfWidth);
       if (!isFinitePoint(anchor)) return;
 
@@ -979,6 +998,7 @@ function buildDirectionalPipeLabelOverlays({
   casingArrowMode,
   frameContextValue,
   projectFn,
+  visualSizing,
   diameterScale,
   pipeType,
   constrainManualDepthToInterval,
@@ -1004,7 +1024,16 @@ function buildDirectionalPipeLabelOverlays({
 
     const labelFontSize = resolvePipeLabelFontSize(sourceRow, pipeType);
     const lineHeight = labelFontSize + 2;
-    const halfWidth = (Number(row?.od) * Number(diameterScale)) / 2;
+    const halfWidth = Number(
+      resolveDirectionalPipeVisualGeometry(
+        {
+          ...row,
+          pipeType
+        },
+        visualSizing,
+        diameterScale
+      )?.outerRadius
+    );
     if (!Number.isFinite(halfWidth) || halfWidth <= DIRECTIONAL_EPSILON) return;
 
     let exposedTop = rowTop;
@@ -1249,6 +1278,7 @@ const casingLabelOverlays = computed(() => {
     casingArrowMode: normalizeDirectionalCasingArrowMode(props.config?.directionalCasingArrowMode),
     frameContextValue: frameContext.value,
     projectFn: project.value,
+    visualSizing: props.visualSizing,
     diameterScale: Number(props.diameterScale),
     pipeType: 'casing',
     constrainManualDepthToInterval: true,
@@ -1270,6 +1300,7 @@ const transientPipeLabelOverlays = computed(() => {
     casingArrowMode: normalizeDirectionalCasingArrowMode(props.config?.directionalCasingArrowMode),
     frameContextValue: frameContext.value,
     projectFn: project.value,
+    visualSizing: props.visualSizing,
     diameterScale: Number(props.diameterScale),
     pipeType: transientPipeType,
     constrainManualDepthToInterval: false
@@ -1491,11 +1522,16 @@ const fluidLabelOverlays = computed(() => {
     const fluidLayer = resolveFluidLayerAtDepth(labelDepth, fluidIndex, physicsContext);
     if (!fluidLayer) return;
 
-    const innerRadius = Number(fluidLayer?.innerRadius);
-    const outerRadius = Number(fluidLayer?.outerRadius);
+    const visualRadii = resolveDirectionalLayerVisualRadii(
+      fluidLayer,
+      props.visualSizing,
+      Number(props.diameterScale)
+    );
+    const innerRadius = Number(visualRadii?.innerRadius);
+    const outerRadius = Number(visualRadii?.outerRadius);
     if (!Number.isFinite(innerRadius) || !Number.isFinite(outerRadius) || outerRadius <= innerRadius) return;
 
-    const midOffset = ((innerRadius + outerRadius) / 2) * Number(props.diameterScale);
+    const midOffset = (innerRadius + outerRadius) / 2;
     if (!Number.isFinite(midOffset) || midOffset <= 0) return;
 
     const leftAnchor = project.value(md, -midOffset);
@@ -1691,8 +1727,8 @@ const annotationBandOverlays = computed(() => {
   const boxStandoffPx = resolveIntervalCalloutAnnotationStandoffPx(bounds);
 
   const wallOffset = Math.max(
-    Number(props.maxProjectedRadius) + Number(props.diameterScale),
-    Number(props.diameterScale) * 2,
+    resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius)) + 4,
+    2,
     2
   );
 
@@ -1747,14 +1783,26 @@ const annotationBandOverlays = computed(() => {
       bounds.left + ANNOTATION_SIDE_PADDING_PX,
       bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
     );
-    const bandY = verticalBounds.topY;
-    const bandHeight = Math.max(1, verticalBounds.bottomY - verticalBounds.topY);
-
     const lines = resolveAnnotationLines(box);
     const fontSizeRaw = toFiniteNumber(box?.fontSize, null);
     const baseFontSize = clamp(Number.isFinite(fontSizeRaw) ? fontSizeRaw : 12, 9, 20);
     const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 12);
     const lineHeight = fontSize + 5;
+    const minContentBandHeight = Math.max(
+      ANNOTATION_MIN_HEIGHT_PX,
+      (lines.length * lineHeight) + 6
+    );
+    const bandHeight = clamp(
+      Math.max(minContentBandHeight, verticalBounds.bottomY - verticalBounds.topY),
+      minContentBandHeight,
+      bounds.bottom - bounds.top
+    );
+    const bandCenterY = (verticalBounds.topY + verticalBounds.bottomY) / 2;
+    const bandY = clamp(
+      bandCenterY - (bandHeight / 2),
+      bounds.top,
+      bounds.bottom - bandHeight
+    );
     const fillColor = box?.color || 'var(--color-default-box)';
     const textColor = box?.fontColor || fillColor;
     const boxOpacity = clamp(toFiniteNumber(box?.opacity, 0.35), 0.05, 1.0);

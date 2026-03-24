@@ -69,6 +69,7 @@ export function normalizeStateSnapshot(stateSnapshot = {}) {
         annulusFluids: toSafeArray(source.annulusFluids),
         markers: toSafeArray(source.markers),
         topologySources: toSafeArray(source.topologySources),
+        surfaceComponents: toSafeArray(source.surfaceComponents),
         surfacePaths: toSafeArray(source.surfacePaths),
         surfaceTransfers: toSafeArray(source.surfaceTransfers),
         surfaceOutlets: toSafeArray(source.surfaceOutlets),
@@ -401,23 +402,53 @@ export function resolveSourceChannels({
         ));
     }
 
-    const sourceNodeIds = [...new Set([
-        ...markerSourceNodeIds,
-        ...illustrativeSourceNodeIds,
-        ...openHoleSourceNodeIds,
-        ...explicitSourceNodeIds
-    ])];
+    const explicitScenarioModeActive = hasResolvedExplicitSourceNodes;
+    if (explicitScenarioModeActive) {
+        return {
+            sourceNodeIds: explicitSourceNodeIds,
+            sourceEntities: explicitSourceEntities,
+            sourcePolicy: {
+                mode: SOURCE_POLICY_MODE_SCENARIO_EXPLICIT,
+                markerDerived: false,
+                illustrativeFluidDerived: false,
+                openHoleDerived: false,
+                manualOverrideDerived: true,
+                explicitScenarioDerived: true,
+                explicitScenarioModeActive: true
+            },
+            validationWarnings: warnings
+        };
+    }
 
-    const sourceEntities = [
-        ...markerSourceEntities,
-        ...openHoleSourceEntities,
-        ...explicitSourceEntities,
-        ...illustrativeSourceEntities
-    ];
+    let sourceNodeIds = [...new Set(markerSourceNodeIds)];
+    let sourceEntities = [...markerSourceEntities];
+    let fallbackSourcePolicyMode = SOURCE_POLICY_MODE_MARKER_DEFAULT;
+    let illustrativeFluidDerived = false;
+    let openHoleDerived = false;
 
-    const fallbackSourcePolicyMode = illustrativeSourceNodeIds.length > 0
-        ? SOURCE_POLICY_MODE_FLUID_OPT_IN
-        : (openHoleSourceNodeIds.length > 0 ? SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN : SOURCE_POLICY_MODE_MARKER_DEFAULT);
+    if (illustrativeSourceNodeIds.length > 0) {
+        sourceNodeIds = [...new Set([
+            ...markerSourceNodeIds,
+            ...illustrativeSourceNodeIds
+        ])];
+        sourceEntities = [
+            ...markerSourceEntities,
+            ...illustrativeSourceEntities
+        ];
+        fallbackSourcePolicyMode = SOURCE_POLICY_MODE_FLUID_OPT_IN;
+        illustrativeFluidDerived = true;
+    } else if (openHoleSourceNodeIds.length > 0) {
+        sourceNodeIds = [...new Set([
+            ...markerSourceNodeIds,
+            ...openHoleSourceNodeIds
+        ])];
+        sourceEntities = [
+            ...markerSourceEntities,
+            ...openHoleSourceEntities
+        ];
+        fallbackSourcePolicyMode = SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN;
+        openHoleDerived = true;
+    }
 
     return {
         sourceNodeIds,
@@ -425,11 +456,11 @@ export function resolveSourceChannels({
         sourcePolicy: {
             mode: fallbackSourcePolicyMode,
             markerDerived: markerSourceNodeIds.length > 0,
-            illustrativeFluidDerived: illustrativeSourceNodeIds.length > 0,
-            openHoleDerived: openHoleSourceNodeIds.length > 0,
-            manualOverrideDerived: explicitSourceNodeIds.length > 0,
-            explicitScenarioDerived: explicit?.hasPolicyActiveScenarioRows === true,
-            explicitScenarioModeActive: explicit?.hasPolicyActiveScenarioRows === true
+            illustrativeFluidDerived,
+            openHoleDerived,
+            manualOverrideDerived: false,
+            explicitScenarioDerived: false,
+            explicitScenarioModeActive: false
         },
         validationWarnings: warnings
     };
@@ -440,7 +471,7 @@ export function shouldUseIllustrativeFluidSource(stateSnapshot = {}) {
 }
 
 export function shouldUseOpenHoleSource(stateSnapshot = {}) {
-    return true;
+    return stateSnapshot?.config?.[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] === true;
 }
 
 export default {

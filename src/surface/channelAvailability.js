@@ -4,16 +4,30 @@ function toVisibleRows(rows = []) {
     return Array.isArray(rows) ? rows.filter((row) => row?.show !== false) : [];
 }
 
+/**
+ * Only casings whose top depth matches the wellhead (shallowest top)
+ * form annuli at the surface. Liners and open-hole sections that
+ * start deeper do not reach the wellhead.
+ */
+function countCasingsAtSurface(visibleCasings) {
+    if (visibleCasings.length === 0) return 0;
+    const tops = visibleCasings.map((r) => Number(r?.top)).filter(Number.isFinite);
+    if (tops.length === 0) return visibleCasings.length;
+    const wellheadDepth = Math.min(...tops);
+    return visibleCasings.filter((r) => Number(r?.top) === wellheadDepth).length;
+}
+
 export function resolveAvailableSurfaceChannels(projectData = {}) {
-    const casingCount = toVisibleRows(projectData?.casingData).length;
+    const visibleCasings = toVisibleRows(projectData?.casingData);
     const tubingCount = toVisibleRows(projectData?.tubingData).length;
+    const surfaceCasingCount = countCasingsAtSurface(visibleCasings);
     const availableChannels = [];
 
-    if (casingCount > 0 || tubingCount > 0) {
+    if (surfaceCasingCount > 0 || tubingCount > 0) {
         availableChannels.push('TUBING_INNER');
     }
 
-    const annulusCount = Math.max(0, casingCount - 1 + (tubingCount > 0 ? 1 : 0));
+    const annulusCount = Math.max(0, surfaceCasingCount - 1 + (tubingCount > 0 ? 1 : 0));
     if (annulusCount >= 1) availableChannels.push('ANNULUS_A');
     if (annulusCount >= 2) availableChannels.push('ANNULUS_B');
     if (annulusCount >= 3) availableChannels.push('ANNULUS_C');

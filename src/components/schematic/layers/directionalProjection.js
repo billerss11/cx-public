@@ -70,17 +70,57 @@ function resolveTangent(startPoint, endPoint) {
   return { tx: dx / len, ty: dy / len };
 }
 
-function getPointAtMD(targetMD, points) {
-  const segment = resolveSegmentAtMD(targetMD, points);
+export function resolveTrajectoryPointAtMD(targetMD, points) {
+  const safeMD = toFiniteNumber(targetMD);
+  if (!Number.isFinite(safeMD)) return null;
+
+  const segment = resolveSegmentAtMD(safeMD, points);
   if (!segment) return null;
   const startPoint = points[segment.startIndex];
   const endPoint = points[segment.endIndex];
   const { tx, ty } = resolveTangent(startPoint, endPoint);
   return {
+    md: startPoint.md + ((endPoint.md - startPoint.md) * segment.t),
     x: startPoint.x + ((endPoint.x - startPoint.x) * segment.t),
     tvd: startPoint.tvd + ((endPoint.tvd - startPoint.tvd) * segment.t),
     tx,
     ty
+  };
+}
+
+export function resolveProjectedDepthBounds(rows = [], trajectoryPoints = [], options = {}) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  if (!Array.isArray(trajectoryPoints) || trajectoryPoints.length === 0) return null;
+
+  const topKey = typeof options.topKey === 'string' ? options.topKey : 'top';
+  const bottomKey = typeof options.bottomKey === 'string' ? options.bottomKey : 'bottom';
+  const projectedTops = [];
+  const projectedBottoms = [];
+
+  rows.forEach((row) => {
+    const top = toFiniteNumber(row?.[topKey]);
+    const bottom = toFiniteNumber(row?.[bottomKey]);
+    if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return;
+
+    const topPoint = resolveTrajectoryPointAtMD(top, trajectoryPoints);
+    const bottomPoint = resolveTrajectoryPointAtMD(bottom, trajectoryPoints);
+    const projectedTop = toFiniteNumber(topPoint?.tvd);
+    const projectedBottom = toFiniteNumber(bottomPoint?.tvd);
+
+    if (Number.isFinite(projectedTop)) {
+      projectedTops.push(projectedTop);
+    }
+    if (Number.isFinite(projectedBottom)) {
+      projectedBottoms.push(projectedBottom);
+    }
+  });
+
+  const projectedValues = [...projectedTops, ...projectedBottoms];
+  if (projectedValues.length === 0) return null;
+
+  return {
+    min: projectedTops.length > 0 ? Math.min(...projectedTops) : Math.min(...projectedValues),
+    max: projectedBottoms.length > 0 ? Math.max(...projectedBottoms) : Math.max(...projectedValues)
   };
 }
 
@@ -100,14 +140,14 @@ export function buildDirectionalProjector(trajectoryPoints, xScale, yScale, opti
   const xExaggeration = normalizeXExaggeration(options?.xExaggeration);
   const xOrigin = toFiniteNumber(options?.xOrigin, 0);
 
-  return (md, offsetRadius) => {
-    const point = getPointAtMD(md, trajectoryPoints);
+  return (md, offsetRadiusPx) => {
+    const point = resolveTrajectoryPointAtMD(md, trajectoryPoints);
     if (!point) return [NaN, NaN];
 
     const baseDisplayX = exaggerateX(point.x, xExaggeration, xOrigin);
     const screenX = xScale(baseDisplayX);
     const screenY = yScale(point.tvd);
-    if (!Number.isFinite(offsetRadius) || Math.abs(offsetRadius) <= DIRECTIONAL_EPSILON) {
+    if (!Number.isFinite(offsetRadiusPx) || Math.abs(offsetRadiusPx) <= DIRECTIONAL_EPSILON) {
       return [screenX, screenY];
     }
 
@@ -123,10 +163,8 @@ export function buildDirectionalProjector(trajectoryPoints, xScale, yScale, opti
 
     const normalScreenX = -tangentScreen.y;
     const normalScreenY = tangentScreen.x;
-    const radiusMagnitude = Math.abs(offsetRadius);
-    const radiusDisplayX = exaggerateX(point.x + radiusMagnitude, xExaggeration, xOrigin);
-    const radiusPixels = Math.abs(xScale(radiusDisplayX) - screenX);
-    const sign = offsetRadius < 0 ? -1 : 1;
+    const radiusPixels = Math.abs(Number(offsetRadiusPx));
+    const sign = offsetRadiusPx < 0 ? -1 : 1;
 
     return [
       screenX + (normalScreenX * radiusPixels * sign),

@@ -1,4 +1,5 @@
 import { buildMDSamples } from './directionalProjection.js';
+import { resolveDirectionalLayerVisualRadii } from '@/utils/directionalSizing.js';
 import {
   TRACKED_VOLUME_NODE_KINDS,
   buildHighlightNodeSets,
@@ -12,8 +13,6 @@ import {
 
 const EPSILON = 1e-4;
 const DEFAULT_SAMPLE_STEP_MD = 20;
-const DEFAULT_DIAMETER_SCALE = 1;
-
 function isFinitePoint(point) {
   return Array.isArray(point)
     && point.length >= 2
@@ -37,14 +36,19 @@ function resolveOverlayStyleForNode(nodeId, sets, options = {}) {
   return resolveTopologyOverlayStyle({ isSelected, isSpof, isPath, isActive });
 }
 
-function appendNodeEntries(rawEntries, node, interval, intervalIndex, nodeIndex, diameterScale, options, sets) {
+function appendNodeEntries(rawEntries, node, interval, intervalIndex, nodeIndex, options, sets) {
   if (!sets.highlightedNodeIds.has(node.nodeId)) return;
 
   const layer = resolveNodeLayer(node, Array.isArray(interval?.stack) ? interval.stack : []);
   if (!layer) return;
 
-  const inner = Number(layer?.innerRadius) * diameterScale;
-  const outer = Number(layer?.outerRadius) * diameterScale;
+  const visualRadii = resolveDirectionalLayerVisualRadii(
+    layer,
+    options.visualSizing,
+    options.diameterScale
+  );
+  const inner = Number(visualRadii?.innerRadius);
+  const outer = Number(visualRadii?.outerRadius);
   if (!Number.isFinite(inner) || !Number.isFinite(outer) || outer <= inner) return;
 
   const style = resolveOverlayStyleForNode(node.nodeId, sets, options);
@@ -100,7 +104,6 @@ export function buildDirectionalTopologyOverlayEntries(options = {}) {
   if (sets.highlightedNodeIds.size === 0) return [];
 
   const intervals = Array.isArray(options.intervals) ? options.intervals : [];
-  const diameterScale = normalizePositiveNumber(options.diameterScale, DEFAULT_DIAMETER_SCALE);
   const rawEntries = [];
 
   intervals.forEach((interval, intervalIndex) => {
@@ -111,7 +114,7 @@ export function buildDirectionalTopologyOverlayEntries(options = {}) {
     trackedNodes
       .filter((node) => rangesOverlap(node.depthTop, node.depthBottom, top, bottom))
       .forEach((node, nodeIndex) => {
-        appendNodeEntries(rawEntries, node, interval, intervalIndex, nodeIndex, diameterScale, options, sets);
+        appendNodeEntries(rawEntries, node, interval, intervalIndex, nodeIndex, options, sets);
       });
   });
 

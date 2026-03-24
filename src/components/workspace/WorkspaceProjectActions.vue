@@ -384,7 +384,7 @@ async function triggerReplaceProjectLoad() {
   const bridge = getNativeProjectFileBridge();
   if (!bridge) {
     if (hasNativeProjectSaveBridge()) {
-      showAlert(t('alert.project_load_path_unavailable'), 'warn');
+      showAlert(t('alert.project_load_path_unavailable'), 'warning');
     }
     replaceProjectFileInput.value?.click();
     return;
@@ -400,7 +400,7 @@ async function triggerReplaceProjectLoad() {
     isReplaceProjectConfirmVisible.value = true;
   } catch (error) {
     if (isMissingProjectOpenHandlerError(error)) {
-      showAlert(t('alert.project_load_path_unavailable'), 'warn');
+      showAlert(t('alert.project_load_path_unavailable'), 'warning');
       replaceProjectFileInput.value?.click();
       return;
     }
@@ -446,7 +446,7 @@ async function confirmReplaceProjectLoad() {
   } else {
     imported = await importProjectJsonFile(pendingLoad.file);
     if (imported && pendingLoad.hasNativePath !== true) {
-      showAlert(t('alert.project_load_path_unavailable'), 'warn');
+      showAlert(t('alert.project_load_path_unavailable'), 'warning');
     }
   }
   cancelReplaceProjectLoad();
@@ -463,7 +463,7 @@ async function triggerAppendWellsImport() {
   const bridge = getNativeProjectFileBridge();
   if (!bridge) {
     if (hasNativeProjectSaveBridge()) {
-      showAlert(t('alert.project_load_path_unavailable'), 'warn');
+      showAlert(t('alert.project_load_path_unavailable'), 'warning');
     }
     appendProjectFileInput.value?.click();
     return;
@@ -477,7 +477,7 @@ async function triggerAppendWellsImport() {
     openAppendWellsDialogFromProject(project, normalizedSelection.fileName);
   } catch (error) {
     if (isMissingProjectOpenHandlerError(error)) {
-      showAlert(t('alert.project_load_path_unavailable'), 'warn');
+      showAlert(t('alert.project_load_path_unavailable'), 'warning');
       appendProjectFileInput.value?.click();
       return;
     }

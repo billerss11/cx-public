@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
-import { downloadJPEG, downloadPNG, downloadSVG, downloadWebP } from '@/app/exportWorkflows.js';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
+import { downloadJPEG, downloadPNG, downloadSVG, downloadWebP, exportReportPdf } from '@/app/exportWorkflows.js';
 import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 import { usePlotElementsStore } from '@/stores/plotElementsStore.js';
@@ -11,25 +11,33 @@ import { useFloatingDialogResize } from '@/composables/useFloatingDialogResize.j
 import { onLanguageChange, t } from '@/app/i18n.js';
 import Menu from 'primevue/menu';
 import CrossSectionPanel from '@/components/cross-section/CrossSectionPanel.vue';
+import ReviewSummaryDialog from '@/components/report/ReviewSummaryDialog.vue';
+import SurfaceEquipmentFloatingDialog from './SurfaceEquipmentFloatingDialog.vue';
 import SchematicCanvas from './SchematicCanvas.vue';
 import DirectionalSchematicCanvas from './DirectionalSchematicCanvas.vue';
-import SurfaceFocusDialog from '@/components/surface/SurfaceFocusDialog.vue';
 
 const projectDataStore = useProjectDataStore();
 const viewConfigStore = useViewConfigStore();
 const plotElementsStore = usePlotElementsStore();
 const config = viewConfigStore.config;
 
+const plotHeaderRef = ref(null);
+const plotCopyRef = ref(null);
+const plotActionsRef = ref(null);
 const plotTooltipRef = ref(null);
 const exportMenuRef = ref(null);
 const languageTick = ref(0);
-const surfaceFocusVisible = ref(false);
+const reviewSummaryVisible = ref(false);
+const surfaceEquipmentDialogVisible = ref(false);
+const isStackedHeaderLayout = ref(false);
 const CROSS_SECTION_MIN_WIDTH = 320;
 const CROSS_SECTION_MIN_HEIGHT = 480;
 const CROSS_SECTION_DEFAULT_WIDTH = 560;
 const CROSS_SECTION_DEFAULT_HEIGHT = 680;
+const PLOT_HEADER_LAYOUT_GAP = 16;
 let unsubscribeLanguageChange = null;
 let detachCrossSectionResizeListener = null;
+let headerResizeObserver = null;
 
 const isDirectionalView = computed(() => config?.viewMode === 'directional');
 const crossSectionDialogVisible = computed({
@@ -105,6 +113,7 @@ const declarativeProjectData = computed(() => ({
   markers: projectDataStore.markers,
   physicsIntervals: projectDataStore.physicsIntervals,
   trajectory: projectDataStore.trajectory,
+  surfaceComponents: projectDataStore.surfaceComponents,
   surfacePaths: projectDataStore.surfacePaths,
   surfaceTransfers: projectDataStore.surfaceTransfers,
   surfaceOutlets: projectDataStore.surfaceOutlets,
@@ -123,6 +132,7 @@ useSchematicRenderer({
     () => projectDataStore.cementPlugs,
     () => projectDataStore.annulusFluids,
     () => projectDataStore.markers,
+    () => projectDataStore.surfaceComponents,
     () => projectDataStore.surfacePaths,
     () => projectDataStore.surfaceTransfers,
     () => projectDataStore.surfaceOutlets,
@@ -182,6 +192,10 @@ function handleDownloadSvg() {
   downloadSVG();
 }
 
+function handleExportReportPdf() {
+  exportReportPdf();
+}
+
 const exportMenuItems = computed(() => {
   void languageTick.value;
   return [
@@ -211,6 +225,11 @@ const exportMenuItems = computed(() => {
       command: () => handleDownloadWebp(0.9)
     },
     {
+      label: t('ui.download_report_pdf'),
+      icon: 'pi pi-file-pdf',
+      command: () => handleExportReportPdf()
+    },
+    {
       separator: true
     },
     {
@@ -230,14 +249,50 @@ function handleDeclarativeSvgReady(svgElement) {
   syncSelectionIndicators();
 }
 
+function measureElementContentWidth(element) {
+  return Math.max(
+    Number(element?.scrollWidth ?? 0) || 0,
+    Number(element?.clientWidth ?? 0) || 0
+  );
+}
+
+function reconcilePlotHeaderLayout() {
+  const headerWidth = Number(plotHeaderRef.value?.clientWidth ?? 0) || 0;
+  if (headerWidth <= 0) {
+    isStackedHeaderLayout.value = false;
+    return;
+  }
+
+  const copyWidth = measureElementContentWidth(plotCopyRef.value);
+  const actionsWidth = measureElementContentWidth(plotActionsRef.value);
+  const requiredWidth = copyWidth + actionsWidth + PLOT_HEADER_LAYOUT_GAP;
+
+  isStackedHeaderLayout.value = requiredWidth > headerWidth;
+}
+
 onMounted(() => {
   plotElementsStore.setPlotElement('plotTooltip', plotTooltipRef.value);
   unsubscribeLanguageChange = onLanguageChange(() => {
     languageTick.value += 1;
+    nextTick(() => {
+      reconcilePlotHeaderLayout();
+    });
   });
   reconcileCrossSectionDialogSize();
+  nextTick(() => {
+    reconcilePlotHeaderLayout();
+  });
+
+  if (typeof ResizeObserver === 'function' && plotHeaderRef.value) {
+    headerResizeObserver = new ResizeObserver(() => {
+      reconcilePlotHeaderLayout();
+    });
+    headerResizeObserver.observe(plotHeaderRef.value);
+  }
+
   const handleResize = () => {
     reconcileCrossSectionDialogSize();
+    reconcilePlotHeaderLayout();
   };
   window.addEventListener('resize', handleResize);
   detachCrossSectionResizeListener = () => {
@@ -247,6 +302,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopCrossSectionResize();
+  headerResizeObserver?.disconnect?.();
+  headerResizeObserver = null;
   detachCrossSectionResizeListener?.();
   detachCrossSectionResizeListener = null;
   plotElementsStore.setPlotElement('schematicSvg', null);
@@ -258,8 +315,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="plot-container">
-    <div class="plot-container__header d-flex justify-content-between align-items-start">
-      <div class="plot-container__copy">
+    <div
+      ref="plotHeaderRef"
+      class="plot-container__header d-flex justify-content-between align-items-start"
+      :class="{ 'plot-container__header--stacked': isStackedHeaderLayout }"
+    >
+      <div ref="plotCopyRef" class="plot-container__copy">
         <div class="plot-container__headline">
           <h5 class="plot-container__title" data-i18n="ui.plot_heading">Well Schematic Plot</h5>
           <div class="plot-container__meta">
@@ -270,15 +331,30 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-      <div class="plot-container__actions">
+      <div
+        ref="plotActionsRef"
+        class="plot-container__actions"
+        :class="{ 'plot-container__actions--stacked': isStackedHeaderLayout }"
+      >
         <Button
           type="button"
           size="small"
           outlined
-          class="plot-surface-focus-trigger"
-          @click="surfaceFocusVisible = true"
+          data-test="surface-equipment-trigger"
+          @click="surfaceEquipmentDialogVisible = true"
         >
-          <span>Surface Focus</span>
+          <i class="pi pi-sitemap" />
+          <span data-i18n="ui.tabs.surface_equipment">Surface Equipment</span>
+        </Button>
+        <Button
+          type="button"
+          size="small"
+          outlined
+          class="plot-review-summary-trigger"
+          data-test="review-summary-trigger"
+          @click="reviewSummaryVisible = true"
+        >
+          <span data-i18n="ui.review_summary.button">{{ t('ui.review_summary.button') }}</span>
         </Button>
         <div class="export-button-group">
         <Button
@@ -351,7 +427,12 @@ onBeforeUnmount(() => {
       </div>
     </Dialog>
 
-    <SurfaceFocusDialog v-model:visible="surfaceFocusVisible" />
+    <ReviewSummaryDialog v-model:visible="reviewSummaryVisible" />
+
+    <SurfaceEquipmentFloatingDialog
+      v-model:visible="surfaceEquipmentDialogVisible"
+      :surface-components="declarativeProjectData.surfaceComponents"
+    />
   </div>
 </template>
 
@@ -373,10 +454,16 @@ onBeforeUnmount(() => {
 .plot-container__header {
   gap: var(--spacing-xs);
   margin-bottom: 4px;
+  min-width: 0;
+}
+
+.plot-container__header--stacked {
+  flex-wrap: wrap;
 }
 
 .plot-container__copy {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .plot-container__headline {
@@ -459,12 +546,26 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   justify-content: flex-end;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.plot-container__actions--stacked {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .export-button-group {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+.plot-container__actions--stacked .export-button-group {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .plot-export-trigger {

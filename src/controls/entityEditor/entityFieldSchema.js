@@ -36,6 +36,10 @@ function resolveFallbackFieldDefinition(field, sourceRow) {
     label: resolveFieldLabel(normalizedField),
     controlType: resolveControlType(sourceRow?.[normalizedField]),
     options: null,
+    min: null,
+    max: null,
+    step: null,
+    slider: null,
     readOnly: false
   };
 }

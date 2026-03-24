@@ -2,8 +2,11 @@ import { getEnumOptions } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 import { NAMED_COLORS } from '@/constants/index.js';
 import { OPEN_HOLE_WAVE_DEFAULTS, OPEN_HOLE_WAVE_LIMITS } from '@/utils/openHoleWave.js';
-import { parseOptionalNumber } from '@/utils/general.js';
 import { resolveEquipmentInspectorFields } from '@/topology/equipmentDefinitions/index.js';
+import {
+    resolveGlobalDepthSliderRange,
+    resolveRowDepthSliderRange
+} from '@/utils/depthControlRanges.js';
 
 export const VISUAL_INSPECTOR_CONTROL_TYPES = Object.freeze({
     toggle: 'toggle',
@@ -55,28 +58,6 @@ function createField(field, controlType, labelKey, options = {}) {
     });
 }
 
-function resolveDepthSliderRange(rowData, fallbackStep = 0.1) {
-    const top = parseOptionalNumber(rowData?.top ?? rowData?.md);
-    const bottom = parseOptionalNumber(rowData?.bottom ?? rowData?.bottomMd);
-    if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return null;
-    return {
-        min: top,
-        max: bottom,
-        step: fallbackStep
-    };
-}
-
-function resolveGlobalDepthSliderRange(context, fallbackStep = 0.1) {
-    const min = parseOptionalNumber(context?.depthRange?.min);
-    const max = parseOptionalNumber(context?.depthRange?.max);
-    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return null;
-    return {
-        min,
-        max,
-        step: fallbackStep
-    };
-}
-
 const CASING_BASE_FIELDS = Object.freeze([
     createField('showTop', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_top', { defaultValue: true }),
     createField('showBottom', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_bottom', { defaultValue: true }),
@@ -86,7 +67,7 @@ const CASING_BASE_FIELDS = Object.freeze([
     }),
     createField('manualLabelDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.casing.label_depth', {
         step: 0.1,
-        slider: ({ rowData }) => resolveDepthSliderRange(rowData, 0.1)
+        slider: ({ rowData }) => resolveRowDepthSliderRange(rowData, { step: 0.1 })
     })
 ]);
 
@@ -217,10 +198,10 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
             step: 0.1,
             slider: { min: -1, max: 1, step: 0.01 }
         }),
-        createField('manualDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.fluids.label_depth', {
-            step: 0.1,
-            slider: ({ rowData }) => resolveDepthSliderRange(rowData, 0.1)
-        }),
+    createField('manualDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.fluids.label_depth', {
+        step: 0.1,
+        slider: ({ rowData }) => resolveRowDepthSliderRange(rowData, { step: 0.1 })
+    }),
         createField('show', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.fluids.show', { defaultValue: true })
     ]),
     marker: Object.freeze([

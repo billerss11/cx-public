@@ -15,6 +15,10 @@ const props = defineProps({
     type: Function,
     default: null
   },
+  visualSizing: {
+    type: Object,
+    default: null
+  },
   diameterScale: {
     type: Number,
     default: 1
@@ -46,6 +50,7 @@ const overlayPolygons = computed(() => {
     intervals: props.intervals,
     topologyResult: props.topologyResult,
     projector: props.projector,
+    visualSizing: props.visualSizing,
     diameterScale: props.diameterScale,
     sampleStepMd: props.sampleStepMd,
     showActiveFlow: props.showActiveFlow,

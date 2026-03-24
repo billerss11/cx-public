@@ -96,9 +96,49 @@ export function buildEnumRenderer(type) {
     };
 }
 
-export function normalizeHotChanges(hot, changes, numericFields) {
+export function buildFormattedAutocompleteRenderer(formatValue) {
+    return function(instance, td, row, col, prop, value, cellProperties) {
+        const formattedValue = typeof formatValue === 'function'
+            ? formatValue(value, cellProperties)
+            : value;
+        const args = Array.from(arguments);
+        args[5] = formattedValue ?? '';
+        const renderer = Handsontable.renderers.AutocompleteRenderer ?? Handsontable.renderers.TextRenderer;
+        renderer.apply(this, args);
+
+        const title = String(cellProperties?.title ?? '').trim();
+        if (title) {
+            td.setAttribute('title', title);
+        } else {
+            td.removeAttribute('title');
+        }
+        return td;
+    };
+}
+
+export function normalizeHotChanges(hot, changes, numericFields, valueNormalizers = {}) {
     if (!hot || !Array.isArray(changes) || !numericFields) return;
     changes.forEach(([row, prop, oldValue, newValue]) => {
+        const customNormalizer = valueNormalizers?.[prop];
+        if (typeof customNormalizer === 'function') {
+            const normalizedValue = customNormalizer(newValue, {
+                row,
+                prop,
+                oldValue,
+                hot
+            });
+            if (normalizedValue === '' || normalizedValue === null || normalizedValue === undefined) {
+                if (oldValue !== null) {
+                    hot.setDataAtRowProp(row, prop, null, 'normalize');
+                }
+                return;
+            }
+            if (normalizedValue !== newValue) {
+                hot.setDataAtRowProp(row, prop, normalizedValue, 'normalize');
+            }
+            return;
+        }
+
         if (!numericFields.has(prop)) return;
         if (newValue === '' || newValue === null || newValue === undefined) {
             if (oldValue !== null) {

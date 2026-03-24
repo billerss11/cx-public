@@ -6,7 +6,10 @@ import {
     INTEGRITY_FAILED_CLOSED,
     INTEGRITY_FAILED_OPEN,
     INTEGRITY_INTACT,
-    INTEGRITY_LEAKING
+    INTEGRITY_LEAKING,
+    NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG,
+    NORMALIZED_EQUIPMENT_TYPE_PACKER,
+    NORMALIZED_EQUIPMENT_TYPE_SAFETY_VALVE
 } from '@/topology/equipmentDefinitions/constants.js';
 import equipmentDefinitionRegistry, {
     normalizeEquipmentTypeKey
@@ -478,9 +481,15 @@ function resolveRowRule(row = {}, options = {}) {
         definition,
         hookContext,
         type: normalizedType,
+        baseRule,
+        definitionSealContext,
+        effectiveDefaultSealByVolume,
         sealByVolume,
         annularSeal,
         boreSeal,
+        annularSealOverride,
+        boreSealOverride,
+        volumeOverrides: volumeOverrideResult.overrides,
         actuationState: actuationResult.value,
         integrityStatus: integrityResult.value,
         validationWarnings,
@@ -491,6 +500,233 @@ function resolveRowRule(row = {}, options = {}) {
 export function getEquipmentRuleRowWarnings(row = {}, options = {}) {
     const rule = resolveRowRule(row, options);
     return Array.isArray(rule?.validationWarnings) ? rule.validationWarnings : [];
+}
+
+function resolveBehaviorSummary(sealedVolumeKeys = [], actuationState, integrityStatus) {
+    const sealResult = resolveSealState(sealedVolumeKeys.length > 0, actuationState, integrityStatus);
+    if (sealedVolumeKeys.length === 0) {
+        return {
+            primaryBehavior: 'no_barrier',
+            behaviorState: sealResult.state
+        };
+    }
+    if (sealResult.blocked) {
+        return {
+            primaryBehavior: 'blocking',
+            behaviorState: sealResult.state
+        };
+    }
+    return {
+        primaryBehavior: 'communicating',
+        behaviorState: sealResult.state
+    };
+}
+
+function resolveSealBehaviorSource(volumeKey, rule = {}) {
+    if (typeof rule?.volumeOverrides?.[volumeKey] === 'boolean') {
+        return 'per_volume_override';
+    }
+
+    if (volumeKey === NODE_KIND_BORE) {
+        if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG) {
+            return 'definition_context';
+        }
+        if (rule?.boreSealOverride !== null) {
+            return 'bore_override';
+        }
+        if (Boolean(rule?.sealByVolume?.[volumeKey])) {
+            return 'type_default';
+        }
+        return 'none';
+    }
+
+    const targetedOverrideVolumeKeys = Array.isArray(rule?.definitionSealContext?.annularOverrideVolumeKeys)
+        ? rule.definitionSealContext.annularOverrideVolumeKeys
+        : null;
+    const genericAnnularTargetsVolume = targetedOverrideVolumeKeys
+        ? targetedOverrideVolumeKeys.includes(volumeKey)
+        : true;
+    if (rule?.annularSealOverride !== null && genericAnnularTargetsVolume) {
+        return 'annular_override';
+    }
+    if (Boolean(rule?.definitionSealContext?.defaultSealByVolume?.[volumeKey])) {
+        return 'definition_context';
+    }
+    if (Boolean(rule?.effectiveDefaultSealByVolume?.[volumeKey])) {
+        return 'type_default';
+    }
+    return 'none';
+}
+
+function createFieldBehavior({ emphasis, isRelevant, supersededVolumeKeys = [], notes = [] }) {
+    return {
+        emphasis,
+        isRelevant,
+        hasSupersededVolumes: supersededVolumeKeys.length > 0,
+        supersededVolumeKeys,
+        notes
+    };
+}
+
+function resolveFieldBehavior(rule = {}, sealBehaviorByVolume = {}) {
+    const annularOverrideVolumes = Object.entries(sealBehaviorByVolume)
+        .filter(([volumeKey, behavior]) => (
+            volumeKey !== NODE_KIND_BORE
+            && behavior?.source === 'per_volume_override'
+            && rule?.annularSealOverride !== null
+        ))
+        .map(([volumeKey]) => volumeKey);
+    const notes = [];
+    if (annularOverrideVolumes.length > 0) {
+        notes.push('per_volume_override_supersedes_generic_annular');
+    }
+
+    if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_PACKER) {
+        return {
+            'properties.boreSeal': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: true
+            }),
+            'properties.annularSeal': createFieldBehavior({
+                emphasis: 'primary',
+                isRelevant: true,
+                supersededVolumeKeys: annularOverrideVolumes,
+                notes
+            }),
+            'properties.sealByVolume': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: true
+            })
+        };
+    }
+
+    if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_SAFETY_VALVE) {
+        return {
+            'properties.boreSeal': createFieldBehavior({
+                emphasis: 'primary',
+                isRelevant: true
+            }),
+            'properties.annularSeal': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: true,
+                supersededVolumeKeys: annularOverrideVolumes,
+                notes
+            }),
+            'properties.sealByVolume': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: true
+            })
+        };
+    }
+
+    if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG) {
+        return {
+            'properties.boreSeal': createFieldBehavior({
+                emphasis: 'read_only',
+                isRelevant: false,
+                notes: ['bridge_plug_is_bore_focused']
+            }),
+            'properties.annularSeal': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: false,
+                supersededVolumeKeys: annularOverrideVolumes,
+                notes: [
+                    'bridge_plug_is_bore_focused',
+                    ...notes
+                ]
+            }),
+            'properties.sealByVolume': createFieldBehavior({
+                emphasis: 'advanced',
+                isRelevant: true
+            })
+        };
+    }
+
+    return {
+        'properties.boreSeal': createFieldBehavior({
+            emphasis: 'advanced',
+            isRelevant: true
+        }),
+        'properties.annularSeal': createFieldBehavior({
+            emphasis: 'advanced',
+            isRelevant: true,
+            supersededVolumeKeys: annularOverrideVolumes,
+            notes
+        }),
+        'properties.sealByVolume': createFieldBehavior({
+            emphasis: 'advanced',
+            isRelevant: true
+        })
+    };
+}
+
+function buildPresentationNotes(rule = {}, fieldBehavior = {}) {
+    const notes = new Set();
+    if (
+        rule?.definition?.host?.usesAttachReference === true
+        && normalizeSourceVolumeKind(rule?.row?.sealNodeKind)
+    ) {
+        notes.add('attach_resolution_controls_annulus_target');
+    }
+
+    Object.values(fieldBehavior).forEach((behavior) => {
+        (Array.isArray(behavior?.notes) ? behavior.notes : []).forEach((note) => {
+            if (String(note ?? '').trim()) {
+                notes.add(note);
+            }
+        });
+    });
+
+    if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG) {
+        notes.add('bridge_plug_is_bore_focused');
+    }
+
+    return [...notes];
+}
+
+function toPresentationVolumeKey(volumeKey) {
+    return volumeKey === NODE_KIND_BORE ? NODE_KIND_LEGACY_BORE : volumeKey;
+}
+
+export function resolveEquipmentRulePresentation(row = {}, options = {}) {
+    const rule = resolveRowRule(row, options);
+    const sealBehaviorByVolume = {};
+
+    EFFECT_VOLUME_SPECS.forEach((spec) => {
+        const hasSealPath = Boolean(rule?.sealByVolume?.[spec.volumeKey]);
+        const sealResult = resolveSealState(hasSealPath, rule.actuationState, rule.integrityStatus);
+        sealBehaviorByVolume[spec.volumeKey] = {
+            hasSealPath,
+            blocked: sealResult.blocked,
+            state: sealResult.state,
+            source: resolveSealBehaviorSource(spec.volumeKey, rule)
+        };
+    });
+
+    const sealedVolumeKeys = EFFECT_VOLUME_SPECS
+        .map((spec) => spec.volumeKey)
+        .filter((volumeKey) => Boolean(sealBehaviorByVolume[volumeKey]?.hasSealPath));
+    const fieldBehavior = resolveFieldBehavior(rule, sealBehaviorByVolume);
+    const behaviorSummary = resolveBehaviorSummary(
+        sealedVolumeKeys,
+        rule.actuationState,
+        rule.integrityStatus
+    );
+
+    return {
+        type: rule.type,
+        row: rule.row,
+        effectiveActuationState: rule.actuationState,
+        effectiveIntegrityStatus: rule.integrityStatus,
+        sealBehaviorByVolume,
+        fieldBehavior,
+        summary: {
+            sealedVolumeKeys: sealedVolumeKeys.map((volumeKey) => toPresentationVolumeKey(volumeKey)),
+            primaryBehavior: behaviorSummary.primaryBehavior,
+            behaviorState: behaviorSummary.behaviorState,
+            notes: buildPresentationNotes(rule, fieldBehavior)
+        }
+    };
 }
 
 function resolveSealState(hasSeal, actuationState, integrityStatus) {
@@ -678,5 +914,6 @@ export function resolveBoundaryEquipmentEffects(boundaryDepth, equipmentRows = [
 
 export default {
     getEquipmentRuleRowWarnings,
-    resolveBoundaryEquipmentEffects
+    resolveBoundaryEquipmentEffects,
+    resolveEquipmentRulePresentation
 };

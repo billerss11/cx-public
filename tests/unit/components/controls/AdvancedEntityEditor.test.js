@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PrimeVue from 'primevue/config';
 import AdvancedEntityEditor from '@/components/controls/AdvancedEntityEditor.vue';
+import { setLanguage } from '@/app/i18n.js';
 
 const updateFieldSpy = vi.hoisted(() => vi.fn());
 const addRowSpy = vi.hoisted(() => vi.fn());
@@ -61,6 +62,7 @@ describe('AdvancedEntityEditor', () => {
     deleteRowSpy.mockReset();
     moveRowSpy.mockReset();
     duplicateRowSpy.mockReset();
+    setLanguage('en');
   });
 
   it('updates selected entity fields through useEntityEditorActions', async () => {

@@ -3,6 +3,7 @@ import { useInteractionStore } from '@/stores/interactionStore.js';
 import { useProjectDataStore } from '@/stores/projectDataStore.js';
 import { normalizeInteractionEntity } from '@/composables/useSchematicInteraction.js';
 import { resolveDomainEntryByEntityType } from '@/workspace/domainRegistry.js';
+import { collectWellDepthRange } from '@/utils/depthControlRanges.js';
 
 function normalizeRowIndex(value) {
     if (value === null || value === undefined) return null;
@@ -12,70 +13,6 @@ function normalizeRowIndex(value) {
 
     const parsed = Number(normalized);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
-function addDepthValue(values, value) {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return;
-    values.push(parsed);
-}
-
-function collectWellDepthRange(store) {
-    const minCandidates = [];
-    const maxCandidates = [];
-
-    const addIntervalRows = (rows, topKey, bottomKey) => {
-        if (!Array.isArray(rows)) return;
-        rows.forEach((row) => {
-            const top = Number(row?.[topKey]);
-            const bottom = Number(row?.[bottomKey]);
-            if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return;
-            minCandidates.push(top);
-            maxCandidates.push(bottom);
-        });
-    };
-
-    addIntervalRows(store?.casingData, 'top', 'bottom');
-    addIntervalRows(store?.tubingData, 'top', 'bottom');
-    addIntervalRows(store?.drillStringData, 'top', 'bottom');
-    addIntervalRows(store?.annulusFluids, 'top', 'bottom');
-    addIntervalRows(store?.cementPlugs, 'top', 'bottom');
-
-    if (Array.isArray(store?.equipmentData)) {
-        store.equipmentData.forEach((row) => addDepthValue(maxCandidates, row?.depth));
-    }
-    if (Array.isArray(store?.horizontalLines)) {
-        store.horizontalLines.forEach((row) => addDepthValue(maxCandidates, row?.depth));
-    }
-    if (Array.isArray(store?.markers)) {
-        store.markers.forEach((row) => {
-            addDepthValue(maxCandidates, row?.top);
-            addDepthValue(maxCandidates, row?.bottom);
-        });
-    }
-    if (Array.isArray(store?.annotationBoxes)) {
-        store.annotationBoxes.forEach((row) => {
-            addDepthValue(maxCandidates, row?.topDepth);
-            addDepthValue(maxCandidates, row?.bottomDepth);
-        });
-    }
-    if (Array.isArray(store?.trajectory)) {
-        store.trajectory.forEach((row) => addDepthValue(maxCandidates, row?.md));
-    }
-
-    const minDepth = minCandidates.length > 0 ? Math.min(...minCandidates) : 0;
-    const maxDepth = maxCandidates.length > 0 ? Math.max(...maxCandidates) : minDepth + 1;
-    if (!Number.isFinite(minDepth) || !Number.isFinite(maxDepth)) return null;
-    if (maxDepth <= minDepth) {
-        return {
-            min: Math.min(0, minDepth),
-            max: Math.max(1, minDepth + 1)
-        };
-    }
-    return {
-        min: Math.min(0, minDepth),
-        max: maxDepth
-    };
 }
 
 function resolveRowContext(store, elementType, storeKey, rowIndex) {

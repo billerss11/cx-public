@@ -16,4 +16,13 @@ describe('DirectionalSchematicCanvas surface band contract', () => {
     expect(source).toContain('top: baseMargin.top + surfaceBandHeightValue.value');
     expect(source).toContain('<SurfaceFlowBand');
   });
+
+  it('renders the surface band after the directional scene so the band text is not hidden by overlay labels', () => {
+    const source = readSource();
+    const sceneRootIndex = source.indexOf('<g ref="sceneRootRef"');
+    const surfaceBandIndex = source.lastIndexOf('<SurfaceFlowBand');
+
+    expect(sceneRootIndex).toBeGreaterThanOrEqual(0);
+    expect(surfaceBandIndex).toBeGreaterThan(sceneRootIndex);
+  });
 });

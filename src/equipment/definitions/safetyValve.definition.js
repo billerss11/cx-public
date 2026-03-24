@@ -48,7 +48,18 @@ const safetyValveDefinition = Object.freeze({
     }),
     ui: Object.freeze({
         inspectorFields: Object.freeze([]),
-        editorFields: buildDefaultEquipmentEditorFields()
+        editorFields: buildDefaultEquipmentEditorFields({
+            fieldOverrides: {
+                'properties.boreSeal': {
+                    disclosureLevel: 'core',
+                    helperTextKey: 'ui.equipment_editor.help.safety_valve.bore_seal'
+                },
+                'properties.annularSeal': {
+                    disclosureLevel: 'advanced',
+                    helperTextKey: 'ui.equipment_editor.help.safety_valve.annular_seal'
+                }
+            }
+        })
     })
 });
 

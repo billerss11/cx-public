@@ -47,4 +47,30 @@ describe('EquipmentLayer hit targets', () => {
     expect(selectEvents.length).toBeGreaterThan(0);
     expect(selectEvents[0]).toEqual([0]);
   });
+
+  it('does not render equipment labels when showLabels is disabled', () => {
+    const wrapper = mount(EquipmentLayer, {
+      props: {
+        equipment: [
+          {
+            sourceIndex: 0,
+            type: 'packer',
+            depth: 1000,
+            scale: 1,
+            color: '#123456',
+            sealInnerDiameter: 6,
+            sealOuterDiameter: 10,
+            label: 'New equipment',
+          },
+        ],
+        xScale: createLinearScale(8, 300),
+        yScale: createLinearScale(1, 0),
+        diameterScale: 1,
+        xHalf: 30,
+        showLabels: false,
+      },
+    });
+
+    expect(wrapper.findAll('.equipment-layer__label-group')).toHaveLength(0);
+  });
 });

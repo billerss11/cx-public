@@ -87,7 +87,14 @@ const bridgePlugDefinition = Object.freeze({
     }),
     ui: Object.freeze({
         inspectorFields: Object.freeze([]),
-        editorFields: buildDefaultEquipmentEditorFields()
+        editorFields: buildDefaultEquipmentEditorFields({
+            omitFields: ['properties.boreSeal', 'properties.annularSeal'],
+            fieldOverrides: {
+                'properties.sealByVolume': {
+                    helperTextKey: 'ui.equipment_editor.help.bridge_plug.seal_by_volume'
+                }
+            }
+        })
     }),
 
     suppressNoSealWarningCodes,

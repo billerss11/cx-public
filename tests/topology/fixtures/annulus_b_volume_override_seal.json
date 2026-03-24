@@ -107,7 +107,7 @@
     "edgeCount": 12,
     "activeFlowNodeCount": 1,
     "sourceEntityCount": 1,
-    "sourcePolicyMode": "marker_default",
+    "sourcePolicyMode": "scenario_explicit",
     "minFailureCostToSurface": 1,
     "minCostPathLength": 2,
     "spofEdgeCount": 1,

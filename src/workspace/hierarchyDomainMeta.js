@@ -155,6 +155,13 @@ export const HIERARCHY_DOMAIN_META = Object.freeze({
     mergeRows: (allRows, rowsForDomain) => mergeScenarioBreakoutRows(allRows, rowsForDomain),
     resolveItemLabel: (row, index) => resolveTopologyBreakoutLabel(row, index)
   }),
+  surfaceEquipment: createHierarchyDomainMetaEntry('surfaceEquipment', {
+    labelKey: 'ui.tabs.surface_equipment',
+    fallbackLabel: 'Surface Equipment',
+    commonFields: Object.freeze(['label', 'channelKey', 'componentType', 'status', 'show']),
+    resolveRows: (wellData) => Array.isArray(wellData?.surfaceComponents) ? wellData.surfaceComponents : [],
+    resolveItemLabel: (row, index) => resolveRowLabel(row, `Component #${index + 1}`)
+  }),
   surfacePaths: createHierarchyDomainMetaEntry('surfacePaths', {
     labelKey: 'ui.surface.paths',
     fallbackLabel: 'Surface Paths',
@@ -276,6 +283,18 @@ export function createHierarchyDefaultRow(domainKey) {
       fromVolumeKey: DEFAULT_BREAKOUT_FROM_VOLUME_KEY,
       toVolumeKey: DEFAULT_BREAKOUT_TO_VOLUME_KEY,
       label: 'New Crossflow Path',
+      show: true
+    };
+  }
+  if (domainKey === 'surfaceEquipment') {
+    return {
+      channelKey: 'TUBING_INNER',
+      sequence: 1,
+      label: 'New Valve',
+      componentType: 'valve',
+      status: 'open',
+      connectedTo: null,
+      crossoverDirection: null,
       show: true
     };
   }

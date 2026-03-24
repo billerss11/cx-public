@@ -14,7 +14,7 @@ const props = defineProps({
   },
   scope: {
     type: String,
-    default: 'min_path'
+    default: 'all'
   },
   scopeOptions: {
     type: Array,

@@ -4,7 +4,10 @@ import * as d3 from 'd3';
 import { COLOR_PALETTES, DEFAULT_CEMENT_COLOR, DEFAULT_CEMENT_PLUG_COLOR } from '@/constants/index.js';
 import { getHatchStyleKey, sanitizePatternId } from '@/app/rendering.js';
 import { resolveOpenHoleWaveConfig } from '@/utils/openHoleWave.js';
-import { generateWavyPath } from '@/utils/wavyPath.js';
+import { buildDirectionalOpenHoleSideGeometry } from '@/utils/directionalOpenHoleGeometry.js';
+import {
+  resolveDirectionalLayerVisualRadii
+} from '@/utils/directionalSizing.js';
 import PatternDefs from './PatternDefs.vue';
 import {
   DIRECTIONAL_EPSILON,
@@ -41,6 +44,10 @@ const props = defineProps({
   yScale: {
     type: Function,
     required: true
+  },
+  visualSizing: {
+    type: Object,
+    default: null
   },
   diameterScale: {
     type: Number,
@@ -256,55 +263,6 @@ function resolveOpenHoleWaveConfigByLayerSource(layer, casingRows) {
   return resolveOpenHoleWaveConfig(row);
 }
 
-function buildDirectionalOpenHoleBoundaryPath(points = [], waveConfig, seed = 0) {
-  if (!Array.isArray(points) || points.length < 2) return null;
-  const path = generateWavyPath(points, {
-    amplitude: waveConfig.amplitude,
-    wavelength: waveConfig.wavelength,
-    seed
-  });
-  return path && String(path).trim() ? path : null;
-}
-
-function buildOpenHoleFormationFillPath(sideSamples = [], thicknessPx = OPEN_HOLE_FORMATION_THICKNESS_PX) {
-  if (!Array.isArray(sideSamples) || sideSamples.length < 2) return null;
-  const safeThickness = Number(thicknessPx);
-  if (!Number.isFinite(safeThickness) || safeThickness <= DIRECTIONAL_EPSILON) return null;
-
-  const samples = sideSamples
-    .map((sample) => {
-      const boundary = sample?.outer;
-      const inner = sample?.inner;
-      if (!isFinitePoint(boundary) || !isFinitePoint(inner)) return null;
-
-      const vectorX = boundary[0] - inner[0];
-      const vectorY = boundary[1] - inner[1];
-      const vectorLength = Math.hypot(vectorX, vectorY);
-      if (!Number.isFinite(vectorLength) || vectorLength <= DIRECTIONAL_EPSILON) return null;
-
-      const unitX = vectorX / vectorLength;
-      const unitY = vectorY / vectorLength;
-      const formation = [
-        boundary[0] + (unitX * safeThickness),
-        boundary[1] + (unitY * safeThickness)
-      ];
-
-      return { boundary, formation };
-    })
-    .filter(Boolean);
-
-  if (samples.length < 2) return null;
-
-  const formationAreaBuilder = d3.area()
-    .x0((sample) => sample.formation[0])
-    .y0((sample) => sample.formation[1])
-    .x1((sample) => sample.boundary[0])
-    .y1((sample) => sample.boundary[1])
-    .curve(d3.curveLinear);
-
-  return formationAreaBuilder(samples);
-}
-
 function resolveInteractionPriority(interactionType) {
   if (interactionType === 'plug') return 3;
   if (interactionType === 'fluid') return 2;
@@ -394,7 +352,7 @@ function resolveLayerStyle(layer, context) {
 
   if (layer?.material === 'cement') {
     if (!context.showCement) {
-      return { fill: annulusMudFill, stroke: annulusMudStroke, strokeWidth: 0.45, opacity: 0.85 };
+      return { fill: 'none', stroke: 'none', strokeWidth: 0, opacity: 0 };
     }
     const cementFill = context.cementPatternId
       ? `url(#${context.cementPatternId})`
@@ -464,7 +422,7 @@ function resolveLayerStyle(layer, context) {
     return { fill: coreFill, stroke: coreStroke, strokeWidth: 0.45, opacity: 1.0 };
   }
 
-  return { fill: annulusMudFill, stroke: annulusMudStroke, strokeWidth: 0.4, opacity: 0.72 };
+  return { fill: 'none', stroke: 'none', strokeWidth: 0, opacity: 0 };
 }
 
 const colors = computed(() => (
@@ -525,6 +483,16 @@ const projectedBands = computed(() => {
     .x((d) => d[0])
     .y((d) => d[1])
     .curve(d3.curveLinear);
+  const openHoleLineBuilder = d3.line()
+    .x((d) => d[0])
+    .y((d) => d[1])
+    .curve(d3.curveBasis);
+  const openHoleFormationBuilder = d3.area()
+    .x0((sample) => sample.formation[0])
+    .y0((sample) => sample.formation[1])
+    .x1((sample) => sample.boundary[0])
+    .y1((sample) => sample.boundary[1])
+    .curve(d3.curveBasis);
 
   const bands = [];
   const formationFills = [];
@@ -539,12 +507,9 @@ const projectedBands = computed(() => {
 
     const stack = Array.isArray(interval?.stack) ? interval.stack : [];
     stack.forEach((layer, layerIndex) => {
-      const inner = toFiniteNumber(layer?.innerRadius, null);
-      const outer = toFiniteNumber(layer?.outerRadius, null);
-      if (!Number.isFinite(inner) || !Number.isFinite(outer) || outer <= inner) return;
-
-      const innerScaled = inner * diameterScale;
-      const outerScaled = outer * diameterScale;
+      const visualRadii = resolveDirectionalLayerVisualRadii(layer, props.visualSizing, diameterScale);
+      const innerScaled = toFiniteNumber(visualRadii?.innerRadius, null);
+      const outerScaled = toFiniteNumber(visualRadii?.outerRadius, null);
       if (!Number.isFinite(innerScaled) || !Number.isFinite(outerScaled) || outerScaled <= innerScaled) return;
 
       const style = resolveLayerStyle(layer, styleContext);
@@ -597,9 +562,34 @@ const projectedBands = computed(() => {
     const openHoleWaveConfig = isOpenHoleBoundary
       ? resolveOpenHoleWaveConfigByLayerSource(layer, props.casingData)
       : null;
+    const openHoleFormationThicknessPx = Number(props.visualSizing?.formationThicknessPx) > 0
+      ? Number(props.visualSizing.formationThicknessPx)
+      : OPEN_HOLE_FORMATION_THICKNESS_PX;
     if (isOpenHoleBoundary) {
-      const leftFormationPath = buildOpenHoleFormationFillPath(leftBandSamples);
-      const rightFormationPath = buildOpenHoleFormationFillPath(rightBandSamples);
+      const leftOpenHoleGeometry = buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
+        seed: hashStringToSeed(`open-hole:${entry.id}:left`),
+        formationThicknessPx: openHoleFormationThicknessPx
+      });
+      const rightOpenHoleGeometry = buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
+        seed: hashStringToSeed(`open-hole:${entry.id}:right`),
+        formationThicknessPx: openHoleFormationThicknessPx
+      });
+      const leftFormationPath = leftOpenHoleGeometry
+        ? openHoleFormationBuilder(
+          leftOpenHoleGeometry.boundaryPoints.map((boundary, index) => ({
+            boundary,
+            formation: leftOpenHoleGeometry.formationPoints[index]
+          }))
+        )
+        : null;
+      const rightFormationPath = rightOpenHoleGeometry
+        ? openHoleFormationBuilder(
+          rightOpenHoleGeometry.boundaryPoints.map((boundary, index) => ({
+            boundary,
+            formation: rightOpenHoleGeometry.formationPoints[index]
+          }))
+        )
+        : null;
       if (leftFormationPath) {
         formationFills.push({
           id: `formation-${entry.id}-left`,
@@ -700,16 +690,27 @@ const projectedBands = computed(() => {
     }
 
     if (interactionMeta.interactive) {
-      const openHoleSeedBase = hashStringToSeed(`open-hole:${entry.id}`);
       const leftMidline = buildMidlineSamples(leftBandSamples);
       const rightMidline = buildMidlineSamples(rightBandSamples);
       const leftOuter = leftBandSamples.map((sample) => sample.outer).filter((point) => isFinitePoint(point));
       const rightOuter = rightBandSamples.map((sample) => sample.outer).filter((point) => isFinitePoint(point));
+      const leftOpenHoleGeometry = isOpenHoleBoundary
+        ? buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
+          seed: hashStringToSeed(`open-hole:${entry.id}:left`),
+          formationThicknessPx: openHoleFormationThicknessPx
+        })
+        : null;
+      const rightOpenHoleGeometry = isOpenHoleBoundary
+        ? buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
+          seed: hashStringToSeed(`open-hole:${entry.id}:right`),
+          formationThicknessPx: openHoleFormationThicknessPx
+        })
+        : null;
       const leftPath = isOpenHoleBoundary
-        ? buildDirectionalOpenHoleBoundaryPath(leftOuter, openHoleWaveConfig, openHoleSeedBase)
+        ? openHoleLineBuilder(leftOpenHoleGeometry?.boundaryPoints || [])
         : (leftMidline.length > 1 ? lineBuilder(leftMidline) : null);
       const rightPath = isOpenHoleBoundary
-        ? buildDirectionalOpenHoleBoundaryPath(rightOuter, openHoleWaveConfig, openHoleSeedBase + 1)
+        ? openHoleLineBuilder(rightOpenHoleGeometry?.boundaryPoints || [])
         : (rightMidline.length > 1 ? lineBuilder(rightMidline) : null);
       const leftThickness = resolveAverageBandThickness(leftBandSamples);
       const rightThickness = resolveAverageBandThickness(rightBandSamples);
@@ -760,12 +761,23 @@ const projectedBands = computed(() => {
     const outerStrokeWidth = isOpenHoleBoundary ? 2 : strokeWidth;
     const leftOuter = leftBandSamples.map((sample) => sample.outer);
     const rightOuter = rightBandSamples.map((sample) => sample.outer);
-    const openHoleSeedBase = hashStringToSeed(`open-hole:${entry.id}`);
+    const leftOpenHoleGeometry = isOpenHoleBoundary
+      ? buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
+        seed: hashStringToSeed(`open-hole:${entry.id}:left`),
+        formationThicknessPx: openHoleFormationThicknessPx
+      })
+      : null;
+    const rightOpenHoleGeometry = isOpenHoleBoundary
+      ? buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
+        seed: hashStringToSeed(`open-hole:${entry.id}:right`),
+        formationThicknessPx: openHoleFormationThicknessPx
+      })
+      : null;
     const leftOuterPath = isOpenHoleBoundary
-      ? buildDirectionalOpenHoleBoundaryPath(leftOuter, openHoleWaveConfig, openHoleSeedBase)
+      ? openHoleLineBuilder(leftOpenHoleGeometry?.boundaryPoints || [])
       : lineBuilder(leftOuter);
     const rightOuterPath = isOpenHoleBoundary
-      ? buildDirectionalOpenHoleBoundaryPath(rightOuter, openHoleWaveConfig, openHoleSeedBase + 1)
+      ? openHoleLineBuilder(rightOpenHoleGeometry?.boundaryPoints || [])
       : lineBuilder(rightOuter);
 
     if (leftOuterPath) {

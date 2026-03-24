@@ -20,8 +20,9 @@ import { useFeatureTiming } from '@/composables/useFeatureTiming.js';
 import SchematicCanvas from '@/components/schematic/SchematicCanvas.vue';
 import DirectionalSchematicCanvas from '@/components/schematic/DirectionalSchematicCanvas.vue';
 import TopologyGraphDebugDialog from '@/components/analysis/TopologyGraphDebugDialog.vue';
+import SurfaceEquipmentFloatingDialog from '@/components/schematic/SurfaceEquipmentFloatingDialog.vue';
+import AnnulusMeaningCard from '@/components/annulus/AnnulusMeaningCard.vue';
 import TopologySourcesTablePane from '@/components/tables/panes/TopologySourcesTablePane.vue';
-import SurfaceFocusDialog from '@/components/surface/SurfaceFocusDialog.vue';
 import { resolveWarningMetadata } from '@/topology/warningCatalog.js';
 import {
   createTopologyInspectorEdgeRows,
@@ -30,6 +31,9 @@ import {
   resolveTopologyInspectorOverlayNodeIds
 } from '@/topology/topologyInspector.js';
 import {
+  SOURCE_POLICY_MODE_FLUID_OPT_IN,
+  SOURCE_POLICY_MODE_MARKER_DEFAULT,
+  SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN,
   TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE,
   TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE
 } from '@/topology/topologyTypes.js';
@@ -51,6 +55,7 @@ import {
   setActiveTableTabKey,
   setTablesAccordionOpen
 } from '@/components/tables/panes/tablePaneState.js';
+import { buildAnnulusMeaningRows } from '@/annulus/meaningModel.js';
 import { toSurfaceChannelLabel } from '@/surface/model.js';
 
 const projectDataStore = useProjectDataStore();
@@ -82,14 +87,14 @@ const inspectorTableControls = reactive({
 });
 const topologyGraphControls = reactive({
   visible: true,
-  scope: 'min_path'
+  scope: 'all'
 });
 const selectedInspectorNodeId = ref(null);
 const selectedInspectorEdgeId = ref(null);
 const manualSourceOverridesOpen = ref(false);
+const surfaceEquipmentDialogVisible = ref(false);
 const manualSourceOverridesPaneRef = ref(null);
 const manualSourceOverridesSectionRef = ref(null);
-const surfaceFocusVisible = ref(false);
 
 const WARNING_CATEGORY_UI = Object.freeze({
   equipment: Object.freeze({
@@ -142,10 +147,23 @@ const inspectorScopeOptions = [
 ];
 
 const topologyGraphScopeOptions = [
+  { value: 'all', label: 'All topology edges', i18nKey: 'ui.analysis.topology.graph.scope.all' },
   { value: 'min_path', label: 'Min-cost path', i18nKey: 'ui.analysis.topology.graph.scope.min_path' },
   { value: 'spof', label: 'SPOF only', i18nKey: 'ui.analysis.topology.graph.scope.spof' },
   { value: 'active_flow', label: 'Active flow', i18nKey: 'ui.analysis.topology.inspector.scope.active_flow' },
   { value: 'selected_barrier', label: 'Selected barrier', i18nKey: 'ui.analysis.topology.graph.scope.selected_barrier' }
+];
+const topologyFallbackSourceModeOptions = [
+  {
+    value: SOURCE_POLICY_MODE_MARKER_DEFAULT,
+    label: 'Marker-driven default',
+    i18nKey: 'ui.analysis.topology.source_policy.marker_default'
+  },
+  {
+    value: SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN,
+    label: 'Marker + open-hole source (opt-in)',
+    i18nKey: 'ui.analysis.topology.source_policy.open_hole_opt_in'
+  }
 ];
 const TOPOLOGY_GRAPH_EDGE_TOOLTIP_WRAP_LIMIT = 52;
 
@@ -161,6 +179,7 @@ const cementPlugs = computed(() => projectDataRefs.cementPlugs?.value ?? []);
 const annulusFluids = computed(() => projectDataRefs.annulusFluids?.value ?? []);
 const markers = computed(() => projectDataRefs.markers?.value ?? []);
 const topologySources = computed(() => projectDataRefs.topologySources?.value ?? []);
+const surfaceComponents = computed(() => projectDataRefs.surfaceComponents?.value ?? []);
 const surfacePaths = computed(() => projectDataRefs.surfacePaths?.value ?? []);
 const surfaceTransfers = computed(() => projectDataRefs.surfaceTransfers?.value ?? []);
 const surfaceOutlets = computed(() => projectDataRefs.surfaceOutlets?.value ?? []);
@@ -181,6 +200,7 @@ const declarativeProjectData = computed(() => ({
   annulusFluids: annulusFluids.value,
   markers: markers.value,
   topologySources: topologySources.value,
+  surfaceComponents: surfaceComponents.value,
   surfacePaths: surfacePaths.value,
   surfaceTransfers: surfaceTransfers.value,
   surfaceOutlets: surfaceOutlets.value,
@@ -188,6 +208,14 @@ const declarativeProjectData = computed(() => ({
   physicsIntervals: physicsIntervals.value,
   trajectory: trajectory.value
 }));
+
+const annulusMeaningRows = computed(() => (
+  buildAnnulusMeaningRows({
+    ...declarativeProjectData.value,
+    config: viewConfigStore.config ?? {},
+    interaction: {}
+  })
+));
 
 const topologyConfigSnapshot = computed(() => ({
   [TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE]:
@@ -208,6 +236,7 @@ const topologyStateSnapshot = computed(() => ({
   annulusFluids: annulusFluids.value,
   markers: markers.value,
   topologySources: topologySources.value,
+  surfaceComponents: surfaceComponents.value,
   surfacePaths: surfacePaths.value,
   surfaceTransfers: surfaceTransfers.value,
   surfaceOutlets: surfaceOutlets.value,
@@ -347,6 +376,31 @@ const topologyResult = computed(() => (
   activeWellTopology.value?.result && typeof activeWellTopology.value.result === 'object'
     ? activeWellTopology.value.result
     : null
+));
+const topologyFallbackSourceMode = computed({
+  get() {
+    return viewConfigStore.config?.[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] === true
+      ? SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN
+      : SOURCE_POLICY_MODE_MARKER_DEFAULT;
+  },
+  set(value) {
+    if (!viewConfigStore.config || typeof viewConfigStore.config !== 'object') return;
+    const nextMode = String(value ?? '').trim();
+    viewConfigStore.config[TOPOLOGY_CONFIG_USE_OPEN_HOLE_SOURCE] = nextMode === SOURCE_POLICY_MODE_OPEN_HOLE_OPT_IN;
+
+    // Public source-mode controls replace the legacy illustrative-fluid path when changed.
+    if (viewConfigStore.config[TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE] === true) {
+      viewConfigStore.config[TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE] = false;
+    }
+  }
+});
+const selectedTopologyFallbackSourceModeOption = computed(() => (
+  topologyFallbackSourceModeOptions.find((option) => option.value === topologyFallbackSourceMode.value)
+    ?? topologyFallbackSourceModeOptions[0]
+));
+const shouldShowLegacyIllustrativeFluidNote = computed(() => (
+  viewConfigStore.config?.[TOPOLOGY_CONFIG_USE_ILLUSTRATIVE_FLUID_SOURCE] === true
+  || topologyResult.value?.sourcePolicy?.mode === SOURCE_POLICY_MODE_FLUID_OPT_IN
 ));
 const expectedOverlayRequestId = computed(() => {
   const latestRequestId = toSafeAnalysisRequestId(latestAnalysisGeometryRequestId.value);
@@ -1360,7 +1414,9 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
           <p class="analysis-metric__label" :data-i18n="metric.labelKey">{{ metric.label }}</p>
           <p class="analysis-metric__value">{{ metric.value }}</p>
         </article>
-      </div>
+        </div>
+
+        <AnnulusMeaningCard :rows="annulusMeaningRows" />
 
       <section class="analysis-topology">
         <header class="analysis-topology__header">
@@ -1405,13 +1461,6 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
         >
           <div class="analysis-topology__surface-summary-header">
             <p class="analysis-topology__section-title">Surface route summary</p>
-            <Button
-              type="button"
-              size="small"
-              text
-              label="Surface Focus"
-              @click="surfaceFocusVisible = true"
-            />
           </div>
           <div class="analysis-topology__surface-summary-list">
             <article
@@ -1444,6 +1493,39 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
         </section>
 
         <p class="analysis-topology__meta">{{ topologySourceSummaryText }}</p>
+        <div class="analysis-topology__source-policy-control">
+          <label class="analysis-topology__control-label" data-i18n="ui.analysis.topology.source_policy.fallback_label">
+            Fallback source mode:
+          </label>
+          <Select
+            v-model="topologyFallbackSourceMode"
+            :options="topologyFallbackSourceModeOptions"
+            option-label="label"
+            option-value="value"
+            size="small"
+            class="analysis-topology__control-select"
+          >
+            <template #value="slotProps">
+              <span v-if="selectedTopologyFallbackSourceModeOption" :data-i18n="selectedTopologyFallbackSourceModeOption.i18nKey">
+                {{ selectedTopologyFallbackSourceModeOption.label }}
+              </span>
+              <span v-else>{{ slotProps.placeholder }}</span>
+            </template>
+            <template #option="slotProps">
+              <span :data-i18n="slotProps.option.i18nKey">{{ slotProps.option.label }}</span>
+            </template>
+          </Select>
+          <p class="analysis-topology__meta" data-i18n="ui.analysis.topology.source_policy.fallback_help">
+            Resolved manual source overrides automatically become the authoritative source set for that run.
+          </p>
+          <p
+            v-if="shouldShowLegacyIllustrativeFluidNote"
+            class="analysis-topology__meta"
+            data-i18n="ui.analysis.topology.source_policy.legacy_fluid_note"
+          >
+            Legacy experimental illustrative-fluid mode is active for this well. Selecting a public fallback mode clears that legacy mode.
+          </p>
+        </div>
 
         <details
           ref="manualSourceOverridesSectionRef"
@@ -1962,6 +2044,10 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
             <Checkbox v-model="topologyGraphControls.visible" binary input-id="analysis-graph-debug-pane" />
             <span data-i18n="ui.analysis.topology.toggle.graph_debug">Graph debug pane</span>
           </label>
+          <label class="analysis-topology__toggle-item">
+            <Checkbox v-model="surfaceEquipmentDialogVisible" binary input-id="analysis-surface-equipment" />
+            <span data-i18n="ui.tabs.surface_equipment">Surface Equipment</span>
+          </label>
         </div>
 
         <div class="analysis-topology__legend">
@@ -2176,10 +2262,12 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
     @edge-click="handleTopologyGraphEdgeClick"
   />
 
-  <SurfaceFocusDialog
-    v-model:visible="surfaceFocusVisible"
-    :topology-result="topologyResult"
+  <SurfaceEquipmentFloatingDialog
+    v-model:visible="surfaceEquipmentDialogVisible"
+    :surface-components="declarativeProjectData.surfaceComponents"
+    :surface-summary="topologyResult?.surfaceSummary ?? null"
   />
+
 </template>
 
 <style scoped>
@@ -2310,6 +2398,14 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
   margin: 0;
   font-size: 0.76rem;
   color: var(--muted);
+}
+
+.analysis-topology__source-policy-control {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .analysis-topology__diagnostics {
@@ -2810,6 +2906,9 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
 }
 
 .analysis-workspace__canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
   height: 100%;

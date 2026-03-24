@@ -43,6 +43,7 @@ function mountShell(statePatch = {}) {
         LeftHierarchyDock: passthroughStub('LeftHierarchyDock'),
         RightContextDock: passthroughStub('RightContextDock'),
         ResizableBottomDock: passthroughStub('ResizableBottomDock'),
+        CasingToolsDialog: passthroughStub('CasingToolsDialog'),
         Dialog: passthroughStub('Dialog')
       }
     }

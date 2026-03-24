@@ -4,6 +4,8 @@ import {
   formatTopologyGraphEdgeLabel,
   formatTopologyGraphNodeLabel
 } from '@/topology/topologyGraphDebug.js';
+import { buildTopologyModel } from '@/topology/topologyCore.js';
+import sampleProject from '@/data/samples/defaultSampleProject.json';
 
 const TOPOLOGY_RESULT_FIXTURE = Object.freeze({
   nodes: [
@@ -140,6 +142,48 @@ const ACTIVE_FLOW_SCOPE_FIXTURE = Object.freeze({
 });
 
 describe('topologyGraphDebug', () => {
+  it('supports all-topology scope with every modeled node and edge', () => {
+    const graph = buildTopologyDebugGraph(TOPOLOGY_RESULT_FIXTURE, {
+      scope: 'all',
+      depthUnitsLabel: 'ft'
+    });
+
+    expect(graph.nodeCount).toBe(4);
+    expect(graph.edgeCount).toBe(3);
+    expect(Object.keys(graph.nodes)).toEqual(expect.arrayContaining([
+      'node:SURFACE',
+      'node:ANNULUS_A:0:1000',
+      'node:ANNULUS_A:1000:2000',
+      'node:ANNULUS_B:1000:2000'
+    ]));
+    expect(Object.keys(graph.edges)).toEqual(expect.arrayContaining([
+      'edge:vertical:a0-a1',
+      'edge:radial:a1-b1',
+      'edge:termination:a0-surface'
+    ]));
+  });
+
+  it('keeps bundled sample annulus B and C visible in all-topology scope', () => {
+    const activeWell = sampleProject.wells.find((well) => well?.id === sampleProject.activeWellId) ?? sampleProject.wells[0];
+    const topologyResult = buildTopologyModel({
+      ...(activeWell?.data ?? {}),
+      config: activeWell?.config ?? {},
+      interaction: {}
+    }, {
+      requestId: 1,
+      wellId: String(activeWell?.id ?? 'sample')
+    });
+
+    const graph = buildTopologyDebugGraph(topologyResult, {
+      scope: 'all',
+      depthUnitsLabel: 'ft'
+    });
+
+    const graphKinds = Object.values(graph.nodes).map((node) => node.kind);
+    expect(graphKinds).toContain('ANNULUS_B');
+    expect(graphKinds).toContain('ANNULUS_C');
+  });
+
   it('formats node and edge labels for engineering readability', () => {
     expect(formatTopologyGraphNodeLabel({
       kind: 'ANNULUS_A',

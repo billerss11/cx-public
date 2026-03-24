@@ -57,6 +57,7 @@ import {
     buildBaseHotSettings,
     buildColorRenderer,
     buildEnumRenderer,
+    buildFormattedAutocompleteRenderer,
     buildRequiredCells,
     cloneRows,
     ensureHandsontableModulesRegistered,
@@ -76,10 +77,16 @@ import {
     PIPE_HOST_TYPE_TUBING
 } from '@/utils/pipeReference.js';
 import { buildEquipmentTableSchema } from '@/composables/tableSchemas/equipmentSchema.js';
+import { buildSurfaceEquipmentTableSchema } from '@/composables/tableSchemas/surfaceEquipmentSchema.js';
 import {
     buildTopologyBreakoutSchema,
     buildTopologySourceSchema
 } from '@/composables/tableSchemas/topologySchema.js';
+import {
+    formatEngineeringSizeLabel,
+    getHoleSizeAssistance,
+    parseEngineeringSizeInput
+} from '@/utils/casingRules.js';
 
 const TRAJECTORY_NUMERIC_FIELDS = new Set(['md', 'inc', 'azi']);
 const TRAJECTORY_COMPUTED_FIELD_KEYS = Object.freeze(['calcTvd', 'calcNorth', 'calcEast', 'calcVs', 'calcDls']);
@@ -99,6 +106,7 @@ const TABLE_STATE_KEY_MAP = Object.freeze({
     marker: 'markers',
     topologySource: 'topologySources',
     topologyBreakout: 'topologySources',
+    surfaceEquipment: 'surfaceComponents',
     box: 'annotationBoxes',
     trajectory: 'trajectory'
 });
@@ -107,10 +115,68 @@ const DROPDOWN_EDITOR_DEFAULTS = Object.freeze({
     visibleRows: 6,
     trimDropdown: true
 });
+const CASING_HOLE_WARNING_CLASS_BY_CODE = Object.freeze({
+    no_casing_catalog_match: 'casing-hole-size-cell--warning-no-casing-match',
+    custom_hole_size: 'casing-hole-size-cell--warning-custom-hole',
+    incompatible_catalog_hole: 'casing-hole-size-cell--warning-incompatible-hole'
+});
 
 function tf(key, fallback) {
     const value = t(key);
     return value === key ? fallback : value;
+}
+
+function normalizeEngineeringSizeValue(value) {
+    const parsed = parseEngineeringSizeInput(value);
+    return parsed ? parsed.decimal : null;
+}
+
+function formatHoleSizeCellValue(value) {
+    const parsed = parseEngineeringSizeInput(value);
+    return parsed ? parsed.label : '';
+}
+
+const casingHoleSizeRenderer = buildFormattedAutocompleteRenderer((value) => formatHoleSizeCellValue(value));
+
+function validateHoleSizeInput(value, callback) {
+    const isBlank = value === '' || value === null || value === undefined;
+    callback(isBlank || parseEngineeringSizeInput(value) !== null);
+}
+
+function resolveHoleSizeWarningTitle(warningCode) {
+    if (warningCode === 'no_casing_catalog_match') {
+        return tf('ui.casing_tools.table.warning.no_casing_match', 'No catalog match for this casing OD. Manual hole size entry is still allowed.');
+    }
+    if (warningCode === 'custom_hole_size') {
+        return tf('ui.casing_tools.table.warning.custom_hole', 'This hole size is not in the engineering catalog. It will be kept as a custom numeric value.');
+    }
+    if (warningCode === 'incompatible_catalog_hole') {
+        return tf('ui.casing_tools.table.warning.incompatible_hole', 'This catalog hole size is not listed as drillable for the current casing size.');
+    }
+    return '';
+}
+
+function buildCasingHoleSizeCellMeta(rowData) {
+    const assistance = getHoleSizeAssistance(rowData);
+    const warningClass = CASING_HOLE_WARNING_CLASS_BY_CODE[assistance.warningCode] ?? '';
+    const classNames = [
+        'casing-hole-size-cell',
+        assistance.warningCode ? 'casing-hole-size-cell--warning' : '',
+        warningClass
+    ].filter(Boolean).join(' ');
+
+    return {
+        type: 'autocomplete',
+        strict: false,
+        allowInvalid: false,
+        trimDropdown: true,
+        visibleRows: 6,
+        source: assistance.options.map((option) => option.label),
+        renderer: casingHoleSizeRenderer,
+        validator: validateHoleSizeInput,
+        title: resolveHoleSizeWarningTitle(assistance.warningCode),
+        className: classNames
+    };
 }
 
 function normalizeFieldToken(value) {
@@ -276,6 +342,7 @@ function getSelectedIndex(type, interaction) {
         || type === 'equipment'
         || type === 'topologySource'
         || type === 'topologyBreakout'
+        || type === 'surfaceEquipment'
     ) {
         return resolveNonPipeSelectionIndex(type, interaction);
     }
@@ -293,7 +360,8 @@ const CLEAR_SELECTION_HANDLERS = Object.freeze({
     plug: clearPlugSelection,
     fluid: clearFluidSelection,
     topologySource: () => clearSelection('topologySource'),
-    topologyBreakout: () => clearSelection('topologyBreakout')
+    topologyBreakout: () => clearSelection('topologyBreakout'),
+    surfaceEquipment: () => clearSelection('surfaceEquipment')
 });
 
 function buildTableSchema(type, domainState) {
@@ -343,7 +411,7 @@ function buildTableSchema(type, domainState) {
                 },
                 { data: 'manualParent', type: 'numeric' },
                 { data: 'idOverride', type: 'numeric' },
-                { data: 'manualHoleSize', type: 'numeric' },
+                { data: 'manualHoleSize', type: 'text' },
                 { data: 'labelXPos', type: 'numeric' },
                 { data: 'manualLabelDepth', type: 'numeric' },
                 { data: 'casingLabelFontSize', type: 'numeric' },
@@ -354,8 +422,15 @@ function buildTableSchema(type, domainState) {
             ],
             requiredFields: ['label', 'od', 'weight', 'grade', 'top', 'bottom'],
             numericFields: CASING_NUMERIC_FIELDS,
+            valueNormalizers: {
+                manualHoleSize: normalizeEngineeringSizeValue
+            },
             sampleKeyFields: ['label'],
             afterChangeIgnoreSources: ['loadData', 'normalize'],
+            cellsExtra: (row, col, prop) => {
+                if (prop !== 'manualHoleSize') return {};
+                return buildCasingHoleSizeCellMeta(domainState.casingData[row] ?? {});
+            },
             buildDefaultRow: () => ({
                 label: t('defaults.new_casing'),
                 od: 9.625,
@@ -854,6 +929,13 @@ function buildTableSchema(type, domainState) {
         });
     }
 
+    if (type === 'surfaceEquipment') {
+        return buildSurfaceEquipmentTableSchema(domainState, {
+            t,
+            tf
+        });
+    }
+
     if (type === 'box') {
         return {
             getData: () => domainState.annotationBoxes,
@@ -1053,6 +1135,9 @@ export function useTableController(tableType, tabKey = tableType) {
         get topologySources() {
             return projectDataStore.topologySources;
         },
+        get surfaceComponents() {
+            return projectDataStore.surfaceComponents;
+        },
         get trajectory() {
             return projectDataStore.trajectory;
         },
@@ -1145,13 +1230,13 @@ export function useTableController(tableType, tabKey = tableType) {
 
         const shouldProcess = !currentSchema.afterChangeIgnoreSources?.includes(source);
         if (shouldProcess) {
-            const instance = getHotInstance();
-            if (instance) {
-                const liveRows = instance.getSourceData?.() ?? [];
-                applySampleKeyChanges(liveRows, changes, currentSchema.sampleKeyFields);
-                normalizeHotChanges(instance, changes, currentSchema.numericFields);
-                currentSchema.afterChangeExtra?.(instance, changes, source);
-            }
+                const instance = getHotInstance();
+                if (instance) {
+                    const liveRows = instance.getSourceData?.() ?? [];
+                    applySampleKeyChanges(liveRows, changes, currentSchema.sampleKeyFields);
+                    normalizeHotChanges(instance, changes, currentSchema.numericFields, currentSchema.valueNormalizers);
+                    currentSchema.afterChangeExtra?.(instance, changes, source);
+                }
         }
 
         commitTableData();

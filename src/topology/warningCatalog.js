@@ -236,7 +236,7 @@ const WARNING_METADATA_BY_CODE = Object.freeze({
     }),
     [TOPOLOGY_WARNING_CODES.EXPLICIT_SCENARIO_SOURCE_MODE_ACTIVE]: Object.freeze({
         category: TOPOLOGY_WARNING_CATEGORIES.POLICY,
-        recommendation: 'Manual source overrides should supplement real physical sources, not replace them.'
+        recommendation: 'Resolved manual source overrides are authoritative for that analysis run; remove or hide rows that should not define the source set.'
     })
 });
 

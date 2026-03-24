@@ -208,7 +208,18 @@ const packerDefinition = Object.freeze({
     }),
     ui: Object.freeze({
         inspectorFields: Object.freeze([]),
-        editorFields: buildDefaultEquipmentEditorFields()
+        editorFields: buildDefaultEquipmentEditorFields({
+            fieldOverrides: {
+                'properties.annularSeal': {
+                    disclosureLevel: 'core',
+                    helperTextKey: 'ui.equipment_editor.help.packer.annular_seal'
+                },
+                'properties.boreSeal': {
+                    disclosureLevel: 'advanced',
+                    helperTextKey: 'ui.equipment_editor.help.packer.bore_seal'
+                }
+            }
+        })
     }),
 
     suppressNoSealWarningCodes: SUPPRESS_NO_SEAL_WARNING_CODES,

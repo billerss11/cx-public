@@ -32,7 +32,7 @@ import {
   isRenderModelWorkerCancelledError
 } from '@/composables/useRenderModelWorker.js';
 import { usePlotEntityHandlers } from '@/composables/usePlotEntityHandlers.js';
-import { hasTrajectoryDefinitionRows, resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
+import { resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
 import DirectionalAxisLayer from './layers/DirectionalAxisLayer.vue';
 import DirectionalBandLayer from './layers/DirectionalBandLayer.vue';
 import DirectionalDecorationLayer from './layers/DirectionalDecorationLayer.vue';
@@ -40,13 +40,13 @@ import DirectionalPhysicsDebugLayer from './layers/DirectionalPhysicsDebugLayer.
 import DirectionalOverlayLayer from './layers/DirectionalOverlayLayer.vue';
 import DirectionalEquipmentLayer from './layers/DirectionalEquipmentLayer.vue';
 import DirectionalTopologyOverlayLayer from './layers/DirectionalTopologyOverlayLayer.vue';
-import SurfaceFlowBand from './layers/SurfaceFlowBand.vue';
 import SchematicPlotTooltip from './SchematicPlotTooltip.vue';
 import {
   buildMDSamples,
   buildDirectionalProjector,
   isFinitePoint,
   normalizeXExaggeration,
+  resolveProjectedDepthBounds,
   resolveScreenFrameAtMD
 } from './layers/directionalProjection.js';
 import { useDepthCursorOverlay } from '@/composables/useDepthCursorOverlay.js';
@@ -59,11 +59,12 @@ import { solveOptimalFigureHeight } from '@/utils/autoFitMath.js';
 import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgTransformMath.js';
 import {
   DIRECTIONAL_BASE_SVG_WIDTH,
-  DIRECTIONAL_MAX_SVG_WIDTH,
   DIRECTIONAL_MARGIN,
-  DIRECTIONAL_MIN_SVG_WIDTH,
-  resolveDirectionalHorizontalPadding,
-  resolveVerticalEquivalentXHalf,
+  buildDirectionalVisualSizing,
+  resolveDirectionalMaxVisualRadiusPx,
+  resolveDirectionalPlotInsetRange,
+  resolveDirectionalSvgWidthFromHeightWithInsets,
+  resolveDirectionalVisualInsetPadding
 } from '@/utils/directionalSizing.js';
 import {
   DEFAULT_MAGNIFIER_ZOOM_LEVEL,
@@ -71,8 +72,6 @@ import {
   normalizeMagnifierZoomLevel
 } from '@/constants/index.js';
 import { createClientPointerResolver } from '@/composables/useClientPointerResolver.js';
-import { buildSurfaceLayoutModel } from '@/surface/layoutModel.js';
-
 const EPSILON = 1e-6;
 const AUTO_FIT_HEIGHT_DELTA_THRESHOLD = 2;
 const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';
@@ -83,20 +82,6 @@ function normalizeDirectionalViewportFitMode(value) {
   return String(value ?? '').trim().toLowerCase() === DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
     ? DIRECTIONAL_VIEWPORT_FIT_MODE_FILL_WIDTH
     : DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN;
-}
-
-function clampDirectionalSvgWidth(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return DIRECTIONAL_MIN_SVG_WIDTH;
-  return Math.max(DIRECTIONAL_MIN_SVG_WIDTH, Math.min(DIRECTIONAL_MAX_SVG_WIDTH, Math.round(numeric)));
-}
-
-function resolveDirectionalSvgWidthFromHeightWithMargin(figHeight, dataAspectRatio, marginBox = DIRECTIONAL_MARGIN) {
-  const safeHeight = Math.max(520, Math.round(Number(figHeight) || 520));
-  const plotHeight = Math.max(10, safeHeight - Number(marginBox?.top || 0) - Number(marginBox?.bottom || 0));
-  const safeAspect = Math.max(1, Math.abs(Number(dataAspectRatio) || 1));
-  const plotWidth = plotHeight * safeAspect;
-  return clampDirectionalSvgWidth(plotWidth + Number(marginBox?.left || 0) + Number(marginBox?.right || 0));
 }
 
 const props = defineProps({
@@ -218,34 +203,6 @@ const userAnnotationRows = computed(() => (
 const trajectoryRows = computed(() => (
   Array.isArray(props.projectData?.trajectory) ? props.projectData.trajectory : []
 ));
-const surfacePathRows = computed(() => (
-  Array.isArray(props.projectData?.surfacePaths) ? props.projectData.surfacePaths : []
-));
-const surfaceTransferRows = computed(() => (
-  Array.isArray(props.projectData?.surfaceTransfers) ? props.projectData.surfaceTransfers : []
-));
-const surfaceOutletRows = computed(() => (
-  Array.isArray(props.projectData?.surfaceOutlets) ? props.projectData.surfaceOutlets : []
-));
-const hasTrajectoryDefinition = computed(() => (
-  hasTrajectoryDefinitionRows(trajectoryRows.value)
-));
-
-const surfaceLayoutModel = computed(() => (
-  buildSurfaceLayoutModel({
-    surfacePaths: surfacePathRows.value,
-    surfaceTransfers: surfaceTransferRows.value,
-    surfaceOutlets: surfaceOutletRows.value,
-    surfaceSummary: props.topologyResult?.surfaceSummary ?? null
-  })
-));
-const surfaceBandHeightValue = computed(() => surfaceLayoutModel.value.bandHeight || 0);
-
-function toFiniteDepth(value) {
-  const parsed = parseOptionalNumber(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function toSafeAnalysisRequestId(value) {
   const numeric = Number(value);
   if (Number.isInteger(numeric) && numeric > 0) return numeric;
@@ -282,29 +239,10 @@ function buildTrajectoryRowsSignature(rows = []) {
   return `${rows.length}:${hash >>> 0}`;
 }
 
-function resolveDepthBounds(rows = [], topKey = 'top', bottomKey = 'bottom') {
-  const tops = [];
-  const bottoms = [];
-
-  rows.forEach((row) => {
-    const top = toFiniteDepth(row?.[topKey]);
-    const bottom = toFiniteDepth(row?.[bottomKey]);
-    if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return;
-    tops.push(top);
-    bottoms.push(bottom);
-  });
-
-  if (tops.length === 0 || bottoms.length === 0) return null;
-  return {
-    min: Math.min(...tops),
-    max: Math.max(...bottoms)
-  };
-}
-
 const unitsLabel = computed(() => String(props.config?.units || 'ft'));
 const plotTitle = computed(() => String(props.config?.plotTitle ?? '').trim());
 const margin = computed(() => ({
-  top: baseMargin.top + surfaceBandHeightValue.value,
+  top: baseMargin.top,
   right: baseMargin.right,
   bottom: baseMargin.bottom,
   left: baseMargin.left
@@ -478,27 +416,20 @@ const maxStackOuterRadius = computed(() => {
   return radii.length > 0 ? Math.max(...radii) : 1;
 });
 
-const diameterScaleValue = computed(() => {
-  const totalMD = Math.max(1, totalMDValue.value);
-  const maxOD = Math.max(1, maxCasingOuterRadius.value * 2, maxStackOuterRadius.value * 2);
-  return Math.max(0.5, Math.min(50.0, (totalMD / 30.0) / maxOD));
-});
-
-const maxProjectedRadiusValue = computed(() => (
-  maxStackOuterRadius.value * diameterScaleValue.value
-));
-const widthMultiplierValue = computed(() => {
-  const parsed = Number(props.config?.widthMultiplier);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3.5;
-});
-const verticalEquivalentXHalfValue = computed(() => (
-  resolveVerticalEquivalentXHalf({
-    maxCasingOuterRadius: maxCasingOuterRadius.value,
-    maxStackOuterRadius: maxStackOuterRadius.value,
-    diameterScale: diameterScaleValue.value,
-    widthMultiplier: widthMultiplierValue.value
+const visualSizingValue = computed(() => (
+  buildDirectionalVisualSizing({
+    intervals: directionalIntervals.value
   })
 ));
+
+const maxProjectedRadiusValue = computed(() => (
+  resolveDirectionalMaxVisualRadiusPx(visualSizingValue.value, 0)
+));
+
+const diameterScaleValue = computed(() => {
+  const maxPhysicalRadius = Math.max(1, maxCasingOuterRadius.value, maxStackOuterRadius.value);
+  return maxProjectedRadiusValue.value / maxPhysicalRadius;
+});
 
 const exaggeratedXValues = computed(() => (
   trajectoryPoints.value
@@ -513,8 +444,15 @@ const tvdValues = computed(() => (
     .filter((value) => Number.isFinite(value))
 ));
 
-const casingDepthBounds = computed(() => (
-  resolveDepthBounds(casingRows.value, 'top', 'bottom')
+const projectedCasingTvdBounds = computed(() => (
+  resolveProjectedDepthBounds(
+    casingRows.value,
+    trajectoryPoints.value,
+    {
+      topKey: 'top',
+      bottomKey: 'bottom'
+    }
+  )
 ));
 
 const rawMinXValue = computed(() => (
@@ -524,7 +462,7 @@ const rawMaxXValue = computed(() => (
   exaggeratedXValues.value.length > 0 ? Math.max(...exaggeratedXValues.value) : 0
 ));
 const rawMinTvdValue = computed(() => {
-  const casingMin = casingDepthBounds.value?.min;
+  const casingMin = projectedCasingTvdBounds.value?.min;
   const trajectoryMin = tvdValues.value.length > 0 ? Math.min(...tvdValues.value) : null;
 
   if (Number.isFinite(casingMin) && Number.isFinite(trajectoryMin)) {
@@ -539,7 +477,7 @@ const rawMinTvdValue = computed(() => {
   return 0;
 });
 const rawMaxTvdValue = computed(() => {
-  const casingMax = casingDepthBounds.value?.max;
+  const casingMax = projectedCasingTvdBounds.value?.max;
   const trajectoryMax = tvdValues.value.length > 0 ? Math.max(...tvdValues.value) : null;
   if (Number.isFinite(casingMax) && Number.isFinite(trajectoryMax)) {
     return Math.max(casingMax, trajectoryMax);
@@ -549,19 +487,16 @@ const rawMaxTvdValue = computed(() => {
   return 1000;
 });
 
-const xPaddingValue = computed(() => (
-  resolveDirectionalHorizontalPadding({
-    maxProjectedRadius: maxProjectedRadiusValue.value,
-    hasTrajectoryDefinition: hasTrajectoryDefinition.value,
-    verticalEquivalentXHalf: verticalEquivalentXHalfValue.value
-  })
-));
-const yPaddingValue = computed(() => Math.max(10, maxProjectedRadiusValue.value * 1.5));
-
-const minXData = computed(() => rawMinXValue.value - xPaddingValue.value);
-const maxXData = computed(() => rawMaxXValue.value + xPaddingValue.value);
-const minTvdData = computed(() => rawMinTvdValue.value - yPaddingValue.value);
-const maxTvdData = computed(() => rawMaxTvdValue.value + yPaddingValue.value);
+const minXData = computed(() => rawMinXValue.value);
+const maxXData = computed(() => {
+  const maxValue = rawMaxXValue.value;
+  return maxValue > minXData.value ? maxValue : minXData.value + 1;
+});
+const minTvdData = computed(() => rawMinTvdValue.value);
+const maxTvdData = computed(() => {
+  const maxValue = rawMaxTvdValue.value;
+  return maxValue > minTvdData.value ? maxValue : minTvdData.value + 1;
+});
 
 const datumDepth = computed(() => {
   const parsed = parseOptionalNumber(props.config?.datumDepth);
@@ -582,8 +517,8 @@ const maxYData = computed(() => {
 const trajectorySignature = computed(() => {
   const trajectoryInputSignature = buildTrajectoryRowsSignature(trajectoryRows.value);
   if (!trajectoryInputSignature) return null;
-  const casingMin = Number(casingDepthBounds.value?.min);
-  const casingMax = Number(casingDepthBounds.value?.max);
+  const casingMin = Number(projectedCasingTvdBounds.value?.min);
+  const casingMax = Number(projectedCasingTvdBounds.value?.max);
   return [
     trajectoryInputSignature,
     Number.isFinite(casingMin) ? casingMin.toFixed(3) : '',
@@ -594,7 +529,20 @@ const trajectorySignature = computed(() => {
 const plotHeightValue = computed(() => Math.max(10, figHeightValue.value - margin.value.top - margin.value.bottom));
 const dataWidthValue = computed(() => Math.max(1, Math.abs(maxXData.value - minXData.value)));
 const dataHeightValue = computed(() => Math.max(1, Math.abs(maxYData.value - minYData.value)));
-const dataAspectRatioValue = computed(() => dataWidthValue.value / dataHeightValue.value);
+const centerlineDataAspectRatioValue = computed(() => dataWidthValue.value / dataHeightValue.value);
+const visualInsetPaddingValue = computed(() => (
+  resolveDirectionalVisualInsetPadding({
+    visualMaxRadiusPx: maxProjectedRadiusValue.value,
+    formationThicknessPx: visualSizingValue.value?.formationThicknessPx
+  })
+));
+const dataAspectRatioValue = computed(() => {
+  const plotHeight = plotHeightValue.value;
+  if (!Number.isFinite(plotHeight) || plotHeight <= 0) return 1;
+  const insetWidth = Number(visualInsetPaddingValue.value?.horizontal) || 0;
+  const centerlinePlotWidth = centerlineDataAspectRatioValue.value * plotHeight;
+  return (centerlinePlotWidth + (insetWidth * 2)) / plotHeight;
+});
 
 const canvasWidthMultiplierValue = computed(() => {
   const parsed = Number(props.config?.canvasWidthMultiplier);
@@ -603,10 +551,11 @@ const canvasWidthMultiplierValue = computed(() => {
 
 const svgWidthValue = computed(() => {
   if (lockAspectRatio.value) {
-    return resolveDirectionalSvgWidthFromHeightWithMargin(
+    return resolveDirectionalSvgWidthFromHeightWithInsets(
       figHeightValue.value,
-      dataAspectRatioValue.value,
-      margin.value
+      centerlineDataAspectRatioValue.value,
+      margin.value,
+      visualInsetPaddingValue.value
     );
   }
 
@@ -637,14 +586,22 @@ const displayScaleValue = computed(() => {
 });
 const displayWidthValue = computed(() => Math.round(svgWidthValue.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(figHeightValue.value * displayScaleValue.value));
+const plotInsetRangeValue = computed(() => (
+  resolveDirectionalPlotInsetRange(
+    svgWidthValue.value,
+    figHeightValue.value,
+    margin.value,
+    visualInsetPaddingValue.value
+  )
+));
 
 const xScale = computed(() => d3.scaleLinear()
   .domain([minXData.value, maxXData.value])
-  .range([margin.value.left, margin.value.left + plotWidthValue.value]));
+  .range([plotInsetRangeValue.value.left, plotInsetRangeValue.value.right]));
 
 const yScale = computed(() => d3.scaleLinear()
   .domain([minYData.value, maxYData.value])
-  .range([margin.value.top, margin.value.top + plotHeightValue.value]));
+  .range([plotInsetRangeValue.value.top, plotInsetRangeValue.value.bottom]));
 
 const directionalProjector = computed(() => (
   buildDirectionalProjector(
@@ -1458,11 +1415,6 @@ defineExpose({
       preserveAspectRatio="xMidYMid meet"
       @click="handleCanvasBackgroundClick"
     >
-      <SurfaceFlowBand
-        :surface-layout="surfaceLayoutModel"
-        :surface-transfers="surfaceTransferRows"
-        :width="svgWidthValue"
-      />
       <defs v-if="isMagnifierEnabled">
         <clipPath :id="magnifierClipPathId">
           <rect
@@ -1498,6 +1450,7 @@ defineExpose({
         :casing-data="casingRows"
         :x-scale="xScale"
         :y-scale="yScale"
+        :visual-sizing="visualSizingValue"
         :diameter-scale="diameterScaleValue"
         :color-palette="props.config?.colorPalette || 'Tableau 10'"
         :show-cement="props.config?.showCement !== false"
@@ -1525,6 +1478,7 @@ defineExpose({
         :intervals="directionalIntervals"
         :topology-result="props.topologyResult"
         :projector="directionalProjector"
+        :visual-sizing="visualSizingValue"
         :diameter-scale="diameterScaleValue"
         :show-active-flow="props.topologyOverlayOptions?.showActiveFlow !== false"
         :show-min-cost-path="props.topologyOverlayOptions?.showMinCostPath !== false"
@@ -1536,6 +1490,7 @@ defineExpose({
         :equipment="equipment"
         :projector="directionalProjector"
         :total-md="totalMDValue"
+        :visual-sizing="visualSizingValue"
         :diameter-scale="diameterScaleValue"
         @select-equipment="handleSelectEquipment"
         @hover-equipment="handleHoverEquipment"
@@ -1550,6 +1505,7 @@ defineExpose({
         :x-scale="xScale"
         :y-scale="yScale"
         :total-md="totalMDValue"
+        :visual-sizing="visualSizingValue"
         :diameter-scale="diameterScaleValue"
         :max-projected-radius="maxProjectedRadiusValue"
         :x-exaggeration="xExaggerationValue"
@@ -1576,6 +1532,7 @@ defineExpose({
         :min-y-data="minYData"
         :max-y-data="maxYData"
         :total-md="totalMDValue"
+        :visual-sizing="visualSizingValue"
         :diameter-scale="diameterScaleValue"
         :max-projected-radius="maxProjectedRadiusValue"
         :x-exaggeration="xExaggerationValue"
@@ -1658,6 +1615,7 @@ defineExpose({
         />
       </g>
       </g>
+
 
       <g
         v-if="isMagnifierEnabled"

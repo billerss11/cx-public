@@ -40,4 +40,18 @@ describe('DirectionalSchematicCanvas viewport auto-fit contract', () => {
     expect(source).toContain('const containRatio = Math.min(widthRatio, heightRatio);');
     expect(source).toContain('return containRatio;');
   });
+
+  it('derives directional layout from centerline bounds first and then applies visual inset padding for widened geometry', () => {
+    const source = readDirectionalSchematicCanvasSource();
+
+    expect(source).toContain('const visualSizingValue = computed(() => (');
+    expect(source).toContain('buildDirectionalVisualSizing({');
+    expect(source).toContain('const visualInsetPaddingValue = computed(() => (');
+    expect(source).toContain('resolveDirectionalVisualInsetPadding({');
+    expect(source).toContain('resolveDirectionalSvgWidthFromHeightWithInsets(');
+    expect(source).toContain('const plotInsetRangeValue = computed(() => (');
+    expect(source).toContain('resolveDirectionalPlotInsetRange(');
+    expect(source).toContain(':left-visual-inset-px="visualInsetPaddingValue.left"');
+    expect(source).toContain(':right-visual-inset-px="visualInsetPaddingValue.right"');
+  });
 });

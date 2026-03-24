@@ -11,6 +11,7 @@ const downloadPNG = (scale = 3) => delegate('downloadPNG', scale);
 const downloadJPEG = (quality = 0.95) => delegate('downloadJPEG', quality);
 const downloadWebP = (quality = 0.9) => delegate('downloadWebP', quality);
 const downloadSVG = () => delegate('downloadSVG');
+const exportReportPdf = (options = {}) => delegate('exportReportPdf', options);
 const saveProjectFile = () => delegate('saveProjectFile');
 const saveProjectFileAs = () => delegate('saveProjectFileAs');
 const saveActiveWellProjectFile = () => delegate('saveActiveWellProjectFile');
@@ -20,6 +21,7 @@ export {
     downloadExcelTemplate,
     downloadJPEG,
     downloadPNG,
+    exportReportPdf,
     downloadSVG,
     downloadWebP,
     saveActiveWellProjectFile,

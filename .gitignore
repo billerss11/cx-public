@@ -63,4 +63,11 @@ venv.bak/
 # OS
 .DS_Store
 Thumbs.db
-backend/python/src/cx_backend/__pycache__/__init__.cpython-310.pyc
+
+# PyInstaller build output
+backend/python/packaging/build/
+backend/python/packaging/dist/
+
+# Python cache
+backend/python/src/**/__pycache__/
+backend/python/.pytest_cache/

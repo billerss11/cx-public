@@ -1,81 +1,36 @@
 import { createRowId } from '@/utils/rowIdentity.js';
 import { sortSurfaceChannelKeys, toSurfaceChannelLabel } from '@/surface/model.js';
 
-function createBarrierItem(label) {
+function createComponent(channelKey, sequence, componentType, label, options = {}) {
     return {
-        rowId: createRowId('surface-path-item'),
-        itemType: 'barrier',
-        label,
-        state: {
-            actuationState: 'open',
-            integrityStatus: 'intact'
-        },
-        show: true
-    };
-}
-
-function createPath(channelKey, label, items = []) {
-    return {
-        rowId: createRowId('surface-path'),
+        rowId: createRowId('surface-component'),
         channelKey,
+        sequence,
+        componentType,
         label,
-        items,
-        show: true
-    };
-}
-
-function createOutlet(channelKey, label, kind, pathId, anchorItemId = null) {
-    return {
-        rowId: createRowId('surface-outlet'),
-        outletKey: String(label ?? '')
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-'),
-        label,
-        channelKey,
-        kind,
-        pathId,
-        anchorItemId,
+        status: options.status ?? null,
+        connectedTo: options.connectedTo ?? null,
+        crossoverDirection: options.crossoverDirection ?? null,
         show: true
     };
 }
 
 function buildStandardProductionTree(availableChannels = []) {
     const sortedChannels = sortSurfaceChannelKeys(availableChannels);
-    const surfacePaths = [];
-    const surfaceOutlets = [];
+    const components = [];
 
     if (sortedChannels.includes('TUBING_INNER')) {
-        const lowerMasterValve = createBarrierItem('Lower Master Valve');
-        const upperMasterValve = createBarrierItem('Upper Master Valve');
-        const tubingPath = createPath('TUBING_INNER', 'Tubing Path', [
-            lowerMasterValve,
-            upperMasterValve
-        ]);
-        surfacePaths.push(tubingPath);
-        surfaceOutlets.push(createOutlet(
-            'TUBING_INNER',
-            'Production Outlet',
-            'production',
-            tubingPath.rowId,
-            upperMasterValve.rowId
-        ));
+        components.push(createComponent('TUBING_INNER', 1, 'valve', 'Lower Master Valve', { status: 'open' }));
+        components.push(createComponent('TUBING_INNER', 2, 'valve', 'Upper Master Valve', { status: 'open' }));
+        components.push(createComponent('TUBING_INNER', 3, 'outlet', 'Production Outlet'));
     }
 
     sortedChannels
         .filter((channelKey) => channelKey !== 'TUBING_INNER')
         .forEach((channelKey) => {
             const channelLabel = toSurfaceChannelLabel(channelKey);
-            const annulusValve = createBarrierItem(`${channelLabel} Valve`);
-            const annulusPath = createPath(channelKey, `${channelLabel} Path`, [annulusValve]);
-            surfacePaths.push(annulusPath);
-            surfaceOutlets.push(createOutlet(
-                channelKey,
-                `${channelLabel} Outlet`,
-                'annulus',
-                annulusPath.rowId,
-                annulusValve.rowId
-            ));
+            components.push(createComponent(channelKey, 1, 'valve', `${channelLabel} Valve`, { status: 'closed' }));
+            components.push(createComponent(channelKey, 2, 'outlet', `${channelLabel} Outlet`));
         });
 
     return {
@@ -83,10 +38,12 @@ function buildStandardProductionTree(availableChannels = []) {
             templateKey: 'standard-production-tree',
             label: 'Standard Production Tree'
         },
-        surfacePaths,
-        surfaceTransfers: [],
-        surfaceOutlets
+        surfaceComponents: components
     };
+}
+
+export function buildDefaultSurfaceComponents(availableChannels = []) {
+    return buildStandardProductionTree(availableChannels).surfaceComponents;
 }
 
 export function createSurfaceModelFromTemplate(options = {}) {
@@ -101,12 +58,11 @@ export function createSurfaceModelFromTemplate(options = {}) {
             templateKey: templateKey || 'custom',
             label: 'Custom Surface Model'
         },
-        surfacePaths: [],
-        surfaceTransfers: [],
-        surfaceOutlets: []
+        surfaceComponents: []
     };
 }
 
 export default {
-    createSurfaceModelFromTemplate
+    createSurfaceModelFromTemplate,
+    buildDefaultSurfaceComponents
 };

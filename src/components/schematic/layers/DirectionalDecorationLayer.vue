@@ -7,7 +7,12 @@ import {
   getStackAtDepth as getPhysicsStackAtDepth
 } from '@/composables/usePhysics.js';
 import { clamp } from '@/utils/general.js';
-import { resolvePipeWallGeometry } from '@/utils/pipeWallGeometry.js';
+import {
+  resolveDirectionalLayerVisualRadii,
+  resolveDirectionalMaxVisualRadiusPx,
+  resolveDirectionalPipeVisualGeometry,
+  resolveDirectionalVisualRadiusForDiameter
+} from '@/utils/directionalSizing.js';
 import {
   buildPipeReferenceMap,
   normalizePipeHostType,
@@ -61,6 +66,10 @@ const props = defineProps({
   totalMd: {
     type: Number,
     default: 0
+  },
+  visualSizing: {
+    type: Object,
+    default: null
   },
   diameterScale: {
     type: Number,
@@ -126,7 +135,7 @@ const frameContext = computed(() => ({
   project: project.value,
   totalMD: Number(props.totalMd),
   diameterScale: Number(props.diameterScale),
-  maxProjectedRadius: Number(props.maxProjectedRadius)
+  maxProjectedRadius: resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius))
 }));
 
 const resolvedPhysicsContext = computed(() => {
@@ -155,9 +164,16 @@ function normalizePipeType(value) {
   return null;
 }
 
-function resolvePipeWallThickness(row) {
-  const wallGeometry = resolvePipeWallGeometry(row, Number(props.diameterScale));
-  return Number.isFinite(wallGeometry?.wallThickness) ? wallGeometry.wallThickness : 0;
+function resolvePipeVisualGeometry(row, pipeType = null) {
+  if (!row || typeof row !== 'object') return null;
+  return resolveDirectionalPipeVisualGeometry(
+    {
+      ...row,
+      pipeType: pipeType ?? row?.pipeType ?? 'casing'
+    },
+    props.visualSizing,
+    Number(props.diameterScale)
+  );
 }
 
 function resolveCrossoverColor(pipeType) {
@@ -209,11 +225,16 @@ const crossoverShapes = computed(() => {
     const lowerRow = rowMap?.get(lowerIndex) ?? null;
     if (!upperRow || !lowerRow) return;
 
-    const upperOuterRadius = (Number(upperRow?.od) * Number(props.diameterScale)) / 2;
-    const lowerOuterRadius = (Number(lowerRow?.od) * Number(props.diameterScale)) / 2;
+    const upperGeometry = resolvePipeVisualGeometry(upperRow, pipeType);
+    const lowerGeometry = resolvePipeVisualGeometry(lowerRow, pipeType);
+    const upperOuterRadius = Number(upperGeometry?.outerRadius);
+    const lowerOuterRadius = Number(lowerGeometry?.outerRadius);
     if (!Number.isFinite(upperOuterRadius) || !Number.isFinite(lowerOuterRadius)) return;
 
-    const wallThickness = Math.min(resolvePipeWallThickness(upperRow), resolvePipeWallThickness(lowerRow));
+    const wallThickness = Math.min(
+      Number(upperGeometry?.wallThickness) || 0,
+      Number(lowerGeometry?.wallThickness) || 0
+    );
     if (!Number.isFinite(wallThickness) || wallThickness <= DIRECTIONAL_EPSILON) return;
 
     const topMd = toFiniteNumber(connection?.depthTop, null);
@@ -268,11 +289,6 @@ const pipeReferenceMap = computed(() => {
   return buildPipeReferenceMap(context?.casingRows, context?.tubingRows);
 });
 
-function resolveScaledWallThickness(row, diameterScale) {
-  const wallGeometry = resolvePipeWallGeometry(row, diameterScale);
-  return Number.isFinite(wallGeometry?.wallThickness) ? wallGeometry.wallThickness : 0;
-}
-
 function resolveMarkerSideSigns(marker) {
   const side = normalizeMarkerSide(marker?.side);
   const sides = [];
@@ -312,9 +328,6 @@ function buildMarkerWallGeometry(outerRadius, innerRadius = null) {
 
 function resolveMarkerWallGeometryAtMD(marker, md) {
   const stack = getStackAtMD(md);
-  const diameterScale = Number.isFinite(Number(props.diameterScale)) && Number(props.diameterScale) > 0
-    ? Number(props.diameterScale)
-    : 1;
   const hostType = normalizePipeHostType(marker?.attachToHostType, PIPE_HOST_TYPE_CASING);
   const hostPipeType = resolveHostPipeType(hostType);
   const resolvedHost = resolvePipeHostReference(marker?.attachToRow, pipeReferenceMap.value, {
@@ -331,14 +344,15 @@ function resolveMarkerWallGeometryAtMD(marker, md) {
       Number.isFinite(Number(layer?.outerRadius))
     ));
     if (attachedLayer) {
+      const visualRadii = resolveDirectionalLayerVisualRadii(attachedLayer, props.visualSizing, Number(props.diameterScale));
       return buildMarkerWallGeometry(
-        Number(attachedLayer.outerRadius) * diameterScale,
-        Number(attachedLayer.innerRadius) * diameterScale
+        Number(visualRadii?.outerRadius),
+        Number(visualRadii?.innerRadius)
       );
     }
 
     const attachRow = pipeRowsByType.value?.[hostPipeType]?.get(attachIndex) ?? null;
-    const attachWallGeometry = resolvePipeWallGeometry(attachRow, diameterScale);
+    const attachWallGeometry = resolvePipeVisualGeometry(attachRow, hostPipeType);
     if (attachWallGeometry) {
       return buildMarkerWallGeometry(attachWallGeometry.outerRadius, attachWallGeometry.innerRadius);
     }
@@ -353,9 +367,10 @@ function resolveMarkerWallGeometryAtMD(marker, md) {
     .sort((left, right) => Number(left?.outerRadius) - Number(right?.outerRadius));
   if (activeHostLayers.length > 0) {
     const layer = activeHostLayers[0];
+    const visualRadii = resolveDirectionalLayerVisualRadii(layer, props.visualSizing, Number(props.diameterScale));
     return buildMarkerWallGeometry(
-      Number(layer?.outerRadius) * diameterScale,
-      Number(layer?.innerRadius) * diameterScale
+      Number(visualRadii?.outerRadius),
+      Number(visualRadii?.innerRadius)
     );
   }
 
@@ -368,7 +383,7 @@ function resolveMarkerWallGeometryAtMD(marker, md) {
     ))
     .sort((left, right) => Number(left?.od) - Number(right?.od));
   if (activeHostRows.length > 0) {
-    const rowWallGeometry = resolvePipeWallGeometry(activeHostRows[0], diameterScale);
+    const rowWallGeometry = resolvePipeVisualGeometry(activeHostRows[0], hostPipeType);
     if (rowWallGeometry) {
       return buildMarkerWallGeometry(rowWallGeometry.outerRadius, rowWallGeometry.innerRadius);
     }
@@ -379,13 +394,14 @@ function resolveMarkerWallGeometryAtMD(marker, md) {
     .sort((left, right) => Number(left?.outerRadius) - Number(right?.outerRadius));
   if (activeSteelLayers.length > 0) {
     const layer = activeSteelLayers[0];
+    const visualRadii = resolveDirectionalLayerVisualRadii(layer, props.visualSizing, Number(props.diameterScale));
     return buildMarkerWallGeometry(
-      Number(layer?.outerRadius) * diameterScale,
-      Number(layer?.innerRadius) * diameterScale
+      Number(visualRadii?.outerRadius),
+      Number(visualRadii?.innerRadius)
     );
   }
 
-  const maxProjectedRadius = Number(props.maxProjectedRadius);
+  const maxProjectedRadius = resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius));
   return maxProjectedRadius > DIRECTIONAL_EPSILON
     ? buildMarkerWallGeometry(maxProjectedRadius * 0.7)
     : null;
@@ -505,8 +521,14 @@ const linerHangers = computed(() => {
     const parentInnerDiameter = Number(barrier?.parentInnerDiameter);
     if (!Number.isFinite(parentInnerDiameter) || parentInnerDiameter <= Number(row?.od)) return;
 
-    const childHalfWidth = (Number(row.od) * Number(props.diameterScale)) / 2;
-    const parentHalfWidth = (parentInnerDiameter * Number(props.diameterScale)) / 2;
+    const childHalfWidth = Number(resolvePipeVisualGeometry(row, 'casing')?.outerRadius);
+    const parentHalfWidth = Number(
+      resolveDirectionalVisualRadiusForDiameter(
+        parentInnerDiameter,
+        props.visualSizing,
+        Number(props.diameterScale)
+      )
+    );
     if (!Number.isFinite(childHalfWidth) || !Number.isFinite(parentHalfWidth)) return;
     if (parentHalfWidth <= childHalfWidth + DIRECTIONAL_EPSILON) return;
 
@@ -552,10 +574,11 @@ const floatShoes = computed(() => {
     if (isOpenHoleRow(row)) return;
     if (!Number.isFinite(row?.top) || !Number.isFinite(row?.bottom) || row.bottom <= row.top) return;
 
-    const wallThickness = resolveScaledWallThickness(row, Number(props.diameterScale));
+    const wallGeometry = resolvePipeVisualGeometry(row, 'casing');
+    const wallThickness = Number(wallGeometry?.wallThickness);
     if (!Number.isFinite(wallThickness) || wallThickness <= DIRECTIONAL_EPSILON) return;
 
-    const halfWidth = (Number(row.od) * Number(props.diameterScale)) / 2;
+    const halfWidth = Number(wallGeometry?.outerRadius);
     if (!Number.isFinite(halfWidth) || halfWidth <= DIRECTIONAL_EPSILON) return;
 
     const innerHalf = Math.max(halfWidth - wallThickness, DIRECTIONAL_EPSILON);

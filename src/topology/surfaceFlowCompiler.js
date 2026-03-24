@@ -10,6 +10,7 @@ import {
     EDGE_KIND_TERMINATION,
     TOPOLOGY_VOLUME_KINDS
 } from '@/topology/topologyTypes.js';
+import { sortSurfaceChannelKeys } from '@/surface/model.js';
 
 const SURFACE_EDGE_KIND = 'surface';
 const SURFACE_ROUTE_STATUS_AUTHORED = 'authored';
@@ -36,12 +37,12 @@ function normalizeDirection(value, fallback = 'bidirectional') {
     return fallback;
 }
 
-function createSurfacePathNodeId(pathId, itemId) {
-    return `node:SURFACE_PATH_ITEM:${pathId}:${itemId}`;
+function createSurfaceComponentNodeId(rowId) {
+    return `node:SURFACE_COMPONENT:${rowId}`;
 }
 
-function createSurfaceOutletNodeId(outletId) {
-    return `node:SURFACE_OUTLET:${outletId}`;
+function createSurfaceOutletNodeId(rowId) {
+    return `node:SURFACE_OUTLET:${rowId}`;
 }
 
 function appendEdge(edges, edgeReasons, edge) {
@@ -64,30 +65,15 @@ function createSurfaceSummaryEntry(channelKey, routeStatus = SURFACE_ROUTE_STATU
     };
 }
 
-function resolveBarrierState(state = {}) {
-    const actuationState = String(state?.actuationState ?? '').trim().toLowerCase();
-    const integrityStatus = String(state?.integrityStatus ?? '').trim().toLowerCase();
-    const leakedOpen = integrityStatus === 'leaking' || integrityStatus === 'failed_open';
-    const blocked = integrityStatus === 'failed_closed' || actuationState === 'closed';
-
-    if (leakedOpen) {
-        return {
-            cost: 0,
-            state: 'open'
-        };
+function resolveComponentBarrierState(status) {
+    const normalized = String(status ?? '').trim().toLowerCase();
+    if (normalized === 'leaking' || normalized === 'failed_open') {
+        return { cost: 0, state: 'open' };
     }
-
-    if (blocked) {
-        return {
-            cost: 1,
-            state: 'closed_failable'
-        };
+    if (normalized === 'closed' || normalized === 'failed_closed') {
+        return { cost: 1, state: 'closed_failable' };
     }
-
-    return {
-        cost: 0,
-        state: 'open'
-    };
+    return { cost: 0, state: 'open' };
 }
 
 function buildTopIntervalNodeByKind(intervals = [], intervalNodeByKind = new Map()) {
@@ -115,31 +101,28 @@ function createSurfaceWarning(message, options = {}) {
     });
 }
 
-function collectVisiblePaths(rows = []) {
-    return toSafeArray(rows)
+function groupComponentsByChannel(components = []) {
+    const byChannel = new Map();
+    toSafeArray(components)
         .filter((row) => row?.show !== false)
-        .filter((row) => toToken(row?.rowId) && toToken(row?.channelKey));
-}
-
-function collectVisibleTransfers(rows = []) {
-    return toSafeArray(rows)
-        .filter((row) => row?.show !== false)
-        .filter((row) => toToken(row?.rowId) && toToken(row?.fromChannelKey) && toToken(row?.toChannelKey));
-}
-
-function collectVisibleOutlets(rows = []) {
-    return toSafeArray(rows)
-        .filter((row) => row?.show !== false)
-        .filter((row) => toToken(row?.rowId) && toToken(row?.channelKey));
+        .filter((row) => toToken(row?.rowId) && toToken(row?.channelKey))
+        .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+        .forEach((row) => {
+            const channelKey = toToken(row.channelKey);
+            if (!byChannel.has(channelKey)) {
+                byChannel.set(channelKey, []);
+            }
+            byChannel.get(channelKey).push(row);
+        });
+    return byChannel;
 }
 
 export function buildSurfaceCommunicationTopology(stateSnapshot = {}, intervals = [], intervalNodeByKind = new Map()) {
     const topNodeByKind = buildTopIntervalNodeByKind(intervals, intervalNodeByKind);
     const summaryByChannel = buildRouteSummaryMap(topNodeByKind);
-    const visiblePaths = collectVisiblePaths(stateSnapshot?.surfacePaths);
-    const visibleTransfers = collectVisibleTransfers(stateSnapshot?.surfaceTransfers);
-    const visibleOutlets = collectVisibleOutlets(stateSnapshot?.surfaceOutlets);
-    const hasAuthoredSurface = visiblePaths.length > 0 || visibleTransfers.length > 0 || visibleOutlets.length > 0;
+
+    const surfaceComponents = toSafeArray(stateSnapshot?.surfaceComponents);
+    const hasAuthoredSurface = surfaceComponents.some((row) => row?.show !== false);
 
     if (!hasAuthoredSurface) {
         const fallback = buildTerminationEdges(intervals, intervalNodeByKind);
@@ -167,24 +150,15 @@ export function buildSurfaceCommunicationTopology(stateSnapshot = {}, intervals 
     const edges = [];
     const edgeReasons = {};
     const validationWarnings = [];
-    const pathByChannel = new Map();
+    const componentsByChannel = groupComponentsByChannel(surfaceComponents);
     const anchorNodeIdByChannel = new Map();
     const outletLabelByNodeId = new Map();
     const routeHasOutletByChannel = new Map();
     const routeHasReachableStructureByChannel = new Map();
+    const authoredChannels = new Set();
 
-    visiblePaths.forEach((path) => {
-        const channelKey = toToken(path.channelKey);
-        if (!channelKey || pathByChannel.has(channelKey)) return;
-        pathByChannel.set(channelKey, path);
-        if (!summaryByChannel[channelKey]) {
-            summaryByChannel[channelKey] = createSurfaceSummaryEntry(channelKey, SURFACE_ROUTE_STATUS_AUTHORED);
-        } else {
-            summaryByChannel[channelKey].routeStatus = SURFACE_ROUTE_STATUS_AUTHORED;
-        }
-    });
-
-    pathByChannel.forEach((path, channelKey) => {
+    componentsByChannel.forEach((channelComponents, channelKey) => {
+        authoredChannels.add(channelKey);
         const rootNode = topNodeByKind.get(channelKey) ?? null;
         const summaryEntry = summaryByChannel[channelKey] ?? createSurfaceSummaryEntry(channelKey, SURFACE_ROUTE_STATUS_AUTHORED);
         summaryEntry.routeStatus = SURFACE_ROUTE_STATUS_AUTHORED;
@@ -194,7 +168,7 @@ export function buildSurfaceCommunicationTopology(stateSnapshot = {}, intervals 
             summaryEntry.warningMessages.push('This surface path does not match a modeled channel at the top of the well.');
             validationWarnings.push(createSurfaceWarning(
                 'This surface path does not match a modeled channel at the top of the well.',
-                { rowId: toToken(path?.rowId) ?? channelKey }
+                { rowId: channelKey }
             ));
             return;
         }
@@ -203,190 +177,153 @@ export function buildSurfaceCommunicationTopology(stateSnapshot = {}, intervals 
         anchorNodeIdByChannel.set(channelKey, previousNodeId);
         routeHasReachableStructureByChannel.set(channelKey, false);
 
-        toSafeArray(path?.items)
-            .filter((item) => item?.show !== false)
-            .forEach((item) => {
-                const itemId = toToken(item?.rowId);
-                if (!itemId) return;
-                const itemNodeId = createSurfacePathNodeId(path.rowId, itemId);
+        channelComponents.forEach((component) => {
+            const rowId = toToken(component.rowId);
+            if (!rowId) return;
+
+            const componentType = toToken(component.componentType) ?? 'valve';
+
+            if (componentType === 'valve') {
+                const nodeId = createSurfaceComponentNodeId(rowId);
                 nodes.push({
-                    nodeId: itemNodeId,
+                    nodeId,
                     kind: 'SURFACE_PATH_ITEM',
                     depthTop: null,
                     depthBottom: null,
                     volumeKey: channelKey,
                     meta: {
-                        pathId: path.rowId,
-                        itemId,
-                        itemType: toToken(item?.itemType) ?? 'continuation',
-                        label: toToken(item?.label) ?? itemId
+                        itemId: rowId,
+                        itemType: 'barrier',
+                        label: toToken(component.label) ?? rowId
                     }
                 });
 
-                const barrierState = resolveBarrierState(item?.state);
-                const edgeId = createEdgeId(SURFACE_EDGE_KIND, previousNodeId, itemNodeId, itemId);
+                const barrierState = resolveComponentBarrierState(component.status);
+                const edgeId = createEdgeId(SURFACE_EDGE_KIND, previousNodeId, nodeId, rowId);
                 appendEdge(edges, edgeReasons, {
                     edgeId,
                     from: previousNodeId,
-                    to: itemNodeId,
+                    to: nodeId,
                     kind: SURFACE_EDGE_KIND,
                     direction: 'forward',
                     cost: barrierState.cost,
                     state: barrierState.state,
-                    meta: {
-                        channelKey,
-                        pathId: path.rowId,
-                        itemId
-                    },
+                    meta: { channelKey, itemId: rowId },
                     reason: {
-                        ruleId: item?.itemType === 'barrier'
-                            ? 'surface-path-barrier'
-                            : 'surface-path-continuation',
-                        summary: `${toToken(item?.label) ?? 'Surface item'} carries ${channelKey} toward surface outlet.`,
-                        details: {
-                            channelKey,
-                            pathId: path.rowId,
-                            itemId
-                        }
+                        ruleId: 'surface-path-barrier',
+                        summary: `${toToken(component.label) ?? 'Surface valve'} carries ${channelKey} toward surface outlet.`,
+                        details: { channelKey, itemId: rowId }
                     }
                 });
-                previousNodeId = itemNodeId;
+                previousNodeId = nodeId;
                 anchorNodeIdByChannel.set(channelKey, previousNodeId);
                 routeHasReachableStructureByChannel.set(channelKey, true);
+                summaryEntry.barrierLabels.push(toToken(component.label) ?? rowId);
+                if (barrierState.cost === 1) {
+                    summaryEntry.blockingBarrierLabels.push(toToken(component.label) ?? rowId);
+                }
+            }
 
-                if (item?.itemType === 'barrier') {
-                    summaryEntry.barrierLabels.push(toToken(item?.label) ?? itemId);
-                    if (barrierState.cost === 1) {
-                        summaryEntry.blockingBarrierLabels.push(toToken(item?.label) ?? itemId);
+            if (componentType === 'outlet') {
+                const outletNodeId = createSurfaceOutletNodeId(rowId);
+                nodes.push({
+                    nodeId: outletNodeId,
+                    kind: 'SURFACE_OUTLET',
+                    depthTop: null,
+                    depthBottom: null,
+                    volumeKey: channelKey,
+                    meta: {
+                        outletId: rowId,
+                        label: toToken(component.label) ?? rowId,
+                        channelKey
                     }
+                });
+                outletLabelByNodeId.set(outletNodeId, toToken(component.label) ?? rowId);
+                routeHasOutletByChannel.set(channelKey, true);
+
+                const routeEdgeId = createEdgeId(SURFACE_EDGE_KIND, previousNodeId, outletNodeId, rowId);
+                appendEdge(edges, edgeReasons, {
+                    edgeId: routeEdgeId,
+                    from: previousNodeId,
+                    to: outletNodeId,
+                    kind: SURFACE_EDGE_KIND,
+                    direction: 'forward',
+                    cost: 0,
+                    state: 'open',
+                    meta: { channelKey, outletId: rowId },
+                    reason: {
+                        ruleId: 'surface-path-outlet',
+                        summary: `${channelKey} reaches ${toToken(component.label) ?? rowId}.`,
+                        details: { channelKey, outletId: rowId }
+                    }
+                });
+
+                const sinkEdgeId = createEdgeId(EDGE_KIND_TERMINATION, outletNodeId, 'node:SURFACE', rowId);
+                appendEdge(edges, edgeReasons, {
+                    edgeId: sinkEdgeId,
+                    from: outletNodeId,
+                    to: 'node:SURFACE',
+                    kind: EDGE_KIND_TERMINATION,
+                    direction: 'forward',
+                    cost: 0,
+                    state: 'open',
+                    meta: {
+                        channelKey,
+                        outletId: rowId,
+                        outletLabel: toToken(component.label) ?? rowId
+                    },
+                    reason: {
+                        ruleId: 'surface-outlet-termination',
+                        summary: `${toToken(component.label) ?? rowId} connects to surface sink.`,
+                        details: { channelKey, outletId: rowId }
+                    }
+                });
+                previousNodeId = outletNodeId;
+                anchorNodeIdByChannel.set(channelKey, previousNodeId);
+            }
+
+            if (componentType === 'crossover') {
+                const toChannelKey = toToken(component.connectedTo);
+                if (!toChannelKey) return;
+
+                const fromNodeId = anchorNodeIdByChannel.get(channelKey) ?? topNodeByKind.get(channelKey)?.nodeId ?? null;
+                const toNodeId = anchorNodeIdByChannel.get(toChannelKey) ?? topNodeByKind.get(toChannelKey)?.nodeId ?? null;
+                if (!fromNodeId || !toNodeId) {
+                    validationWarnings.push(createSurfaceWarning(
+                        'This surface crossover does not connect to modeled source and target channels.',
+                        { rowId }
+                    ));
+                    return;
                 }
-            });
+
+                const edgeId = createEdgeId(SURFACE_EDGE_KIND, fromNodeId, toNodeId, rowId);
+                appendEdge(edges, edgeReasons, {
+                    edgeId,
+                    from: fromNodeId,
+                    to: toNodeId,
+                    kind: SURFACE_EDGE_KIND,
+                    direction: normalizeDirection(component.crossoverDirection, 'bidirectional'),
+                    cost: 0,
+                    state: 'open',
+                    meta: {
+                        fromChannelKey: channelKey,
+                        toChannelKey,
+                        transferId: rowId,
+                        transferType: 'crossover'
+                    },
+                    reason: {
+                        ruleId: 'surface-channel-transfer',
+                        summary: `${toToken(component.label) ?? rowId} allows communication from ${channelKey} to ${toChannelKey}.`,
+                        details: { fromChannelKey: channelKey, toChannelKey, transferId: rowId }
+                    }
+                });
+
+                summaryEntry.transferLabels.push(toToken(component.label) ?? rowId);
+            }
+        });
     });
 
-    visibleOutlets.forEach((outlet) => {
-        const channelKey = toToken(outlet?.channelKey);
-        const path = pathByChannel.get(channelKey) ?? null;
-        const summaryEntry = summaryByChannel[channelKey] ?? null;
-        if (!path || !summaryEntry) return;
-
-        const anchorNodeId = toToken(outlet?.anchorItemId)
-            ? createSurfacePathNodeId(path.rowId, outlet.anchorItemId)
-            : (anchorNodeIdByChannel.get(channelKey) ?? null);
-        if (!anchorNodeId) return;
-
-        const outletNodeId = createSurfaceOutletNodeId(outlet.rowId);
-        nodes.push({
-            nodeId: outletNodeId,
-            kind: 'SURFACE_OUTLET',
-            depthTop: null,
-            depthBottom: null,
-            volumeKey: channelKey,
-            meta: {
-                outletId: outlet.rowId,
-                outletKey: toToken(outlet?.outletKey),
-                label: toToken(outlet?.label) ?? outlet.rowId,
-                channelKey
-            }
-        });
-        outletLabelByNodeId.set(outletNodeId, toToken(outlet?.label) ?? outlet.rowId);
-        routeHasOutletByChannel.set(channelKey, true);
-
-        const routeEdgeId = createEdgeId(SURFACE_EDGE_KIND, anchorNodeId, outletNodeId, outlet.rowId);
-        appendEdge(edges, edgeReasons, {
-            edgeId: routeEdgeId,
-            from: anchorNodeId,
-            to: outletNodeId,
-            kind: SURFACE_EDGE_KIND,
-            direction: 'forward',
-            cost: 0,
-            state: 'open',
-            meta: {
-                channelKey,
-                outletId: outlet.rowId
-            },
-            reason: {
-                ruleId: 'surface-path-outlet',
-                summary: `${channelKey} reaches ${toToken(outlet?.label) ?? outlet.rowId}.`,
-                details: {
-                    channelKey,
-                    outletId: outlet.rowId
-                }
-            }
-        });
-
-        const sinkEdgeId = createEdgeId(EDGE_KIND_TERMINATION, outletNodeId, 'node:SURFACE', outlet.rowId);
-        appendEdge(edges, edgeReasons, {
-            edgeId: sinkEdgeId,
-            from: outletNodeId,
-            to: 'node:SURFACE',
-            kind: EDGE_KIND_TERMINATION,
-            direction: 'forward',
-            cost: 0,
-            state: 'open',
-            meta: {
-                channelKey,
-                outletId: outlet.rowId,
-                outletLabel: toToken(outlet?.label) ?? outlet.rowId
-            },
-            reason: {
-                ruleId: 'surface-outlet-termination',
-                summary: `${toToken(outlet?.label) ?? outlet.rowId} connects to surface sink.`,
-                details: {
-                    channelKey,
-                    outletId: outlet.rowId
-                }
-            }
-        });
-    });
-
-    visibleTransfers.forEach((transfer) => {
-        const fromChannelKey = toToken(transfer?.fromChannelKey);
-        const toChannelKey = toToken(transfer?.toChannelKey);
-        const fromNodeId = anchorNodeIdByChannel.get(fromChannelKey) ?? topNodeByKind.get(fromChannelKey)?.nodeId ?? null;
-        const toNodeId = anchorNodeIdByChannel.get(toChannelKey) ?? topNodeByKind.get(toChannelKey)?.nodeId ?? null;
-        if (!fromNodeId || !toNodeId) {
-            validationWarnings.push(createSurfaceWarning(
-                'This surface transfer does not connect to modeled source and target channels.',
-                { rowId: toToken(transfer?.rowId) ?? undefined }
-            ));
-            return;
-        }
-
-        const transferState = resolveBarrierState(transfer?.state);
-        const edgeId = createEdgeId(SURFACE_EDGE_KIND, fromNodeId, toNodeId, transfer.rowId);
-        appendEdge(edges, edgeReasons, {
-            edgeId,
-            from: fromNodeId,
-            to: toNodeId,
-            kind: SURFACE_EDGE_KIND,
-            direction: normalizeDirection(transfer?.direction, 'bidirectional'),
-            cost: transfer?.transferType === 'leak' && !transfer?.state
-                ? 0
-                : transferState.cost,
-            state: transferState.state,
-            meta: {
-                fromChannelKey,
-                toChannelKey,
-                transferId: transfer.rowId,
-                transferType: toToken(transfer?.transferType)
-            },
-            reason: {
-                ruleId: 'surface-channel-transfer',
-                summary: `${toToken(transfer?.label) ?? transfer.rowId} allows communication from ${fromChannelKey} to ${toChannelKey}.`,
-                details: {
-                    fromChannelKey,
-                    toChannelKey,
-                    transferId: transfer.rowId
-                }
-            }
-        });
-
-        if (summaryByChannel[fromChannelKey]) {
-            summaryByChannel[fromChannelKey].transferLabels.push(toToken(transfer?.label) ?? transfer.rowId);
-        }
-    });
-
-    const missingChannelKinds = [...topNodeByKind.keys()].filter((channelKey) => !pathByChannel.has(channelKey));
+    const missingChannelKinds = [...topNodeByKind.keys()].filter((channelKey) => !authoredChannels.has(channelKey));
     const fallback = buildTerminationEdges(intervals, intervalNodeByKind, {
         includeVolumeKinds: missingChannelKinds
     });
@@ -434,7 +371,7 @@ export function buildSurfaceCommunicationTopology(stateSnapshot = {}, intervals 
             summaryEntry.warningMessages.push('This authored surface path does not end at a named outlet.');
             validationWarnings.push(createSurfaceWarning(
                 'This authored surface path does not end at a named outlet.',
-                { rowId: pathByChannel.get(channelKey)?.rowId }
+                { rowId: channelKey }
             ));
             return;
         }

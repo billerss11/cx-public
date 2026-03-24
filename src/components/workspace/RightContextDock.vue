@@ -1,12 +1,18 @@
 <script setup>
 import { computed, defineAsyncComponent } from 'vue';
+import AnnulusMeaningCard from '@/components/annulus/AnnulusMeaningCard.vue';
+import { buildAnnulusMeaningRows } from '@/annulus/meaningModel.js';
 import { useWorkspaceEditorMode } from '@/composables/useWorkspaceEditorMode.js';
+import { useProjectDataStore } from '@/stores/projectDataStore.js';
+import { useViewConfigStore } from '@/stores/viewConfigStore.js';
 import { useWorkspaceStore } from '@/stores/workspaceStore.js';
 
 const VisualPropertyInspector = defineAsyncComponent(() => import('@/components/controls/VisualPropertyInspector.vue'));
 const AdvancedEntityEditor = defineAsyncComponent(() => import('@/components/controls/AdvancedEntityEditor.vue'));
 const GlobalSettingsDockPanel = defineAsyncComponent(() => import('@/components/workspace/GlobalSettingsDockPanel.vue'));
 
+const projectDataStore = useProjectDataStore();
+const viewConfigStore = useViewConfigStore();
 const workspaceStore = useWorkspaceStore();
 const {
   activePanelKind,
@@ -35,6 +41,29 @@ const titleText = computed(() => {
   if (isAdvancedMode.value) return 'Data Editor';
   return 'Visual Property Inspector';
 });
+
+const annulusMeaningRows = computed(() => (
+  buildAnnulusMeaningRows({
+    casingData: projectDataStore.casingData,
+    tubingData: projectDataStore.tubingData,
+    drillStringData: projectDataStore.drillStringData,
+    equipmentData: projectDataStore.equipmentData,
+    horizontalLines: projectDataStore.horizontalLines,
+    annotationBoxes: projectDataStore.annotationBoxes,
+    userAnnotations: projectDataStore.userAnnotations,
+    cementPlugs: projectDataStore.cementPlugs,
+    annulusFluids: projectDataStore.annulusFluids,
+    markers: projectDataStore.markers,
+    topologySources: projectDataStore.topologySources,
+    trajectory: projectDataStore.trajectory,
+    config: viewConfigStore.config ?? {},
+    interaction: {}
+  })
+));
+
+const showAnnulusMeaning = computed(() => (
+  workspaceStore.currentActivity === 'design'
+));
 
 function closeDock() {
   workspaceStore.toggleRightDock(false);
@@ -89,6 +118,9 @@ function switchToAdvancedMode() {
 
     <div class="right-context-dock__content">
       <component :is="activePanelComponent" v-bind="activePanelProps" />
+      <div v-if="showAnnulusMeaning" class="right-context-dock__annulus-meaning">
+        <AnnulusMeaningCard :rows="annulusMeaningRows" />
+      </div>
     </div>
   </section>
 </template>
@@ -133,6 +165,12 @@ function switchToAdvancedMode() {
   padding: var(--spacing-md);
   overflow-y: auto;
   min-height: 0;
+}
+
+.right-context-dock__annulus-meaning {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
 }
 
 @media (max-width: 991px) {

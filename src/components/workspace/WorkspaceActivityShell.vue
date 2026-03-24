@@ -20,6 +20,7 @@ import LeftHierarchyDock from '@/components/workspace/LeftHierarchyDock.vue';
 import RightContextDock from '@/components/workspace/RightContextDock.vue';
 import WorkspaceProjectActions from '@/components/workspace/WorkspaceProjectActions.vue';
 import WorkspaceViewStateControls from '@/components/workspace/WorkspaceViewStateControls.vue';
+import CasingToolsDialog from '@/components/casing-tools/CasingToolsDialog.vue';
 
 const ResizableBottomDock = defineAsyncComponent(() => import('@/components/workspace/ResizableBottomDock.vue'));
 
@@ -29,6 +30,7 @@ const shellRef = ref(null);
 const languageTick = ref(0);
 const isCompactToolbarMode = ref(false);
 const compactToolsDialogVisible = ref(false);
+const casingToolsVisible = ref(false);
 
 const FLOATING_DOCK_MIN_WIDTH = 560;
 const FLOATING_DOCK_MIN_HEIGHT = 260;
@@ -47,6 +49,7 @@ let detachResizeListener = null;
 let unsubscribeLanguageChange = null;
 
 const isLasActivityActive = computed(() => workspaceStore.currentActivity === 'las');
+const isDesignActivityActive = computed(() => workspaceStore.currentActivity === 'design');
 const shouldShowSharedTopControls = computed(() => isLasActivityActive.value !== true);
 const isLeftDockVisible = computed(() => (
   shouldShowSharedTopControls.value === true
@@ -79,13 +82,14 @@ const loadWarningMessage = computed(() => {
 });
 const actionButtonLabels = computed(() => {
   void languageTick.value;
-  return {
-    hierarchy: t('ui.toolbar.hierarchy_short'),
-    dataTables: t('ui.sidebar.tables'),
-    inspector: t('ui.toolbar.inspector_short'),
-    dockedLayout: t('ui.layout.sidebar'),
-    tools: t('ui.toolbar.tools')
-  };
+      return {
+        hierarchy: t('ui.toolbar.hierarchy_short'),
+        dataTables: t('ui.sidebar.tables'),
+        inspector: t('ui.toolbar.inspector_short'),
+        dockedLayout: t('ui.layout.sidebar'),
+        tools: t('ui.toolbar.tools'),
+        casingTools: t('ui.casing_tools.launcher')
+      };
 });
 
 const floatingDockDialogStyle = computed(() => ({
@@ -149,6 +153,10 @@ function openCompactToolsDialog() {
   compactToolsDialogVisible.value = true;
 }
 
+function openCasingToolsDialog() {
+  casingToolsVisible.value = true;
+}
+
 function updateCompactToolbarMode() {
   const nextCompactMode = window.innerWidth <= COMPACT_TOOLBAR_BREAKPOINT;
   isCompactToolbarMode.value = nextCompactMode;
@@ -160,6 +168,11 @@ function updateCompactToolbarMode() {
 watch([isBottomDockFloating, isBottomDockVisible], ([isFloating, isVisible]) => {
   if (isFloating === true && isVisible === true) return;
   stopFloatingDockResize();
+});
+
+watch(isDesignActivityActive, (isDesign) => {
+  if (isDesign === true) return;
+  casingToolsVisible.value = false;
 });
 
 onMounted(() => {
@@ -259,6 +272,18 @@ onBeforeUnmount(() => {
               @click="toggleRightDock"
             />
           </div>
+
+          <Button
+            v-if="isDesignActivityActive"
+            data-test="design-casing-tools-launcher"
+            type="button"
+            size="small"
+            text
+            class="workspace-activity-shell__panel-toggle"
+            icon="pi pi-compass"
+            :label="actionButtonLabels.casingTools"
+            @click="openCasingToolsDialog"
+          />
         </template>
 
         <div v-else class="workspace-activity-shell__compact-launcher">
@@ -416,8 +441,25 @@ onBeforeUnmount(() => {
           @click="toggleRightDock"
         />
       </div>
+
+      <Button
+        v-if="isDesignActivityActive"
+        data-test="design-casing-tools-launcher-compact"
+        type="button"
+        size="small"
+        text
+        class="workspace-activity-shell__panel-toggle"
+        icon="pi pi-compass"
+        :label="actionButtonLabels.casingTools"
+        @click="openCasingToolsDialog"
+      />
     </div>
   </Dialog>
+
+  <CasingToolsDialog
+    v-if="shouldShowSharedTopControls && isDesignActivityActive"
+    v-model:visible="casingToolsVisible"
+  />
 </template>
 
 <style scoped>

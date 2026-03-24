@@ -1,8 +1,8 @@
 import { sortSurfaceChannelKeys, toSurfaceChannelLabel } from '@/surface/model.js';
 
-const DETAIL_BAND_HEIGHT = 132;
-const ASSUMPTION_BAND_HEIGHT = 44;
-const CONDENSED_BAND_HEIGHT = 220;
+const LANE_HEIGHT = 40;
+const PADDING = 24;
+const MIN_BAND_HEIGHT = 44;
 
 function toSafeArray(value) {
     return Array.isArray(value) ? value : [];
@@ -10,12 +10,6 @@ function toSafeArray(value) {
 
 function toSafeRecord(value) {
     return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-}
-
-function countVisibleItems(surfacePaths = []) {
-    return toSafeArray(surfacePaths).reduce((total, path) => (
-        total + toSafeArray(path?.items).length
-    ), 0);
 }
 
 function hasAssumptionSummary(summaryByChannel = {}) {
@@ -35,55 +29,59 @@ function resolveLaneSummaryLabel(summaryEntry = {}) {
     return 'Surface route';
 }
 
+function groupComponentsByChannel(components = []) {
+    const byChannel = new Map();
+    toSafeArray(components)
+        .filter((row) => row?.show !== false)
+        .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+        .forEach((row) => {
+            const channelKey = String(row?.channelKey ?? '').trim();
+            if (!channelKey) return;
+            if (!byChannel.has(channelKey)) {
+                byChannel.set(channelKey, []);
+            }
+            byChannel.get(channelKey).push(row);
+        });
+    return byChannel;
+}
+
 export function buildSurfaceLayoutModel(options = {}) {
-    const surfacePaths = toSafeArray(options?.surfacePaths);
-    const surfaceTransfers = toSafeArray(options?.surfaceTransfers);
-    const surfaceOutlets = toSafeArray(options?.surfaceOutlets);
+    const surfaceComponents = toSafeArray(options?.surfaceComponents);
     const summaryByChannel = toSafeRecord(options?.surfaceSummary?.byChannel);
+
+    const componentsByChannel = groupComponentsByChannel(surfaceComponents);
     const channelKeys = sortSurfaceChannelKeys([
-        ...surfacePaths.map((path) => path?.channelKey),
+        ...componentsByChannel.keys(),
         ...Object.keys(summaryByChannel)
     ]);
 
-    const authoredLaneCount = surfacePaths.length;
-    const visibleItemCount = countVisibleItems(surfacePaths);
-    const transferCount = surfaceTransfers.length;
-    const hasAuthoredContent = authoredLaneCount > 0 || surfaceOutlets.length > 0 || transferCount > 0;
-    const shouldCondense = authoredLaneCount > 4 || visibleItemCount > 14 || transferCount > 4;
+    const hasAuthoredContent = surfaceComponents.some((row) => row?.show !== false);
     const shouldShowAssumptionBand = !hasAuthoredContent && hasAssumptionSummary(summaryByChannel);
 
     const lanes = channelKeys.map((channelKey) => {
         const summaryEntry = summaryByChannel[channelKey] ?? {};
-        const path = surfacePaths.find((candidate) => candidate?.channelKey === channelKey) ?? null;
+        const components = componentsByChannel.get(channelKey) ?? [];
         return {
             channelKey,
             label: toSurfaceChannelLabel(channelKey),
-            path,
-            items: toSafeArray(path?.items),
+            components,
             summaryEntry,
             summaryLabel: resolveLaneSummaryLabel(summaryEntry)
         };
     });
 
-    if (shouldCondense) {
-        return {
-            bandHeight: CONDENSED_BAND_HEIGHT,
-            displayMode: 'condensed',
-            lanes
-        };
-    }
-
     if (shouldShowAssumptionBand) {
         return {
-            bandHeight: ASSUMPTION_BAND_HEIGHT,
+            bandHeight: MIN_BAND_HEIGHT,
             displayMode: 'assumption',
             lanes
         };
     }
 
-    if (hasAuthoredContent) {
+    if (hasAuthoredContent && lanes.length > 0) {
+        const bandHeight = Math.max(MIN_BAND_HEIGHT, PADDING + (lanes.length * LANE_HEIGHT));
         return {
-            bandHeight: DETAIL_BAND_HEIGHT,
+            bandHeight,
             displayMode: 'detail',
             lanes
         };

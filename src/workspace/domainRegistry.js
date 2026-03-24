@@ -213,6 +213,21 @@ const DOMAIN_REGISTRY = Object.freeze({
       tabId: 'topology-breakouts-tab'
     }
   }),
+  surfaceEquipment: createDomainEntry({
+    key: 'surfaceEquipment',
+    storeKey: 'surfaceComponents',
+    canonicalEntityType: 'surfaceEquipment',
+    entityAliases: ['surfaceEquipment', 'surfaceComponent', 'surfaceComponents'],
+    interactionType: null,
+    canHighlight: false,
+    table: {
+      tabKey: 'surfaceEquipment',
+      tableType: 'surfaceEquipment',
+      labelKey: 'ui.tabs.surface_equipment',
+      fallbackLabel: 'Surface Equipment',
+      tabId: 'surface-equipment-tab'
+    }
+  }),
   surfacePaths: createDomainEntry({
     key: 'surfacePaths',
     storeKey: 'surfacePaths',
@@ -282,6 +297,7 @@ export const DOMAIN_REGISTRY_ORDER = Object.freeze([
   'plugs',
   'fluids',
   'markers',
+  'surfaceEquipment',
   'surfacePaths',
   'surfaceTransfers',
   'surfaceOutlets',

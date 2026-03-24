@@ -4,6 +4,7 @@ const ALERT_EXIT_MS = 180;
 const ALERT_TYPE_CLASS = Object.freeze({
     success: 'is-success',
     info: 'is-info',
+    warn: 'is-warning',
     warning: 'is-warning',
     danger: 'is-danger'
 });

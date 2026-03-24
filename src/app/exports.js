@@ -12,6 +12,7 @@ import { normalizeMarkerType, normalizeMarkerSide } from './domain.js';
 import { showAlert } from './alerts.js';
 import { buildProjectSavePayload } from './exportPayload.mjs';
 import { finishEditingAllHotTables, getHotTableInstance } from '@/composables/useHotTableRegistry.js';
+import { serializeStyledSvg } from './svgExport.js';
 
 const projectDataStore = useProjectDataStore(pinia);
 const viewConfigStore = useViewConfigStore(pinia);
@@ -84,7 +85,7 @@ function getTableDataForExport(type, exportSnapshot = {}, options = {}) {
     return Array.isArray(snapshotRows) ? snapshotRows : [];
 }
 
-export { buildProjectSavePayload };
+export { buildProjectSavePayload, serializeStyledSvg };
 
 function sanitizeSheetNameToken(value, fallback = 'Well') {
     const token = String(value ?? '').trim().replace(/[\\/?*:[\]]/g, '_');
@@ -629,83 +630,6 @@ function createRasterOutputCanvas(sourceCanvas, sourceCtx, options = {}) {
     return outputCanvas;
 }
 
-const SVG_EXPORT_STYLE_PROPERTIES = Object.freeze([
-    'fill',
-    'fill-opacity',
-    'fill-rule',
-    'stroke',
-    'stroke-opacity',
-    'stroke-width',
-    'stroke-dasharray',
-    'stroke-dashoffset',
-    'stroke-linecap',
-    'stroke-linejoin',
-    'stroke-miterlimit',
-    'opacity',
-    'color',
-    'font',
-    'font-family',
-    'font-size',
-    'font-style',
-    'font-weight',
-    'letter-spacing',
-    'word-spacing',
-    'text-anchor',
-    'dominant-baseline',
-    'alignment-baseline',
-    'paint-order',
-    'white-space',
-    'visibility',
-    'display',
-    'vector-effect',
-    'shape-rendering',
-    'text-rendering',
-    'marker-start',
-    'marker-mid',
-    'marker-end',
-    'rx',
-    'ry'
-]);
-
-function inlineSvgComputedStyles(sourceNode, targetNode) {
-    if (!sourceNode || !targetNode) return;
-    const computedStyle = window.getComputedStyle(sourceNode);
-    if (!computedStyle) return;
-
-    SVG_EXPORT_STYLE_PROPERTIES.forEach((property) => {
-        const value = computedStyle.getPropertyValue(property);
-        if (value) {
-            targetNode.style.setProperty(property, value);
-        }
-    });
-}
-
-export function serializeStyledSvg(svg) {
-    if (!svg) return '';
-    const clonedSvg = svg.cloneNode(true);
-    if (!clonedSvg) return '';
-
-    const sourceNodes = [svg, ...svg.querySelectorAll('*')];
-    const clonedNodes = [clonedSvg, ...clonedSvg.querySelectorAll('*')];
-    const nodeCount = Math.min(sourceNodes.length, clonedNodes.length);
-
-    for (let index = 0; index < nodeCount; index += 1) {
-        inlineSvgComputedStyles(sourceNodes[index], clonedNodes[index]);
-    }
-
-    const explicitExport = resolveExplicitExportDimensions(svg);
-    if (explicitExport.width && explicitExport.height) {
-        clonedSvg.setAttribute('width', String(explicitExport.width));
-        clonedSvg.setAttribute('height', String(explicitExport.height));
-    }
-    clonedSvg.removeAttribute('data-export-width');
-    clonedSvg.removeAttribute('data-export-height');
-
-    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-    return new XMLSerializer().serializeToString(clonedSvg);
-}
-
 function downloadRaster(format, options = {}) {
     const svg = getPlotElement('schematicSvg');
     if (!svg) return;
@@ -800,6 +724,17 @@ export function downloadSVG() {
     a.download = buildPlotFilename('svg', 1);
     a.click();
     URL.revokeObjectURL(url);
+}
+
+export async function exportReportPdf(options = {}) {
+    try {
+        const reportExports = await import('@/reports/reportExport.js');
+        return await reportExports.exportReportPdf(options);
+    } catch (error) {
+        const message = error?.message || 'Report export failed.';
+        showAlert(`${t('alert.export_report_pdf_failed')}: ${message}`, 'danger');
+        return false;
+    }
 }
 
 // ============================================================================

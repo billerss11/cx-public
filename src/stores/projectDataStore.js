@@ -31,6 +31,7 @@ export const PROJECT_DATA_KEYS = new Set([
     'annulusFluids',
     'markers',
     'topologySources',
+    'surfaceComponents',
     'surfacePaths',
     'surfaceTransfers',
     'surfaceOutlets',
@@ -50,6 +51,7 @@ const ARRAY_PROJECT_DATA_KEYS = new Set([
     'annulusFluids',
     'markers',
     'topologySources',
+    'surfaceComponents',
     'surfacePaths',
     'surfaceTransfers',
     'surfaceOutlets',
@@ -69,6 +71,7 @@ export function createDefaultProjectDataState() {
         annulusFluids: [],
         markers: [],
         topologySources: [],
+        surfaceComponents: [],
         surfacePaths: [],
         surfaceTransfers: [],
         surfaceOutlets: [],
@@ -352,6 +355,10 @@ function normalizePlacementReferenceRow(row, casingRefMap, casingRows) {
 function normalizeArrayProjectRows(key, rows, casingRows = [], tubingRows = []) {
     if (!Array.isArray(rows)) return rows;
 
+    if (key === 'surfaceComponents') {
+        return ensureRowsHaveRowIds(rows, { key: 'surfaceComponents' });
+    }
+
     if (key === 'surfacePaths') {
         return normalizeSurfacePathRows(rows);
     }
@@ -540,6 +547,10 @@ export const useProjectDataStore = defineStore('projectData', () => {
         return setArrayProjectData('topologySources', rows);
     }
 
+    function setSurfaceComponents(rows) {
+        return setArrayProjectData('surfaceComponents', rows);
+    }
+
     function setSurfacePaths(rows) {
         return setArrayProjectData('surfacePaths', rows);
     }
@@ -637,6 +648,7 @@ export const useProjectDataStore = defineStore('projectData', () => {
         setAnnulusFluids,
         setMarkers,
         setTopologySources,
+        setSurfaceComponents,
         setSurfacePaths,
         setSurfaceTransfers,
         setSurfaceOutlets,

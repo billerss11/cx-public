@@ -66,8 +66,6 @@ import PatternDefs from './layers/PatternDefs.vue';
 import UserAnnotationLayer from './layers/UserAnnotationLayer.vue';
 import { collectVerticalHatchPatterns } from './layers/verticalHatchPatterns.js';
 import SchematicPlotTooltip from './SchematicPlotTooltip.vue';
-import SurfaceFlowBand from './layers/SurfaceFlowBand.vue';
-import { buildSurfaceLayoutModel } from '@/surface/layoutModel.js';
 
 const props = defineProps({
   projectData: {
@@ -209,28 +207,10 @@ const physicsIntervals = computed(() => (
 const trajectoryRows = computed(() => (
   Array.isArray(props.projectData?.trajectory) ? props.projectData.trajectory : []
 ));
-const surfacePathRows = computed(() => (
-  Array.isArray(props.projectData?.surfacePaths) ? props.projectData.surfacePaths : []
-));
-const surfaceTransferRows = computed(() => (
-  Array.isArray(props.projectData?.surfaceTransfers) ? props.projectData.surfaceTransfers : []
-));
-const surfaceOutletRows = computed(() => (
-  Array.isArray(props.projectData?.surfaceOutlets) ? props.projectData.surfaceOutlets : []
-));
 const selectedUserAnnotationId = computed(() => {
   return normalizeUserAnnotationId(interactionStore.interaction.selectedUserAnnotationId);
 });
 
-const surfaceLayoutModel = computed(() => (
-  buildSurfaceLayoutModel({
-    surfacePaths: surfacePathRows.value,
-    surfaceTransfers: surfaceTransferRows.value,
-    surfaceOutlets: surfaceOutletRows.value,
-    surfaceSummary: props.topologyResult?.surfaceSummary ?? null
-  })
-));
-const surfaceBandHeightValue = computed(() => surfaceLayoutModel.value.bandHeight || 0);
 
 const schematicStateSnapshot = computed(() => ({
   casingData: casingRows.value,
@@ -384,7 +364,7 @@ const canvasWidthMultiplierValue = computed(() => {
 const legacyBaseWidth = 1000;
 const svgWidthValue = computed(() => Math.round(legacyBaseWidth * canvasWidthMultiplierValue.value));
 const schematicMargin = computed(() => ({
-  top: 60 + surfaceBandHeightValue.value,
+  top: 60,
   right: 150,
   bottom: 80,
   left: 120
@@ -1127,12 +1107,6 @@ onBeforeUnmount(() => {
           />
         </clipPath>
       </defs>
-
-      <SurfaceFlowBand
-        :surface-layout="surfaceLayoutModel"
-        :surface-transfers="surfaceTransferRows"
-        :width="width"
-      />
 
       <g ref="sceneRootRef" :id="magnifierSceneId" :transform="sceneRootTransform">
         <AxisLayer

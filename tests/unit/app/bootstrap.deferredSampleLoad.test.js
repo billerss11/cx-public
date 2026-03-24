@@ -27,6 +27,10 @@ const projectStoreMock = {
       annulusFluids: [],
       markers: [],
       topologySources: [],
+      surfacePaths: [],
+      surfaceTransfers: [],
+      surfaceOutlets: [],
+      surfaceTemplate: {},
       trajectory: []
     }
   }
@@ -103,6 +107,10 @@ describe('bootstrapApplication deferred sample loading', () => {
         annulusFluids: [],
         markers: [],
         topologySources: [],
+        surfacePaths: [],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {},
         trajectory: []
       }
     };
@@ -147,6 +155,76 @@ describe('bootstrapApplication deferred sample loading', () => {
         annulusFluids: [],
         markers: [],
         topologySources: [],
+        surfacePaths: [],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {},
+        trajectory: []
+      }
+    };
+
+    const { bootstrapApplication } = await import('@/app/bootstrap.js');
+    const viewConfigStore = createViewConfigStoreMock();
+    const interactionStore = { setAutoGenerate: vi.fn() };
+
+    bootstrapApplication(viewConfigStore, interactionStore);
+    vi.runOnlyPendingTimers();
+
+    expect(loadSampleDataMock).not.toHaveBeenCalled();
+  });
+
+  it('skips auto sample load when active well already has surface path data', async () => {
+    projectStoreMock.activeWell = {
+      data: {
+        casingData: [],
+        tubingData: [],
+        drillStringData: [],
+        equipmentData: [],
+        horizontalLines: [],
+        annotationBoxes: [],
+        userAnnotations: [],
+        cementPlugs: [],
+        annulusFluids: [],
+        markers: [],
+        topologySources: [],
+        surfacePaths: [{ rowId: 'surface-path-1' }],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {},
+        trajectory: []
+      }
+    };
+
+    const { bootstrapApplication } = await import('@/app/bootstrap.js');
+    const viewConfigStore = createViewConfigStoreMock();
+    const interactionStore = { setAutoGenerate: vi.fn() };
+
+    bootstrapApplication(viewConfigStore, interactionStore);
+    vi.runOnlyPendingTimers();
+
+    expect(loadSampleDataMock).not.toHaveBeenCalled();
+  });
+
+  it('skips auto sample load when active well already has surface template data', async () => {
+    projectStoreMock.activeWell = {
+      data: {
+        casingData: [],
+        tubingData: [],
+        drillStringData: [],
+        equipmentData: [],
+        horizontalLines: [],
+        annotationBoxes: [],
+        userAnnotations: [],
+        cementPlugs: [],
+        annulusFluids: [],
+        markers: [],
+        topologySources: [],
+        surfacePaths: [],
+        surfaceTransfers: [],
+        surfaceOutlets: [],
+        surfaceTemplate: {
+          templateId: 'surface-template-1'
+        },
         trajectory: []
       }
     };

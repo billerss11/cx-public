@@ -4,7 +4,7 @@ import {
 } from '@/topology/topologyInspector.js';
 import { MODELED_CASING_ANNULUS_KINDS } from '@/topology/topologyTypes.js';
 
-const GRAPH_SCOPE_SET = new Set(['min_path', 'spof', 'active_flow', 'selected_barrier']);
+const GRAPH_SCOPE_SET = new Set(['all', 'min_path', 'spof', 'active_flow', 'selected_barrier']);
 function buildAnnulusLaneLabel(kind = '') {
   const suffix = String(kind ?? '').replace('ANNULUS_', '').trim();
   if (!suffix) return null;
@@ -61,7 +61,7 @@ function toFiniteNumber(value) {
 
 function normalizeScope(scope) {
   const token = String(scope ?? '').trim().toLowerCase();
-  return GRAPH_SCOPE_SET.has(token) ? token : 'min_path';
+  return GRAPH_SCOPE_SET.has(token) ? token : 'all';
 }
 
 function formatDepthValue(value) {

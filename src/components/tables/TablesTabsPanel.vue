@@ -14,6 +14,7 @@ import PlugsTablePane from './panes/PlugsTablePane.vue';
 import FluidsTablePane from './panes/FluidsTablePane.vue';
 import MarkersTablePane from './panes/MarkersTablePane.vue';
 import TopologyBreakoutsTablePane from './panes/TopologyBreakoutsTablePane.vue';
+import SurfaceEquipmentTablePane from './panes/SurfaceEquipmentTablePane.vue';
 import BoxesTablePane from './panes/BoxesTablePane.vue';
 import TrajectoryTablePane from './panes/TrajectoryTablePane.vue';
 import IntervalsTablePane from './panes/IntervalsTablePane.vue';
@@ -127,6 +128,9 @@ onBeforeUnmount(() => {
           <Tab value="markers">
             <span id="markers-tab" data-i18n="ui.tabs.markers">Markers</span>
           </Tab>
+          <Tab value="surfaceEquipment">
+            <span id="surface-equipment-tab" data-i18n="ui.tabs.surface_equipment">Surface Equipment</span>
+          </Tab>
           <Tab value="topologyBreakouts">
             <span id="topology-breakouts-tab" data-i18n="ui.tabs.topology_breakouts">Crossflow Paths</span>
           </Tab>
@@ -164,6 +168,9 @@ onBeforeUnmount(() => {
           </TabPanel>
           <TabPanel value="markers">
             <MarkersTablePane />
+          </TabPanel>
+          <TabPanel value="surfaceEquipment">
+            <SurfaceEquipmentTablePane />
           </TabPanel>
           <TabPanel value="topologyBreakouts">
             <TopologyBreakoutsTablePane />

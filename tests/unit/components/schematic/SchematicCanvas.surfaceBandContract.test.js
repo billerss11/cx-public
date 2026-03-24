@@ -16,4 +16,13 @@ describe('SchematicCanvas surface band contract', () => {
     expect(source).toContain('top: 60 + surfaceBandHeightValue.value');
     expect(source).toContain('<SurfaceFlowBand');
   });
+
+  it('renders the surface band after the main scene so surface labels stay visible above plot callouts', () => {
+    const source = readSource();
+    const sceneRootIndex = source.indexOf('<g ref="sceneRootRef"');
+    const surfaceBandIndex = source.lastIndexOf('<SurfaceFlowBand');
+
+    expect(sceneRootIndex).toBeGreaterThanOrEqual(0);
+    expect(surfaceBandIndex).toBeGreaterThan(sceneRootIndex);
+  });
 });

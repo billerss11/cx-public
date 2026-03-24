@@ -79,7 +79,7 @@ describe('scenario cross-annulus failure entities', () => {
     expect(result.sourcePolicy?.mode).toBe('marker_default');
   });
 
-  it('adds manual source overrides on top of marker-derived sources', () => {
+  it('treats resolved manual source overrides as authoritative over marker-derived sources', () => {
     const state = createBaseState();
     state.markers = [
       {
@@ -106,9 +106,12 @@ describe('scenario cross-annulus failure entities', () => {
     const result = buildTopologyModel(state, { requestId: 15, wellId: 'marker-plus-manual-override' });
     const sourceOrigins = new Set(result.sourceEntities.map((source) => source.origin));
 
-    expect(result.sourcePolicy?.mode).toBe('marker_default');
+    expect(result.sourcePolicy?.mode).toBe('scenario_explicit');
+    expect(result.sourcePolicy?.markerDerived).toBe(false);
     expect(result.sourcePolicy?.manualOverrideDerived).toBe(true);
-    expect(sourceOrigins.has('marker')).toBe(true);
+    expect(result.sourcePolicy?.explicitScenarioModeActive).toBe(true);
+    expect(result.sourceEntities).toHaveLength(1);
+    expect(sourceOrigins.has('marker')).toBe(false);
     expect(sourceOrigins.has('manual-override')).toBe(true);
   });
 

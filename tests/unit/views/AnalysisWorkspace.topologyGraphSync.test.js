@@ -159,9 +159,10 @@ function mountAnalysisWorkspace() {
           template: '<div class="topology-sources-table-pane-stub" />'
         },
         TopologyGraphDebugDialog: {
+          props: ['scope'],
           emits: ['node-click', 'edge-click', 'update:visible', 'update:scope'],
           template: `
-            <div class="topology-graph-dialog-stub">
+            <div class="topology-graph-dialog-stub" :data-scope="scope">
               <button type="button" class="emit-node-click" @click="$emit('node-click', 'node:ANNULUS_A:0:1000')">node</button>
               <button type="button" class="emit-edge-click" @click="$emit('edge-click', 'edge:vertical:a0-a1')">edge</button>
             </div>
@@ -188,6 +189,12 @@ describe('AnalysisWorkspace topology graph sync', () => {
     expect(wrapper.find('.schematic-canvas-stub').attributes('data-selected-node-ids')).toBe(
       JSON.stringify(['node:ANNULUS_A:0:1000'])
     );
+  });
+
+  it('defaults the topology graph dialog to all-topology scope', () => {
+    const wrapper = mountAnalysisWorkspace();
+
+    expect(wrapper.find('.topology-graph-dialog-stub').attributes('data-scope')).toBe('all');
   });
 
   it('syncs graph edge selection into the directional overlay selection', async () => {

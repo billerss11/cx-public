@@ -1,6 +1,6 @@
 import { shallowMount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { reactive } from 'vue';
+import { defineComponent, reactive } from 'vue';
 import AnalysisWorkspace from '@/views/AnalysisWorkspace.vue';
 
 const mockState = vi.hoisted(() => ({
@@ -12,6 +12,10 @@ const mockState = vi.hoisted(() => ({
   requestTopologyModelInWorker: vi.fn(() => ({
     requestId: 99,
     promise: new Promise(() => {})
+  })),
+  startFeatureTimer: vi.fn(() => ({
+    sampled: false,
+    end: vi.fn(async () => null)
   })),
   viewConfigStore: {
     config: {
@@ -123,6 +127,12 @@ vi.mock('@/composables/useTopologyWorker.js', () => ({
   requestTopologyModelInWorker: mockState.requestTopologyModelInWorker
 }));
 
+vi.mock('@/composables/useFeatureTiming.js', () => ({
+  useFeatureTiming: () => ({
+    startFeatureTimer: mockState.startFeatureTimer
+  })
+}));
+
 function mountAnalysisWorkspace(options = {}) {
   const attachToDocument = options?.attachToDocument === true;
   const stubSelect = options?.stubSelect !== false;
@@ -173,7 +183,7 @@ function mountAnalysisWorkspace(options = {}) {
     ...(options?.stubs ?? {})
   };
 
-  if (stubSelect) {
+  if (stubSelect && !stubs.Select) {
     stubs.Select = {
       template: '<div><slot /></div>'
     };
@@ -366,6 +376,11 @@ describe('AnalysisWorkspace warning navigation', () => {
       requestId: 99,
       promise: new Promise(() => {})
     }));
+    mockState.startFeatureTimer.mockReset();
+    mockState.startFeatureTimer.mockImplementation(() => ({
+      sampled: false,
+      end: vi.fn(async () => null)
+    }));
     mockState.setTablesAccordionOpen.mockReset();
     mockState.setActiveTableTabKey.mockReset();
     mockState.requestTableRowFocus.mockReset();
@@ -401,6 +416,77 @@ describe('AnalysisWorkspace warning navigation', () => {
     const wrapper = mountAnalysisWorkspace();
 
     expect(wrapper.vm.topologySourceSummaryText).toBe('Flow starts from perforations, open hole, and 2 manual overrides.');
+  });
+
+  it('renders a public fallback selector backed by the open-hole source config', async () => {
+    const SelectModelStub = defineComponent({
+      name: 'Select',
+      props: ['modelValue', 'options', 'optionLabel', 'optionValue'],
+      emits: ['update:modelValue'],
+      template: `
+        <select
+          class="source-policy-select-stub"
+          :value="modelValue"
+          @change="$emit('update:modelValue', $event.target.value)"
+        >
+          <option
+            v-for="option in options"
+            :key="option[optionValue]"
+            :value="option[optionValue]"
+          >
+            {{ option[optionLabel] }}
+          </option>
+        </select>
+      `
+    });
+    const wrapper = mountAnalysisWorkspace({
+      stubs: {
+        Select: SelectModelStub
+      }
+    });
+
+    await wrapper.vm.$nextTick();
+
+    const fallbackSelect = wrapper.find('.analysis-topology__source-policy-control .source-policy-select-stub');
+    expect(fallbackSelect.exists()).toBe(true);
+    expect(String(wrapper.vm.viewConfigStore.config.topologyUseOpenHoleSource)).toBe('false');
+
+    await fallbackSelect.setValue('open_hole_opt_in');
+
+    expect(String(wrapper.vm.viewConfigStore.config.topologyUseOpenHoleSource)).toBe('true');
+  });
+
+  it('shows a legacy illustrative-fluid note when that experimental mode is active', async () => {
+    mockState.viewConfigStore.config.topologyUseIllustrativeFluidSource = true;
+    mockState.topologyStore.activeWellTopology = {
+      result: {
+        requestId: 7,
+        wellId: 'well-test',
+        nodes: [],
+        edges: [],
+        sourceEntities: [
+          { origin: 'illustrative-fluid' }
+        ],
+        sourcePolicy: {
+          mode: 'fluid_opt_in',
+          markerDerived: false,
+          openHoleDerived: false,
+          manualOverrideDerived: false,
+          illustrativeFluidDerived: true
+        },
+        activeFlow: { nodeIds: [] },
+        minimumFailurePath: { nodeIds: [], edgeIds: [], cost: null },
+        spof: { edgeIds: [] },
+        validationWarnings: []
+      }
+    };
+
+    const wrapper = mountAnalysisWorkspace();
+    await wrapper.vm.$nextTick();
+
+    const legacyNote = wrapper.find('[data-i18n="ui.analysis.topology.source_policy.legacy_fluid_note"]');
+    expect(legacyNote.exists()).toBe(true);
+    expect(legacyNote.text()).toContain('legacy');
   });
 
   it('does not trigger topology recompute for non-topology view config changes', async () => {
@@ -774,11 +860,12 @@ describe('AnalysisWorkspace warning navigation', () => {
     ]);
   });
 
-  it('keeps graph scope focused on min-path/spof/selected-barrier and syncs graph clicks to overlay', async () => {
+  it('includes all-topology graph scope and syncs graph clicks to overlay', async () => {
     configureInspectorContext();
     const wrapper = mountAnalysisWorkspace();
 
     expect(wrapper.vm.topologyGraphScopeOptions.map((option) => option.value)).toEqual([
+      'all',
       'min_path',
       'spof',
       'active_flow',

@@ -1,4 +1,4 @@
-// Vue Migration Phase 2: Vue shell with legacy app integration
+// Vue application entry and global plugin setup
 import { createApp } from 'vue';
 import App from './App.vue';
 import { pinia } from './stores/pinia.js';

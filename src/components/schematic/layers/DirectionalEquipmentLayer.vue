@@ -2,6 +2,10 @@
 import { computed } from 'vue';
 import { clamp } from '@/utils/general.js';
 import {
+  resolveDirectionalMaxVisualRadiusPx,
+  resolveDirectionalVisualRadiusForDiameter
+} from '@/utils/directionalSizing.js';
+import {
   DIRECTIONAL_EPSILON,
   isFinitePoint,
   resolveScreenFrameAtMD,
@@ -26,6 +30,10 @@ const props = defineProps({
   totalMd: {
     type: Number,
     default: 0,
+  },
+  visualSizing: {
+    type: Object,
+    default: null,
   },
   diameterScale: {
     type: Number,
@@ -55,7 +63,7 @@ const frameContext = computed(() => ({
   project: props.projector,
   totalMD: Number(props.totalMd),
   diameterScale: Number(props.diameterScale),
-  maxProjectedRadius: 0,
+  maxProjectedRadius: resolveDirectionalMaxVisualRadiusPx(props.visualSizing, 0),
 }));
 
 function resolveSafetyValveHalfHeight(startPoint, endPoint, scale) {
@@ -86,7 +94,7 @@ const equipmentShapes = computed(() => {
         && Number.isFinite(sealOuterDiameter)
         && sealOuterDiameter > sealInnerDiameter + DIRECTIONAL_EPSILON;
       const childOuterRadius = hasResolvedSealGeometry
-        ? (sealInnerDiameter / 2) * props.diameterScale
+        ? resolveDirectionalVisualRadiusForDiameter(sealInnerDiameter, props.visualSizing, props.diameterScale)
         : ORPHAN_MIN_RADIUS * props.diameterScale;
       const height = DEFAULT_PACKER_HEIGHT * equip.scale;
 
@@ -113,7 +121,11 @@ const equipmentShapes = computed(() => {
         });
       } else {
         if (!hasResolvedSealGeometry) return;
-        const parentInnerRadius = (sealOuterDiameter / 2) * props.diameterScale;
+        const parentInnerRadius = resolveDirectionalVisualRadiusForDiameter(
+          sealOuterDiameter,
+          props.visualSizing,
+          props.diameterScale
+        );
         if (parentInnerRadius <= childOuterRadius + DIRECTIONAL_EPSILON) return;
 
         [-1, 1].forEach((sideSign) => {
@@ -153,7 +165,11 @@ const equipmentShapes = computed(() => {
       const tubingID = Number(equip.tubingParentID);
       if (!Number.isFinite(tubingID)) return;
 
-      const innerRadius = (tubingID / 2) * props.diameterScale;
+      const innerRadius = resolveDirectionalVisualRadiusForDiameter(
+        tubingID,
+        props.visualSizing,
+        props.diameterScale
+      );
       const p1 = props.projector(md, -innerRadius);
       const p2 = props.projector(md, innerRadius);
       if (!isFinitePoint(p1) || !isFinitePoint(p2)) return;

@@ -221,6 +221,26 @@ body {
     background-color: color-mix(in srgb, var(--color-state-warning) 14%, transparent) !important;
 }
 
+.handsontable .htCore td.casing-hole-size-cell {
+    font-weight: 600;
+}
+
+.handsontable .htCore td.casing-hole-size-cell--warning {
+    background-color: color-mix(in srgb, var(--color-state-warning) 14%, transparent) !important;
+}
+
+.handsontable .htCore td.casing-hole-size-cell--warning-no-casing-match {
+    box-shadow: inset 3px 0 0 color-mix(in srgb, #3b82f6 72%, transparent);
+}
+
+.handsontable .htCore td.casing-hole-size-cell--warning-custom-hole {
+    box-shadow: inset 3px 0 0 color-mix(in srgb, #f59e0b 78%, transparent);
+}
+
+.handsontable .htCore td.casing-hole-size-cell--warning-incompatible-hole {
+    box-shadow: inset 3px 0 0 color-mix(in srgb, #dc2626 78%, transparent);
+}
+
 :root.app-dark .handsontable-container {
     background: var(--color-surface-elevated);
     border-color: var(--line);

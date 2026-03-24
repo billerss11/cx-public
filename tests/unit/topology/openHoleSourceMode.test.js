@@ -42,22 +42,23 @@ function createBaseState() {
 }
 
 describe('open-hole source mode', () => {
-  it('derives open-hole source nodes by default', () => {
+  it('does not derive open-hole source nodes unless the toggle is enabled', () => {
     const state = createBaseState();
 
     const result = buildTopologyModel(state, { requestId: 1, wellId: 'open-hole-disabled' });
     const openHoleSources = result.sourceEntities.filter((source) => source.origin === 'open-hole-default');
 
-    expect(result.sourcePolicy?.mode).toBe('open_hole_opt_in');
-    expect(openHoleSources.length).toBeGreaterThan(0);
-    expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);
+    expect(result.sourcePolicy?.mode).toBe('marker_default');
+    expect(result.sourcePolicy?.openHoleDerived).toBe(false);
+    expect(openHoleSources).toHaveLength(0);
+    expect(result.activeFlowNodeIds).toEqual([]);
   });
 
-  it('keeps deriving open-hole source nodes even when the legacy toggle is false', () => {
+  it('derives open-hole source nodes when the toggle is enabled', () => {
     const state = createBaseState();
     state.config = {
       ...state.config,
-      topologyUseOpenHoleSource: false
+      topologyUseOpenHoleSource: true
     };
 
     const result = buildTopologyModel(state, { requestId: 2, wellId: 'open-hole-enabled' });
@@ -69,6 +70,33 @@ describe('open-hole source mode', () => {
       source.volumeKey === 'FORMATION_ANNULUS' || source.volumeKey === 'TUBING_INNER'
     ))).toBe(true);
     expect(result.activeFlowNodeIds.length).toBeGreaterThan(0);
+  });
+
+  it('keeps explicit source rows authoritative even when open-hole fallback is enabled', () => {
+    const state = createBaseState();
+    state.config = {
+      ...state.config,
+      topologyUseOpenHoleSource: true
+    };
+    state.topologySources = [
+      {
+        rowId: 'src-formation',
+        sourceType: 'formation_inflow',
+        volumeKey: 'TUBING_INNER',
+        top: 3300,
+        bottom: 3400,
+        show: true
+      }
+    ];
+
+    const result = buildTopologyModel(state, { requestId: 4, wellId: 'explicit-beats-open-hole' });
+    const sourceOrigins = new Set(result.sourceEntities.map((source) => source.origin));
+
+    expect(result.sourcePolicy?.mode).toBe('scenario_explicit');
+    expect(result.sourcePolicy?.openHoleDerived).toBe(false);
+    expect(result.sourceEntities).toHaveLength(1);
+    expect(sourceOrigins.has('manual-override')).toBe(true);
+    expect(sourceOrigins.has('open-hole-default')).toBe(false);
   });
 
   it('resolves ANNULUS_A scenario source rows against tubing-present first-annulus channels', () => {
