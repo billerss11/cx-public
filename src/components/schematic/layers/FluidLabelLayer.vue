@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { getStackAtDepth as getPhysicsStackAtDepth } from '@/composables/usePhysics.js';
 import { LAYOUT_CONSTANTS } from '@/constants/index.js';
-import { clamp, parseOptionalNumber, wrapTextToLines } from '@/utils/general.js';
+import { clamp, parseOptionalNumber, resolveXPosition, wrapTextToLines } from '@/utils/general.js';
 import {
   resolveAnchoredHorizontalCallout,
 } from '@/utils/labelLayout.js';
@@ -11,6 +11,7 @@ import {
   resolveSmartLabelAutoScale,
   resolveSmartLabelFontSize
 } from '@/utils/smartLabels.js';
+import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 
 const props = defineProps({
   fluids: {
@@ -56,10 +57,45 @@ const props = defineProps({
   smartLabelsEnabled: {
     type: Boolean,
     default: true
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-fluid', 'hover-fluid', 'leave-fluid']);
+const emit = defineEmits(['select-fluid', 'hover-fluid', 'leave-fluid', 'start-label-drag']);
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function handleLabelPointerDown(label, event) {
+  const rowId = String(label?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: label.id,
+    entityType: 'fluid',
+    rowId,
+    centerX: label.boxX + (label.boxWidth / 2),
+    centerY: label.boxY + (label.boxHeight / 2),
+    xField: 'labelXPos',
+    yField: 'manualDepth',
+    xRange: resolveScaleRange(props.xScale),
+    depthRange: resolveScaleRange(props.yScale)
+  }, event);
+}
 
 function resolveFluidLayerAtDepth(depth, fluidIndex, physicsContext) {
   if (!Number.isFinite(depth) || !Number.isInteger(fluidIndex)) return null;
@@ -183,11 +219,16 @@ const fluidLabels = computed(() => {
     if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return null;
 
     const manualDepth = parseOptionalNumber(fluid?.manualDepth);
+    const manualX = resolveXPosition(fluid?.labelXPos, props.xHalf);
+    const hasDirectManualPosition = Number.isFinite(manualDepth) && manualX !== null && manualX !== undefined;
     const labelDepth = Number.isFinite(manualDepth)
+      ? manualDepth
+      : ((top + bottom) / 2);
+    const anchorDepth = Number.isFinite(manualDepth)
       ? clamp(manualDepth, top, bottom)
       : ((top + bottom) / 2);
 
-    const fluidLayer = resolveFluidLayerAtDepth(labelDepth, fluidIndex, physicsContext);
+    const fluidLayer = resolveFluidLayerAtDepth(anchorDepth, fluidIndex, physicsContext);
     if (!fluidLayer) return null;
 
     const innerRadius = Number(fluidLayer?.innerRadius);
@@ -233,6 +274,64 @@ const fluidLabels = computed(() => {
       Math.min(maxLabelWidth, Math.max(...wrappedLines.map((lineText) => lineText.length)) * fontSize * 0.6 + 16)
     );
 
+    let textAnchor;
+    let boxX;
+    let boxY;
+    let targetAnchorX;
+    let arrowStartX;
+    let side;
+
+    if (hasDirectManualPosition) {
+      const centerXManual = props.xScale(manualX);
+      boxX = clamp(centerXManual - (estimatedWidth / 2), plotLeft + 5, plotRight - estimatedWidth - 5);
+      boxY = clamp(
+        props.yScale(labelDepth) - (labelHeight / 2),
+        plotTop + 5,
+        Math.max(plotTop + 5, plotBottom - labelHeight - 5)
+      );
+      const boxCenterX = boxX + (estimatedWidth / 2);
+      const boxCenterY = boxY + (labelHeight / 2);
+      const anchorCenterX = (anchorLeftX + anchorRightX) / 2;
+      const placeLeft = boxCenterX <= anchorCenterX;
+      side = placeLeft ? 'left' : 'right';
+      textAnchor = 'middle';
+      targetAnchorX = anchorCenterX;
+      arrowStartX = placeLeft ? boxX + estimatedWidth : boxX;
+      const arrow = buildArrowGeometry(arrowStartX, boxCenterY, targetAnchorX, anchorY);
+      if (!arrow) return null;
+
+      const textY = boxCenterY;
+      const firstLineOffset = -((wrappedLines.length - 1) * lineHeight) / 2;
+      const textLines = wrappedLines.map((lineText, lineIndex) => ({
+        id: `fluid-label-${fluidIndex}-${lineIndex}`,
+        text: lineText,
+        x: boxX + (estimatedWidth / 2),
+        dy: lineIndex === 0 ? firstLineOffset : lineHeight
+      }));
+
+      return {
+        id: `fluid-label-${fluidIndex}`,
+        index: fluidIndex,
+        rowId: String(fluid?.rowId ?? '').trim() || null,
+        strokeColor,
+        textColor,
+        fontSize,
+        textAnchor,
+        side,
+        boxX,
+        boxY,
+        boxWidth: estimatedWidth,
+        boxHeight: labelHeight,
+        textX: boxX + (estimatedWidth / 2),
+        textY,
+        textLines,
+        anchorX: targetAnchorX,
+        anchorY,
+        isPositionPinned: true,
+        arrow
+      };
+    }
+
     const standoffPx = resolveIntervalCalloutStandoff(plotLeft, plotRight);
     const nudgePx = resolveIntervalCalloutXNudge(fluid?.labelXPos);
     const preferredSide = smartLabelsEnabled
@@ -259,16 +358,16 @@ const fluidLabels = computed(() => {
     });
     if (!calloutPlacement) return null;
 
-    const textAnchor = calloutPlacement.textAnchor;
-    const boxX = calloutPlacement.boxX;
-    const targetAnchorX = calloutPlacement.anchorX;
+    textAnchor = calloutPlacement.textAnchor;
+    boxX = calloutPlacement.boxX;
+    targetAnchorX = calloutPlacement.anchorX;
 
-    const boxY = clamp(
+    boxY = clamp(
       anchorY - (labelHeight / 2),
       plotTop + 5,
       Math.max(plotTop + 5, plotBottom - labelHeight - 5)
     );
-    const arrowStartX = calloutPlacement.arrowStartX;
+    arrowStartX = calloutPlacement.arrowStartX;
     const arrowStartY = boxY + (labelHeight / 2);
     const arrow = buildArrowGeometry(arrowStartX, arrowStartY, targetAnchorX, anchorY);
     if (!arrow) return null;
@@ -288,6 +387,7 @@ const fluidLabels = computed(() => {
     return {
       id: `fluid-label-${fluidIndex}`,
       index: fluidIndex,
+      rowId: String(fluid?.rowId ?? '').trim() || null,
       strokeColor,
       textColor,
       fontSize,
@@ -376,7 +476,12 @@ const fluidLabels = computed(() => {
       textLines: nextTextLines,
       arrow: nextArrow || label.arrow
     };
-  });
+  }).map((label) => applyPreviewToArrowedBoxLabel(
+    label,
+    props.dragPreviewId,
+    props.dragPreviewOffset,
+    { buildArrowGeometry }
+  ));
 });
 </script>
 
@@ -390,6 +495,7 @@ const fluidLabels = computed(() => {
       @click="emit('select-fluid', label.index)"
       @mousemove="emit('hover-fluid', label.index, $event)"
       @mouseleave="emit('leave-fluid', label.index)"
+      @pointerdown.stop.prevent="handleLabelPointerDown(label, $event)"
     >
       <line
         class="fluid-label-layer__arrow-line"

@@ -11,6 +11,9 @@ import { useMagnifierOverlayDom } from '@/composables/useMagnifierOverlayDom.js'
 import { useCameraPanSession } from '@/composables/useCameraPanSession.js';
 import { createClientPointerResolver } from '@/composables/useClientPointerResolver.js';
 import { createSchematicPointerMapping } from '@/composables/useSchematicPointerMapping.js';
+import { useDiagramLabelDrag } from '@/composables/useDiagramLabelDrag.js';
+import { useEntityEditorActions } from '@/composables/useEntityEditorActions.js';
+import { resolveVerticalDepthShiftPatch, resolveVerticalLabelDragPatch } from '@/utils/diagramLabelDrag.js';
 import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgTransformMath.js';
 import {
   createContext as createPhysicsContext,
@@ -111,6 +114,7 @@ const isMagnifierEnabled = computed(() => props.config?.showMagnifier === true);
 const projectDataStore = useProjectDataStore();
 const interactionStore = useInteractionStore();
 const viewConfigStore = useViewConfigStore();
+const { updateFields } = useEntityEditorActions();
 
 const IDENTITY_CAMERA_STATE = Object.freeze({
   scale: 1,
@@ -558,6 +562,58 @@ const cameraPanSession = useCameraPanSession({
   }
 });
 const isCameraPanActive = cameraPanSession.isPanActive;
+const labelDrag = useDiagramLabelDrag({
+  enabled: true,
+  resolvePointer: (event) => pointerMapping.resolvePointer(event)?.canonicalPoint ?? null
+});
+
+function buildVerticalLabelPatch(payload, previewOffset = {}) {
+  if (!payload) return null;
+  if (payload.dragKind === 'depth-shift') {
+    return resolveVerticalDepthShiftPatch({
+      startPointer: { y: Number(payload.centerY) },
+      pointer: { y: Number(payload.centerY) + Number(previewOffset?.y ?? 0) },
+      yScale: yScale.value,
+      entries: Array.isArray(payload.entries) ? payload.entries : []
+    });
+  }
+  return resolveVerticalLabelDragPatch({
+    pointer: {
+      x: Number(payload.centerX) + Number(previewOffset?.x ?? 0),
+      y: Number(payload.centerY) + Number(previewOffset?.y ?? 0)
+    },
+    xScale: xScale.value,
+    yScale: yScale.value,
+    xField: payload.xField,
+    yField: payload.yField,
+    xRange: payload.xRange,
+    depthRange: payload.depthRange
+  });
+}
+
+function handleStartLabelDrag(payload, event) {
+  if (isReadonly.value || !payload) return;
+  labelDrag.startDrag({
+    previewId: payload.previewId,
+    buildPatch: ({ previewOffset }) => buildVerticalLabelPatch(payload, previewOffset),
+    commitPatch: (patch) => {
+      if (!patch || typeof patch !== 'object') return;
+      updateFields({
+        entityType: payload.entityType,
+        rowId: payload.rowId,
+        patch
+      });
+    }
+  }, event);
+}
+
+function handleWindowPointerMove(event) {
+  labelDrag.updateDrag(event);
+}
+
+function handleWindowPointerUp(event) {
+  labelDrag.finishDrag(event);
+}
 
 function updateContainerSize() {
   const container = containerRef.value;
@@ -659,10 +715,15 @@ function resolvePipeRow(entity) {
 }
 
 function handleSelectPipe(entity) {
+  if (consumeSelectionClickAfterLabelDrag()) return;
   if (!isSelectionEnabled.value) return;
   const normalized = normalizePipeEntity(entity);
   if (!normalized) return;
   dispatchSchematicInteraction('select', { type: 'pipe', id: normalized });
+}
+
+function consumeSelectionClickAfterLabelDrag() {
+  return labelDrag.consumeFinishedDragClick() === true;
 }
 
 function handleHoverPipe(entity, event) {
@@ -726,7 +787,8 @@ const lineHandlers = usePlotEntityHandlers({
   buildTooltipModel: buildLineTooltipModel,
   showTooltip: showTooltipIfEnabled,
   hideTooltip,
-  canInteract: interactionGuard
+  canInteract: interactionGuard,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const boxHandlers = usePlotEntityHandlers({
   type: 'box',
@@ -735,7 +797,8 @@ const boxHandlers = usePlotEntityHandlers({
   buildTooltipModel: buildBoxTooltipModel,
   showTooltip: showTooltipIfEnabled,
   hideTooltip,
-  canInteract: interactionGuard
+  canInteract: interactionGuard,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const markerHandlers = usePlotEntityHandlers({
   type: 'marker',
@@ -744,7 +807,8 @@ const markerHandlers = usePlotEntityHandlers({
   buildTooltipModel: buildMarkerTooltipModel,
   showTooltip: showTooltipIfEnabled,
   hideTooltip,
-  canInteract: interactionGuard
+  canInteract: interactionGuard,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const equipmentHandlers = usePlotEntityHandlers({
   type: 'equipment',
@@ -752,7 +816,8 @@ const equipmentHandlers = usePlotEntityHandlers({
   unitsLabel,
   buildTooltipModel: buildEquipmentTooltipModel,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const plugHandlers = usePlotEntityHandlers({
   type: 'plug',
@@ -761,7 +826,8 @@ const plugHandlers = usePlotEntityHandlers({
   buildTooltipModel: buildPlugTooltipModel,
   showTooltip: showTooltipIfEnabled,
   hideTooltip,
-  canInteract: interactionGuard
+  canInteract: interactionGuard,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const fluidHandlers = usePlotEntityHandlers({
   type: 'fluid',
@@ -771,7 +837,8 @@ const fluidHandlers = usePlotEntityHandlers({
   resolveTooltipMeta: resolveFluidTooltipMeta,
   showTooltip: showTooltipIfEnabled,
   hideTooltip,
-  canInteract: interactionGuard
+  canInteract: interactionGuard,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 
 const handleSelectLine = lineHandlers.handleSelect;
@@ -950,6 +1017,7 @@ function hideStaleTooltipOnMouseMove() {
 }
 
 function handleCanvasMouseMove(event) {
+  if (labelDrag.activePreviewId.value) return;
   if (isCameraPanActive.value) return;
   hideStaleTooltipOnMouseMove();
   if (crossSectionVisible.value) {
@@ -1012,6 +1080,8 @@ function clearAllSelections() {
 }
 
 function handleCanvasBackgroundClick(event) {
+  const consumedLabelDragClick = labelDrag.consumeFinishedDragClick();
+  if (consumedLabelDragClick) return;
   if (crossSectionVisible.value) {
     crossSectionDepthInteraction.lockDepthFromEvent(event);
   }
@@ -1032,6 +1102,10 @@ function connectCanvasLifecycle() {
   updateContainerSize();
   emit('svg-ready', svgRef.value);
   connectGlobalInteractionListeners();
+  window.removeEventListener('pointermove', handleWindowPointerMove);
+  window.removeEventListener('pointerup', handleWindowPointerUp);
+  window.addEventListener('pointermove', handleWindowPointerMove);
+  window.addEventListener('pointerup', handleWindowPointerUp);
   if (typeof ResizeObserver !== 'function') return;
   if (resizeObserver) return;
   if (!containerRef.value) return;
@@ -1046,6 +1120,9 @@ function connectCanvasLifecycle() {
 function disconnectCanvasLifecycle() {
   hideTooltip();
   disconnectGlobalInteractionListeners();
+  window.removeEventListener('pointermove', handleWindowPointerMove);
+  window.removeEventListener('pointerup', handleWindowPointerUp);
+  labelDrag.clearDrag();
   emit('svg-ready', null);
   resizeObserver?.disconnect();
   resizeObserver = null;
@@ -1132,9 +1209,12 @@ onBeforeUnmount(() => {
         :y-scale="yScale"
         :x-half="xHalf"
         :width="width"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-box="handleSelectBox"
         @hover-box="handleHoverBox"
         @leave-box="handleLeaveBox"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <BaseFillLayer
@@ -1172,9 +1252,13 @@ onBeforeUnmount(() => {
         :y-scale="yScale"
         :diameter-scale="diameterScaleValue"
         :plugs="plugRows"
+        :x-half="xHalf"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-plug="handleSelectPlug"
         @hover-plug="handleHoverPlug"
         @leave-plug="handleLeavePlug"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <TopologyOverlayLayer
@@ -1212,9 +1296,12 @@ onBeforeUnmount(() => {
         :diameter-scale="diameterScaleValue"
         :color-palette="config?.colorPalette || 'Tableau 10'"
         :barriers="linerHangerBarriers"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-pipe="handleSelectPipe"
         @hover-pipe="handleHoverPipe"
         @leave-pipe="handleLeavePipe"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <CrossoverLayer
@@ -1235,9 +1322,12 @@ onBeforeUnmount(() => {
         :y-scale="yScale"
         :diameter-scale="diameterScaleValue"
         :x-half="xHalf"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-equipment="handleSelectEquipment"
         @hover-equipment="handleHoverEquipment"
         @leave-equipment="handleLeaveEquipment"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <MarkerLayer
@@ -1263,9 +1353,12 @@ onBeforeUnmount(() => {
         :height="height"
         :units-label="unitsLabel"
         :diameter-scale="diameterScaleValue"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-pipe="handleSelectPipe"
         @hover-pipe="handleHoverPipe"
         @leave-pipe="handleLeavePipe"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <FluidLabelLayer
@@ -1280,9 +1373,12 @@ onBeforeUnmount(() => {
         :width="width"
         :height="height"
         :diameter-scale="diameterScaleValue"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-fluid="handleSelectFluid"
         @hover-fluid="handleHoverFluid"
         @leave-fluid="handleLeaveFluid"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <HorizontalLineLayer
@@ -1294,9 +1390,12 @@ onBeforeUnmount(() => {
         :x-half="xHalf"
         :width="width"
         :units-label="unitsLabel"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-line="handleSelectLine"
         @hover-line="handleHoverLine"
         @leave-line="handleLeaveLine"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <PhysicsDebugLayer

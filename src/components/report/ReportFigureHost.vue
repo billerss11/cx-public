@@ -118,6 +118,7 @@ async function handleTopologyGraphSvgReady(svgElement) {
       v-if="isDirectionalView"
       :project-data="snapshot.stateSnapshot"
       :config="snapshot.config"
+      :readonly="true"
       :topology-result="topologyResult"
       :analysis-request-id="analysisRequestId"
       @svg-ready="handleSchematicSvgReady"

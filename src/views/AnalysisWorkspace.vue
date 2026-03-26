@@ -2227,6 +2227,7 @@ watch(filteredTopologyInspectorEdgeRows, (rows) => {
         v-if="isDirectionalView"
         :project-data="declarativeProjectData"
         :config="viewConfigStore.config"
+        :readonly="true"
         :analysis-request-id="latestAnalysisGeometryRequestId"
         :topology-result="synchronizedTopologyResult"
         :topology-overlay-options="topologyOverlayOptions"

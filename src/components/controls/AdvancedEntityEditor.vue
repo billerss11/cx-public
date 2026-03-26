@@ -668,22 +668,22 @@ onBeforeUnmount(() => {
               v-else-if="fieldDefinition.controlType === ENTITY_EDITOR_CONTROL_TYPES.number"
               class="advanced-entity-editor__number-control"
             >
-              <InputNumber
-                :input-id="getFieldTestId(fieldDefinition.field)"
-                class="w-100"
-                fluid
-                :data-testid="getFieldTestId(fieldDefinition.field)"
+            <InputNumber
+              :input-id="getFieldTestId(fieldDefinition.field)"
+              class="w-100"
+              fluid
+              :data-testid="getFieldTestId(fieldDefinition.field)"
                 :model-value="getDraftValue(fieldDefinition)"
                 :min="fieldDefinition.min ?? undefined"
                 :max="fieldDefinition.max ?? undefined"
-                :step="fieldDefinition.step ?? undefined"
-                :min-fraction-digits="getMinFractionDigits(fieldDefinition)"
-                :max-fraction-digits="getMaxFractionDigits(fieldDefinition)"
-                :use-grouping="false"
-                @update:model-value="updateNumberFieldDraft(fieldDefinition, $event)"
-                @blur="commitNumberField(fieldDefinition)"
-                @keydown.enter.prevent="commitNumberField(fieldDefinition)"
-              />
+              :step="fieldDefinition.step ?? undefined"
+              :min-fraction-digits="getMinFractionDigits(fieldDefinition)"
+              :max-fraction-digits="getMaxFractionDigits(fieldDefinition)"
+              :use-grouping="false"
+              @update:model-value="updateNumberFieldDraft(fieldDefinition, $event)"
+              @blur="commitNumberField(fieldDefinition)"
+              @keydown.enter.prevent="commitNumberField(fieldDefinition)"
+            />
 
               <Slider
                 v-if="hasSliderControl(fieldDefinition)"

@@ -119,43 +119,63 @@ export function useEntityEditorActions() {
     return true;
   }
 
-  function updateField({ entityType, rowId, field, value }) {
-    const normalizedField = normalizeToken(field);
-    if (!normalizedField) return false;
-
+  function updateFields({ entityType, rowId, patch } = {}) {
     const target = resolveSelectionRowTarget(projectDataStore, {
       entityType,
       rowId
     });
     if (!target) return false;
 
-    const pathTokens = normalizedField
-      .split('.')
-      .map((token) => normalizeToken(token))
-      .filter((token) => token.length > 0);
-    if (pathTokens.length === 0) return false;
-
-    if (pathTokens.length === 1) {
-      return projectDataStore.updateProjectRow(
-        target.storeKey,
-        target.storeRowIndex,
-        { [pathTokens[0]]: value }
-      );
-    }
-
-    const rootField = pathTokens[0];
-    const nestedTokens = pathTokens.slice(1);
     const sourceRow = target.row && typeof target.row === 'object' ? target.row : {};
-    const rootSource = sourceRow[rootField] && typeof sourceRow[rootField] === 'object' && !Array.isArray(sourceRow[rootField])
-      ? sourceRow[rootField]
-      : {};
-    const nextRootValue = setNestedValue(rootSource, nestedTokens, value);
+    const entries = Object.entries(patch && typeof patch === 'object' ? patch : {});
+    if (entries.length === 0) return false;
+
+    const nextPatch = entries.reduce((accumulator, [field, value]) => {
+      const normalizedField = normalizeToken(field);
+      if (!normalizedField) return accumulator;
+
+      const pathTokens = normalizedField
+        .split('.')
+        .map((token) => normalizeToken(token))
+        .filter((token) => token.length > 0);
+      if (pathTokens.length === 0) return accumulator;
+
+      if (pathTokens.length === 1) {
+        accumulator[pathTokens[0]] = value;
+        return accumulator;
+      }
+
+      const rootField = pathTokens[0];
+      const nestedTokens = pathTokens.slice(1);
+      const rootSource = accumulator[rootField] && typeof accumulator[rootField] === 'object' && !Array.isArray(accumulator[rootField])
+        ? accumulator[rootField]
+        : (sourceRow[rootField] && typeof sourceRow[rootField] === 'object' && !Array.isArray(sourceRow[rootField])
+          ? sourceRow[rootField]
+          : {});
+      accumulator[rootField] = setNestedValue(rootSource, nestedTokens, value);
+      return accumulator;
+    }, {});
+
+    if (Object.keys(nextPatch).length === 0) return false;
 
     return projectDataStore.updateProjectRow(
       target.storeKey,
       target.storeRowIndex,
-      { [rootField]: nextRootValue }
+      nextPatch
     );
+  }
+
+  function updateField({ entityType, rowId, field, value }) {
+    const normalizedField = normalizeToken(field);
+    if (!normalizedField) return false;
+
+    return updateFields({
+      entityType,
+      rowId,
+      patch: {
+        [normalizedField]: value
+      }
+    });
   }
 
   function addRow({ entityType, afterRowId = null, initialValues = null } = {}) {
@@ -307,6 +327,7 @@ export function useEntityEditorActions() {
 
   return {
     updateField,
+    updateFields,
     addRow,
     duplicateRow,
     deleteRow,

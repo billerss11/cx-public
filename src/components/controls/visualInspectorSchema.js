@@ -43,7 +43,7 @@ function buildColorOptions(currentValue) {
 }
 
 function createField(field, controlType, labelKey, options = {}) {
-    return Object.freeze({
+  return Object.freeze({
         field,
         controlType,
         labelKey,
@@ -55,20 +55,50 @@ function createField(field, controlType, labelKey, options = {}) {
         slider: options.slider ?? null,
         options: options.options ?? null,
         showWhen: options.showWhen ?? null
-    });
+  });
+}
+
+function createLabelXField(field, labelKey = 'table.casing.label_x') {
+  return createField(field, VISUAL_INSPECTOR_CONTROL_TYPES.number, labelKey, {
+    step: 0.1,
+    slider: { min: -1, max: 1, step: 0.01 }
+  });
+}
+
+function createDepthPositionField(field, labelKey, slider) {
+  return createField(field, VISUAL_INSPECTOR_CONTROL_TYPES.number, labelKey, {
+    step: 0.1,
+    slider
+  });
 }
 
 const CASING_BASE_FIELDS = Object.freeze([
-    createField('showTop', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_top', { defaultValue: true }),
-    createField('showBottom', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_bottom', { defaultValue: true }),
-    createField('labelXPos', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.casing.label_x', {
-        step: 0.1,
-        slider: { min: -1, max: 1, step: 0.01 }
-    }),
-    createField('manualLabelDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.casing.label_depth', {
-        step: 0.1,
-        slider: ({ rowData }) => resolveRowDepthSliderRange(rowData, { step: 0.1 })
-    })
+  createField('showTop', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_top', { defaultValue: true }),
+  createField('showBottom', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.casing.show_bottom', { defaultValue: true }),
+  createLabelXField('labelXPos'),
+  createDepthPositionField('manualLabelDepth', 'table.casing.label_depth', ({ rowData }) => (
+    resolveRowDepthSliderRange(rowData, { step: 0.1 })
+  )),
+  createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+  createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createLabelXField('topLabelXPos', 'table.casing.top_label_x'),
+  createDepthPositionField('topManualLabelDepth', 'table.casing.top_label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createLabelXField('bottomLabelXPos', 'table.casing.bottom_label_x'),
+  createDepthPositionField('bottomManualLabelDepth', 'table.casing.bottom_label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createLabelXField('directionalTopLabelXPos', 'table.directional.top_label_x'),
+  createDepthPositionField('directionalTopManualLabelDepth', 'table.directional.top_label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createLabelXField('directionalBottomLabelXPos', 'table.directional.bottom_label_x'),
+  createDepthPositionField('directionalBottomManualLabelDepth', 'table.directional.bottom_label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  ))
 ]);
 
 const CASING_FIELDS = Object.freeze([
@@ -108,18 +138,18 @@ const CASING_FIELDS = Object.freeze([
 ]);
 
 const TRANSIENT_PIPE_FIELDS = Object.freeze([
-    createField('showLabel', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.fluids.show', { defaultValue: true }),
-    createField('labelXPos', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.casing.label_x', {
-        step: 0.1,
-        slider: { min: -1, max: 1, step: 0.01 }
-    }),
-    createField('manualLabelDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.casing.label_depth', {
-        step: 0.1,
-        slider: ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)
-    }),
-    createField('labelFontSize', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.boxes.font_size', {
-        defaultValue: 11,
-        min: 8,
+  createField('showLabel', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.fluids.show', { defaultValue: true }),
+  createLabelXField('labelXPos'),
+  createDepthPositionField('manualLabelDepth', 'table.casing.label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+  createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => (
+    resolveGlobalDepthSliderRange(context, 0.1)
+  )),
+  createField('labelFontSize', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.boxes.font_size', {
+    defaultValue: 11,
+    min: 8,
         max: 20,
         step: 1
     })
@@ -163,10 +193,10 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
         createField('lineStyle', VISUAL_INSPECTOR_CONTROL_TYPES.select, 'table.lines.line_style', {
             options: () => buildEnumOptions('lineStyle')
         }),
-        createField('labelXPos', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.lines.label_x', {
-            step: 0.1,
-            slider: { min: -1, max: 1, step: 0.01 }
-        }),
+        createLabelXField('labelXPos', 'table.lines.label_x'),
+        createDepthPositionField('manualLabelDepth', 'table.lines.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
+        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('show', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.lines.show', { defaultValue: true })
     ]),
     plug: Object.freeze([
@@ -176,6 +206,10 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
         createField('hatchStyle', VISUAL_INSPECTOR_CONTROL_TYPES.select, 'table.plugs.hatch', {
             options: () => buildEnumOptions('hatchStyle')
         }),
+        createLabelXField('labelXPos', 'table.plugs.label_x'),
+        createDepthPositionField('manualLabelDepth', 'table.plugs.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
+        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('show', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.plugs.show', { defaultValue: true })
     ]),
     fluid: Object.freeze([
@@ -194,14 +228,10 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
             max: 72,
             step: 1
         }),
-        createField('labelXPos', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.fluids.label_x', {
-            step: 0.1,
-            slider: { min: -1, max: 1, step: 0.01 }
-        }),
-    createField('manualDepth', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.fluids.label_depth', {
-        step: 0.1,
-        slider: ({ rowData }) => resolveRowDepthSliderRange(rowData, { step: 0.1 })
-    }),
+        createLabelXField('labelXPos', 'table.fluids.label_x'),
+        createDepthPositionField('manualDepth', 'table.fluids.label_depth', ({ rowData }) => resolveRowDepthSliderRange(rowData, { step: 0.1 })),
+        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('show', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.fluids.show', { defaultValue: true })
     ]),
     marker: Object.freeze([
@@ -231,10 +261,10 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
             max: 72,
             step: 1
         }),
-        createField('labelXPos', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.boxes.label_x', {
-            step: 0.1,
-            slider: { min: -1, max: 1, step: 0.01 }
-        }),
+        createLabelXField('labelXPos', 'table.boxes.label_x'),
+        createDepthPositionField('manualLabelDepth', 'table.boxes.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
+        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('opacity', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.boxes.opacity', {
             min: 0,
             max: 1,

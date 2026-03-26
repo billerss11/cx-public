@@ -124,6 +124,9 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   manualHoleSize: 'Hole Size',
   manualParent: 'Connect to Row #',
   manualDepth: 'Label Depth',
+  directionalDepthMd: 'Directional Depth MD',
+  directionalDepthTvd: 'Directional Depth TVD',
+  directionalDepthMode: 'Directional Depth Mode',
   manualOD: 'Manual OD',
   manualWidth: 'Manual Width',
   md: 'MD (Depth)',
@@ -364,6 +367,11 @@ const DOMAIN_FIELD_CONTRACTS = Object.freeze({
   ]),
   lines: Object.freeze([
     createDepthFieldContract('depth'),
+    createFieldContract('directionalDepthMode', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => ['tvd', 'md']
+    }),
+    createDepthFieldContract('directionalDepthMd'),
+    createDepthFieldContract('directionalDepthTvd'),
     createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
     READ_ONLY_ROW_ID_FIELD
   ]),

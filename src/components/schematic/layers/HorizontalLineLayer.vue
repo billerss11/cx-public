@@ -5,6 +5,7 @@ import {
   formatDepthValue,
   getHorizontalAnchor,
   getLineStyle,
+  parseOptionalNumber,
   resolveXPosition,
   wrapTextToLines
 } from '@/utils/general.js';
@@ -47,10 +48,65 @@ const props = defineProps({
   unitsLabel: {
     type: String,
     default: 'ft'
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-line', 'hover-line', 'leave-line']);
+const emit = defineEmits(['select-line', 'hover-line', 'leave-line', 'start-label-drag']);
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function resolvePreviewTransform(id) {
+  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+  const offsetY = Number(props.dragPreviewOffset?.y);
+  if (!Number.isFinite(offsetY)) return null;
+  return `translate(0 ${offsetY})`;
+}
+
+function handleLabelPointerDown(segment, event) {
+  const rowId = String(segment?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: segment.id,
+    entityType: 'line',
+    dragKind: 'depth-shift',
+    rowId,
+    centerX: segment.boxX + (segment.boxWidth / 2),
+    centerY: segment.y,
+    entries: [
+      {
+        field: 'depth',
+        value: segment.depthValue,
+        min: resolveScaleRange(props.yScale)?.min,
+        max: resolveScaleRange(props.yScale)?.max
+      },
+      ...(Number.isFinite(segment.manualLabelDepth)
+        ? [{
+          field: 'manualLabelDepth',
+          value: segment.manualLabelDepth,
+          min: resolveScaleRange(props.yScale)?.min,
+          max: resolveScaleRange(props.yScale)?.max
+        }]
+        : [])
+    ]
+  }, event);
+}
 
 const lineSegments = computed(() => {
   const rows = Array.isArray(props.lines) ? props.lines : [];
@@ -105,6 +161,7 @@ const lineSegments = computed(() => {
       const depthText = `${formatDepthValue(depthValue)} ${props.unitsLabel}`;
       const displayText = line.label ? `${line.label} ${depthText}` : depthText;
       const manualLabelX = resolveXPosition(line.labelXPos, props.xHalf);
+      const manualLabelDepth = parseOptionalNumber(line?.manualLabelDepth);
       const defaultLabelX = smartLabelsEnabled
         ? 0
         : (props.xHalf * LAYOUT_CONSTANTS.DEFAULT_RIGHT_LABEL_X_RATIO);
@@ -135,7 +192,8 @@ const lineSegments = computed(() => {
         textAnchor = 'start';
       }
       boxXPixel = clamp(boxXPixel, plotLeft + 5, plotRight - estimatedWidth - 5);
-      const labelY = clamp(props.yScale(depthValue), plotTop + 10, plotBottom - 10);
+      const labelDepthValue = Number.isFinite(manualLabelDepth) ? manualLabelDepth : depthValue;
+      const labelY = clamp(props.yScale(labelDepthValue), plotTop + 10, plotBottom - 10);
 
       const textX = (() => {
         if (textAnchor === 'end') return boxXPixel + estimatedWidth - 6;
@@ -155,12 +213,15 @@ const lineSegments = computed(() => {
       return {
         id: `line-${index}`,
         index,
+        depthValue,
+        manualLabelDepth,
         lineColor,
         fontColor,
         lineStyle: getLineStyle(line.lineStyle),
         x1: props.xScale(-fullW),
         x2: props.xScale(fullW),
         y: clamp(props.yScale(depthValue), plotTop, plotBottom),
+        rowId: String(line?.rowId ?? '').trim() || null,
         boxX: boxXPixel,
         boxY: labelY - labelHeight / 2,
         boxWidth: estimatedWidth,
@@ -168,7 +229,7 @@ const lineSegments = computed(() => {
         textAnchor,
         fontSize,
         side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
-        isPositionPinned: manualLabelX !== null && manualLabelX !== undefined,
+        isPositionPinned: (manualLabelX !== null && manualLabelX !== undefined) || Number.isFinite(manualLabelDepth),
         textLines
       };
     })
@@ -248,9 +309,11 @@ const lineSegments = computed(() => {
       :key="segment.id"
       class="horizontal-line-layer__group"
       :data-line-index="segment.index"
+      :transform="resolvePreviewTransform(segment.id)"
       @click="emit('select-line', segment.index)"
       @mousemove="emit('hover-line', segment.index, $event)"
       @mouseleave="emit('leave-line', segment.index)"
+      @pointerdown.stop.prevent="handleLabelPointerDown(segment, $event)"
     >
       <line
         class="horizontal-line-layer__hit-path"
@@ -270,27 +333,29 @@ const lineSegments = computed(() => {
         :stroke-dasharray="segment.lineStyle"
       />
 
-      <rect
-        class="horizontal-line-layer__label-bg"
-        :x="segment.boxX"
-        :y="segment.boxY"
-        :width="segment.boxWidth"
-        :height="segment.boxHeight"
-        :stroke="segment.fontColor"
-      />
+      <g class="horizontal-line-layer__label-group">
+        <rect
+          class="horizontal-line-layer__label-bg"
+          :x="segment.boxX"
+          :y="segment.boxY"
+          :width="segment.boxWidth"
+          :height="segment.boxHeight"
+          :stroke="segment.fontColor"
+        />
 
-      <text
-        v-for="line in segment.textLines"
-        :key="line.id"
-        class="horizontal-line-layer__label-text"
-        :x="line.x"
-        :y="line.y"
-        :text-anchor="segment.textAnchor"
-        :fill="segment.fontColor"
-        :style="{ fontSize: `${line.fontSize}px` }"
-      >
-        {{ line.text }}
-      </text>
+        <text
+          v-for="line in segment.textLines"
+          :key="line.id"
+          class="horizontal-line-layer__label-text"
+          :x="line.x"
+          :y="line.y"
+          :text-anchor="segment.textAnchor"
+          :fill="segment.fontColor"
+          :style="{ fontSize: `${line.fontSize}px` }"
+        >
+          {{ line.text }}
+        </text>
+      </g>
     </g>
   </g>
 </template>
@@ -298,6 +363,10 @@ const lineSegments = computed(() => {
 <style scoped>
 .horizontal-line-layer__group {
   cursor: pointer;
+}
+
+.horizontal-line-layer__label-group {
+  cursor: grab;
 }
 
 .horizontal-line-layer__path {

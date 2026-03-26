@@ -88,6 +88,63 @@ export function resolveTrajectoryPointAtMD(targetMD, points) {
   };
 }
 
+export function resolveMDFromTVD(targetTVD, points = []) {
+  const safeTVD = toFiniteNumber(targetTVD);
+  if (!Number.isFinite(safeTVD) || !Array.isArray(points) || points.length === 0) return null;
+  if (points.length === 1) {
+    return toFiniteNumber(points[0]?.md, null);
+  }
+
+  let bestMD = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  points.forEach((point) => {
+    const pointTVD = toFiniteNumber(point?.tvd, null);
+    const pointMD = toFiniteNumber(point?.md, null);
+    if (!Number.isFinite(pointTVD) || !Number.isFinite(pointMD)) return;
+    const distance = Math.abs(pointTVD - safeTVD);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMD = pointMD;
+    }
+  });
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    const startTVD = toFiniteNumber(start?.tvd, null);
+    const endTVD = toFiniteNumber(end?.tvd, null);
+    const startMD = toFiniteNumber(start?.md, null);
+    const endMD = toFiniteNumber(end?.md, null);
+    if (!Number.isFinite(startTVD) || !Number.isFinite(endTVD) || !Number.isFinite(startMD) || !Number.isFinite(endMD)) {
+      continue;
+    }
+
+    const minTVD = Math.min(startTVD, endTVD);
+    const maxTVD = Math.max(startTVD, endTVD);
+    if (safeTVD < minTVD || safeTVD > maxTVD) continue;
+
+    const tvdSpan = endTVD - startTVD;
+    if (Math.abs(tvdSpan) <= DIRECTIONAL_EPSILON) {
+      const midpointMD = startMD + ((endMD - startMD) / 2);
+      bestMD = midpointMD;
+      bestDistance = 0;
+      continue;
+    }
+
+    const t = clamp((safeTVD - startTVD) / tvdSpan, 0, 1);
+    const candidateMD = startMD + ((endMD - startMD) * t);
+    const candidateTVD = startTVD + (tvdSpan * t);
+    const distance = Math.abs(candidateTVD - safeTVD);
+    if (distance <= bestDistance) {
+      bestDistance = distance;
+      bestMD = candidateMD;
+    }
+  }
+
+  return Number.isFinite(bestMD) ? bestMD : null;
+}
+
 export function resolveProjectedDepthBounds(rows = [], trajectoryPoints = [], options = {}) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   if (!Array.isArray(trajectoryPoints) || trajectoryPoints.length === 0) return null;

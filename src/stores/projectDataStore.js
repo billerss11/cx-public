@@ -18,6 +18,8 @@ import {
 } from '@/utils/equipmentAttachReference.js';
 import { normalizeEquipmentRow } from '@/equipment/rowNormalization.js';
 import { resolveEquipmentHostConfig } from '@/topology/equipmentDefinitions/index.js';
+import { resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
+import { syncDirectionalReferenceHorizons } from '@/utils/referenceHorizons.js';
 
 export const PROJECT_DATA_KEYS = new Set([
     'casingData',
@@ -406,6 +408,22 @@ function normalizeArrayProjectRows(key, rows, casingRows = [], tubingRows = []) 
     return changed ? nextRows : normalizedRows;
 }
 
+function buildReferenceHorizonTrajectoryPoints(trajectoryRows = [], casingRows = []) {
+    return resolveTrajectoryPointsFromRows(
+        Array.isArray(trajectoryRows) ? trajectoryRows : [],
+        {},
+        {
+            casingData: Array.isArray(casingRows) ? casingRows : []
+        }
+    );
+}
+
+function syncHorizontalLineRows(rows, trajectoryRows = [], casingRows = [], options = {}) {
+    if (!Array.isArray(rows)) return rows;
+    const trajectoryPoints = buildReferenceHorizonTrajectoryPoints(trajectoryRows, casingRows);
+    return syncDirectionalReferenceHorizons(rows, trajectoryPoints, options);
+}
+
 function normalizeBoundaryReason(reason = {}) {
     const type = String(reason?.type ?? '').trim() || 'depth';
     const action = String(reason?.action ?? '').trim() || 'transition';
@@ -460,7 +478,14 @@ export const useProjectDataStore = defineStore('projectData', () => {
         const tubingRows = key === 'tubingData'
             ? rows
             : (Array.isArray(state.tubingData) ? state.tubingData : []);
-        const normalizedRows = normalizeArrayProjectRows(key, rows, casingRows, tubingRows);
+        let normalizedRows = normalizeArrayProjectRows(key, rows, casingRows, tubingRows);
+        if (key === 'horizontalLines') {
+            normalizedRows = syncHorizontalLineRows(
+                normalizedRows,
+                key === 'trajectory' ? rows : state.trajectory,
+                casingRows
+            );
+        }
         state[key] = normalizedRows;
 
         if (key === 'casingData') {
@@ -478,6 +503,12 @@ export const useProjectDataStore = defineStore('projectData', () => {
             );
             state.cementPlugs = normalizeArrayProjectRows('cementPlugs', state.cementPlugs, normalizedRows);
             state.annulusFluids = normalizeArrayProjectRows('annulusFluids', state.annulusFluids, normalizedRows);
+            state.horizontalLines = syncHorizontalLineRows(
+                state.horizontalLines,
+                state.trajectory,
+                normalizedRows,
+                { resyncFromMd: true }
+            );
         } else if (key === 'tubingData') {
             state.markers = normalizeArrayProjectRows(
                 'markers',
@@ -490,6 +521,13 @@ export const useProjectDataStore = defineStore('projectData', () => {
                 state.equipmentData,
                 Array.isArray(state.casingData) ? state.casingData : [],
                 normalizedRows
+            );
+        } else if (key === 'trajectory') {
+            state.horizontalLines = syncHorizontalLineRows(
+                state.horizontalLines,
+                normalizedRows,
+                Array.isArray(state.casingData) ? state.casingData : [],
+                { resyncFromMd: true }
             );
         }
 
@@ -591,9 +629,32 @@ export const useProjectDataStore = defineStore('projectData', () => {
         const rows = state[key];
         if (!Array.isArray(rows) || !rows[index]) return false;
 
-        const nextRows = rows.map((row, rowIndex) => (
+        const targetRow = rows[index];
+        const targetRowId = normalizeRowId(targetRow?.rowId);
+        const sourceFieldByRowId = new Map();
+        if (key === 'horizontalLines' && targetRowId) {
+            if (Object.prototype.hasOwnProperty.call(patch, 'directionalDepthTvd')) {
+                sourceFieldByRowId.set(targetRowId, 'directionalDepthTvd');
+            } else if (Object.prototype.hasOwnProperty.call(patch, 'directionalDepthMd')) {
+                sourceFieldByRowId.set(targetRowId, 'directionalDepthMd');
+            } else if (Object.prototype.hasOwnProperty.call(patch, 'directionalDepthMode')) {
+                sourceFieldByRowId.set(targetRowId, 'directionalDepthMode');
+            } else if (Object.prototype.hasOwnProperty.call(patch, 'depth')) {
+                sourceFieldByRowId.set(targetRowId, 'depth');
+            }
+        }
+
+        let nextRows = rows.map((row, rowIndex) => (
             rowIndex === index ? { ...row, ...patch } : row
         ));
+        if (key === 'horizontalLines' && sourceFieldByRowId.size > 0) {
+            nextRows = syncHorizontalLineRows(
+                nextRows,
+                state.trajectory,
+                state.casingData,
+                { sourceFieldByRowId }
+            );
+        }
         return setArrayProjectData(key, nextRows);
     }
 

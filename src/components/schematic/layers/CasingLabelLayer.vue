@@ -7,6 +7,7 @@ import {
   resolveSmartLabelAutoScale,
   resolveSmartLabelFontSize
 } from '@/utils/smartLabels.js';
+import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 
@@ -50,10 +51,45 @@ const props = defineProps({
   smartLabelsEnabled: {
     type: Boolean,
     default: true
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-pipe', 'hover-pipe', 'leave-pipe']);
+const emit = defineEmits(['select-pipe', 'hover-pipe', 'leave-pipe', 'start-label-drag']);
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function handleLabelPointerDown(label, event) {
+  const rowId = String(label?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: label.id,
+    entityType: label.pipeType,
+    rowId,
+    centerX: label.boxX + (label.boxWidth / 2),
+    centerY: label.boxY + (label.boxHeight / 2),
+    xField: 'labelXPos',
+    yField: 'manualLabelDepth',
+    xRange: resolveScaleRange(props.xScale),
+    depthRange: resolveScaleRange(props.yScale)
+  }, event);
+}
 
 function normalizePipeType(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -301,6 +337,7 @@ const labels = computed(() => {
       id: `pipe-label-${currentRow.pipeType}-${currentRow.rowIndex}`,
       pipeType: currentRow.pipeType,
       rowIndex: currentRow.rowIndex,
+      rowId: String(currentRow.row?.rowId ?? '').trim() || null,
       pipeKey,
       boxX,
       boxY,
@@ -382,7 +419,12 @@ const labels = computed(() => {
       textLines: nextTextLines,
       arrow: nextArrow || label.arrow
     };
-  });
+  }).map((label) => applyPreviewToArrowedBoxLabel(
+    label,
+    props.dragPreviewId,
+    props.dragPreviewOffset,
+    { buildArrowGeometry }
+  ));
 });
 </script>
 
@@ -397,6 +439,7 @@ const labels = computed(() => {
       @click="emit('select-pipe', { pipeType: label.pipeType, rowIndex: label.rowIndex })"
       @mousemove="emit('hover-pipe', { pipeType: label.pipeType, rowIndex: label.rowIndex }, $event)"
       @mouseleave="emit('leave-pipe', { pipeType: label.pipeType, rowIndex: label.rowIndex })"
+      @pointerdown.stop.prevent="handleLabelPointerDown(label, $event)"
     >
       <line
         class="casing-label-layer__arrow-line"

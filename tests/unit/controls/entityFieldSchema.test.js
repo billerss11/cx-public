@@ -490,6 +490,45 @@ describe('entityFieldSchema', () => {
     expect(tableEditableFields).toContain('manualParent');
   });
 
+  it('exposes directional md/tvd fields for reference horizon data editing without leaking them into visual-only controls', () => {
+    const dataTabDefinitions = resolveEntityEditorFieldDefinitions({
+      entityType: 'line',
+      mode: 'advanced',
+      rowData: {
+        rowId: 'line-1',
+        depth: 1200,
+        directionalDepthMd: 1200,
+        directionalDepthTvd: 1100,
+        label: 'Landing',
+        show: true
+      }
+    });
+
+    const fieldNames = dataTabDefinitions.map((definition) => definition.field);
+    expect(fieldNames).toEqual(expect.arrayContaining([
+      'depth',
+      'directionalDepthMode',
+      'directionalDepthMd',
+      'directionalDepthTvd',
+      'label',
+      'rowId'
+    ]));
+
+    const visualFields = getVisualInspectorFields('line', {
+      rowData: {
+        depth: 1200,
+        directionalDepthMd: 1200,
+        directionalDepthTvd: 1100,
+        label: 'Landing',
+        show: true
+      },
+      depthRange: { min: 0, max: 10000 }
+    }).map((definition) => definition.field);
+
+    expect(visualFields).not.toContain('directionalDepthMd');
+    expect(visualFields).not.toContain('directionalDepthTvd');
+  });
+
   it('keeps advanced data fields separate from visual inspector fields', () => {
     const context = {
       casingRows: [

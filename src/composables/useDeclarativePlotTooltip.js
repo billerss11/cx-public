@@ -63,13 +63,35 @@ export function buildPipeTooltipModel(pipe, unitsLabel = 'ft', pipeType = 'casin
   return model;
 }
 
-export function buildLineTooltipModel(line, unitsLabel = 'ft') {
+export function buildLineTooltipModel(line, unitsLabel = 'ft', metadata = null) {
   if (!line || typeof line !== 'object') return null;
 
   const units = resolveUnits(unitsLabel);
   const lineStyle = normalizeEnumInput('lineStyle', line.lineStyle || 'solid');
   const styleLabel = translateEnum('lineStyle', lineStyle) || String(line.lineStyle || '');
   const fontSize = Number(line.fontSize);
+  if (metadata?.directionalReferenceHorizonMode === 'md' || metadata?.directionalReferenceHorizonMode === 'tvd') {
+    const primaryLabel = String(
+      metadata.primaryLabel
+      || (metadata.directionalReferenceHorizonMode === 'md' ? 'MD' : 'TVD')
+    );
+    const secondaryLabel = String(
+      metadata.secondaryLabel
+      || (metadata.directionalReferenceHorizonMode === 'md' ? 'TVD' : 'MD')
+    );
+    const lines = [
+      `${primaryLabel} ${formatDepthValue(metadata.primaryDepth)} ${units}`,
+      `${secondaryLabel} ${formatDepthValue(metadata.secondaryDepth)} ${units}`,
+      t('tooltip.style', { value: styleLabel }),
+      t('tooltip.font', { value: Number.isFinite(fontSize) ? fontSize : 11 })
+    ];
+
+    return {
+      title: String(line.label || t('common.default_line_label')),
+      color: line.color ? String(line.color) : null,
+      lines
+    };
+  }
 
   return {
     title: String(line.label || t('common.default_line_label')),

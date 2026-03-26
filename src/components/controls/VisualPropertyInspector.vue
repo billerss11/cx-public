@@ -301,7 +301,6 @@ function readSliderEventValue(eventOrValue) {
 function resolveSliderCommitValue(fieldDefinition, eventOrValue) {
   const sliderConfig = getSliderConfig(fieldDefinition);
   if (!sliderConfig) return null;
-
   const numericValue = normalizeNumberValue(readSliderEventValue(eventOrValue));
   if (!Number.isFinite(numericValue)) return null;
   return clampNumber(numericValue, sliderConfig.min, sliderConfig.max);
@@ -442,7 +441,6 @@ function getMaxFractionDigits(fieldDefinition) {
 function updateNumberFieldDraft(fieldDefinition, value) {
   formState[fieldDefinition.field] = normalizeNumberValue(value);
 }
-
 function commitNumberField(fieldDefinition) {
   clearSliderFieldCommit(fieldDefinition);
   patchSelectedField(fieldDefinition, getFieldValue(fieldDefinition));

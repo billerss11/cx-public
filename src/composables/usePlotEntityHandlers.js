@@ -25,10 +25,12 @@ export function usePlotEntityHandlers(options = {}) {
     resolveTooltipMeta,
     showTooltip,
     hideTooltip,
-    canInteract
+    canInteract,
+    consumeSelectClick
   } = options;
 
   function handleSelect(index) {
+    if (typeof consumeSelectClick === 'function' && consumeSelectClick() === true) return;
     if (!resolveCanInteract(canInteract)) return;
     if (!Number.isInteger(index)) return;
     dispatchSchematicInteraction('select', { type, id: index });

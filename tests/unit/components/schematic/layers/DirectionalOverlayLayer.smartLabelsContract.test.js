@@ -30,4 +30,18 @@ describe('DirectionalOverlayLayer smart-label contract', () => {
     expect(source).toContain('v-for="label in directionalOverlayState.equipmentLabelOverlays"');
     expect(source).toContain('v-for="line in directionalOverlayState.horizontalLineOverlays"');
   });
+
+  it('applies directional horizon drag preview at the outer line group only so the label stays attached to the line', () => {
+    const source = readDirectionalOverlaySource();
+
+    expect(source).toContain(':transform="resolveDepthShiftPreviewTransform(line.id)"');
+    expect(source).not.toContain('<g :transform="resolvePreviewTransform(line.id)">');
+  });
+
+  it('anchors directional horizon depth-shift drag to the horizon centerline instead of the label box center', () => {
+    const source = readDirectionalOverlaySource();
+
+    expect(source).toContain("centerX: line.anchorX");
+    expect(source).not.toContain("centerX: line.boxX + (line.boxWidth / 2)");
+  });
 });

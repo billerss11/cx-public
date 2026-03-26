@@ -7,6 +7,7 @@ import {
   resolveSmartLabelAutoScale,
   resolveSmartLabelFontSize
 } from '@/utils/smartLabels.js';
+import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 import { resolveEquipmentTypeSemantics } from './equipmentModelShared.js';
 
 const DEFAULT_PACKER_HEIGHT = 15;
@@ -43,10 +44,18 @@ const props = defineProps({
   smartLabelsEnabled: {
     type: Boolean,
     default: true
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-equipment', 'hover-equipment', 'leave-equipment']);
+const emit = defineEmits(['select-equipment', 'hover-equipment', 'leave-equipment', 'start-label-drag']);
 
 function handleSelect(shape) {
   const equipmentIndex = Number(shape?.equipmentIndex);
@@ -78,6 +87,33 @@ function estimateLineWidth(text, fontSize) {
   return Array.from(String(text ?? '')).reduce((total, ch) => (
     total + (ch.charCodeAt(0) > 255 ? fontSize * 0.95 : fontSize * 0.58)
   ), 0);
+}
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function handleLabelPointerDown(label, event) {
+  const rowId = String(label?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: label.id,
+    entityType: 'equipment',
+    rowId,
+    centerX: label.boxX + (label.boxWidth / 2),
+    centerY: label.boxY + (label.boxHeight / 2),
+    xField: 'labelXPos',
+    yField: 'manualLabelDepth',
+    xRange: resolveScaleRange(props.xScale),
+    depthRange: resolveScaleRange(props.yScale)
+  }, event);
 }
 
 function buildArrowGeometry(startX, startY, endX, endY) {
@@ -376,6 +412,7 @@ const equipmentLabels = computed(() => {
       return {
         id: `equipment-label-${equipmentIndex}`,
         equipmentIndex,
+        rowId: String(equipmentRow?.rowId ?? '').trim() || null,
         boxX,
         boxY,
         boxWidth,
@@ -446,7 +483,12 @@ const equipmentLabels = computed(() => {
       fontSize: candidate.fontSize,
       arrow: nextArrow || label.arrow
     };
-  });
+  }).map((label) => applyPreviewToArrowedBoxLabel(
+    label,
+    props.dragPreviewId,
+    props.dragPreviewOffset,
+    { buildArrowGeometry }
+  ));
 });
 
 </script>
@@ -575,6 +617,7 @@ const equipmentLabels = computed(() => {
       @mousemove="handleHover(label, $event)"
       @mouseleave="handleLeave"
       @click="handleSelect(label)"
+      @pointerdown.stop.prevent="handleLabelPointerDown(label, $event)"
     >
       <line
         class="equipment-layer__label-arrow-line"

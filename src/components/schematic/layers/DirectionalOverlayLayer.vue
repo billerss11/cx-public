@@ -23,6 +23,7 @@ import {
   resolveSmartLabelAutoScale,
   resolveSmartLabelFontSize
 } from '@/utils/smartLabels.js';
+import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
 import { getStackAtDepth as getPhysicsStackAtDepth } from '@/composables/usePhysics.js';
@@ -40,6 +41,7 @@ import {
   resolveScreenFrameAtMD,
   normalizeXExaggeration
 } from './directionalProjection.js';
+import { resolveDirectionalReferenceHorizonDepthMeta } from '@/utils/referenceHorizons.js';
 
 const ANNOTATION_SIDE_PADDING_PX = 12;
 const ANNOTATION_WELL_GAP_PX = 8;
@@ -128,6 +130,14 @@ const props = defineProps({
   xOrigin: {
     type: Number,
     default: 0
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
@@ -146,7 +156,8 @@ const emit = defineEmits([
   'leave-fluid',
   'select-box',
   'hover-box',
-  'leave-box'
+  'leave-box',
+  'start-label-drag'
 ]);
 
 function normalizePipeType(pipeType) {
@@ -285,6 +296,132 @@ function handleBoxSelect(item) {
   const boxIndex = Number(item?.boxIndex);
   if (!Number.isInteger(boxIndex)) return;
   emit('select-box', boxIndex);
+}
+
+function resolveLineSegmentInPlot(center, direction, bounds) {
+  const cx = Number(center?.[0]);
+  const cy = Number(center?.[1]);
+  const dx = Number(direction?.x);
+  const dy = Number(direction?.y);
+  if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(dx) || !Number.isFinite(dy)) return null;
+  if (Math.abs(dx) <= DIRECTIONAL_EPSILON && Math.abs(dy) <= DIRECTIONAL_EPSILON) return null;
+
+  const left = Math.min(bounds.left, bounds.right);
+  const right = Math.max(bounds.left, bounds.right);
+  const top = Math.min(bounds.top, bounds.bottom);
+  const bottom = Math.max(bounds.top, bounds.bottom);
+  const intersections = [];
+
+  function pushUnique(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const epsilon = 1e-3;
+    const duplicate = intersections.some((point) => (
+      Math.abs(point.x - x) <= epsilon &&
+      Math.abs(point.y - y) <= epsilon
+    ));
+    if (!duplicate) intersections.push({ x, y });
+  }
+
+  if (Math.abs(dx) > DIRECTIONAL_EPSILON) {
+    const tLeft = (left - cx) / dx;
+    const yLeft = cy + (tLeft * dy);
+    if (yLeft >= top - DIRECTIONAL_EPSILON && yLeft <= bottom + DIRECTIONAL_EPSILON) {
+      pushUnique(left, clamp(yLeft, top, bottom));
+    }
+
+    const tRight = (right - cx) / dx;
+    const yRight = cy + (tRight * dy);
+    if (yRight >= top - DIRECTIONAL_EPSILON && yRight <= bottom + DIRECTIONAL_EPSILON) {
+      pushUnique(right, clamp(yRight, top, bottom));
+    }
+  }
+
+  if (Math.abs(dy) > DIRECTIONAL_EPSILON) {
+    const tTop = (top - cy) / dy;
+    const xTop = cx + (tTop * dx);
+    if (xTop >= left - DIRECTIONAL_EPSILON && xTop <= right + DIRECTIONAL_EPSILON) {
+      pushUnique(clamp(xTop, left, right), top);
+    }
+
+    const tBottom = (bottom - cy) / dy;
+    const xBottom = cx + (tBottom * dx);
+    if (xBottom >= left - DIRECTIONAL_EPSILON && xBottom <= right + DIRECTIONAL_EPSILON) {
+      pushUnique(clamp(xBottom, left, right), bottom);
+    }
+  }
+
+  if (intersections.length < 2) return null;
+
+  let bestPair = null;
+  let bestDistanceSq = -1;
+  for (let leftIndex = 0; leftIndex < intersections.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < intersections.length; rightIndex += 1) {
+      const dxPair = intersections[rightIndex].x - intersections[leftIndex].x;
+      const dyPair = intersections[rightIndex].y - intersections[leftIndex].y;
+      const distanceSq = (dxPair * dxPair) + (dyPair * dyPair);
+      if (distanceSq > bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        bestPair = [intersections[leftIndex], intersections[rightIndex]];
+      }
+    }
+  }
+
+  if (!bestPair) return null;
+  return {
+    startX: bestPair[0].x,
+    startY: bestPair[0].y,
+    endX: bestPair[1].x,
+    endY: bestPair[1].y
+  };
+}
+
+function resolvePreviewTransform(id) {
+  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+  const offsetX = Number(props.dragPreviewOffset?.x);
+  const offsetY = Number(props.dragPreviewOffset?.y);
+  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return null;
+  return `translate(${offsetX} ${offsetY})`;
+}
+
+function resolveDepthShiftPreviewTransform(id) {
+  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+  const offsetY = Number(props.dragPreviewOffset?.y);
+  if (!Number.isFinite(offsetY)) return null;
+  return `translate(0 ${offsetY})`;
+}
+
+function applyDirectionalArrowPreview(items = []) {
+  return (Array.isArray(items) ? items : []).map((item) => applyPreviewToArrowedBoxLabel(
+    item,
+    props.dragPreviewId,
+    props.dragPreviewOffset,
+    { buildArrowHeadPoints }
+  ));
+}
+
+function emitDragStartPayload(entityType, item, event, options = {}) {
+  const rowId = String(item?.rowId ?? '').trim();
+  if (!rowId) return;
+  const bounds = plotBounds.value;
+  emit('start-label-drag', {
+    previewId: item.id,
+    entityType,
+    rowId,
+    dragKind: options.dragKind ?? null,
+    resolveDepthMode: options.resolveDepthMode ?? null,
+    centerX: Number.isFinite(Number(options.centerX)) ? Number(options.centerX) : item.boxX + (item.boxWidth / 2),
+    centerY: Number.isFinite(Number(options.centerY)) ? Number(options.centerY) : item.boxY + (item.boxHeight / 2),
+    xField: item.xField,
+    yField: item.yField,
+    entries: options.entries ?? null,
+    bounds: bounds
+      ? {
+        left: bounds.left,
+        right: bounds.right,
+        width: bounds.width
+      }
+      : null
+  }, event);
 }
 
 const project = computed(() => {
@@ -910,6 +1047,52 @@ const depthAnnotations = computed(() => {
       const labelText = `${formatDepthValue(depthValue)} ${units}`;
       const boxWidth = clamp(labelText.length * (depthLabelFontSize * 0.58) + 10, 52, 180);
       const boxHeight = clamp(depthLabelFontSize + 10, 16, 32);
+      const isTopAnnotation = depthIndex === 0 && shouldShowTopDepth;
+      const manualXRatio = isTopAnnotation
+        ? resolveDirectionalLabelXRatio(sourceRow?.directionalTopLabelXPos)
+        : resolveDirectionalLabelXRatio(sourceRow?.directionalBottomLabelXPos);
+      const manualLabelDepth = isTopAnnotation
+        ? toFiniteNumber(sourceRow?.directionalTopManualLabelDepth, null)
+        : toFiniteNumber(sourceRow?.directionalBottomManualLabelDepth, null);
+
+      if (Number.isFinite(manualXRatio) && Number.isFinite(manualLabelDepth)) {
+        const manualMd = clamp(manualLabelDepth, 0, totalMd);
+        const manualFrame = resolveScreenFrameAtMD(manualMd, frameContext.value);
+        if (!manualFrame) return;
+        const boxCenterX = resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds);
+        const boxCenterY = manualFrame.center[1];
+        const boxX = clamp(boxCenterX - (boxWidth / 2), bounds.left + 2, bounds.right - boxWidth - 2);
+        const boxY = clamp(boxCenterY - (boxHeight / 2), bounds.top + 2, bounds.bottom - boxHeight - 2);
+        const boxEdgeX = (boxX + (boxWidth / 2)) <= anchor[0] ? boxX + boxWidth : boxX;
+        const lineY = boxY + (boxHeight / 2);
+        const arrowHeadPoints = buildArrowHeadPoints(anchor, [boxEdgeX, lineY], 6, 3);
+        if (!arrowHeadPoints) return;
+
+        items.push({
+          id: `depth-${row.__index}-${depthIndex}-${md.toFixed(3)}`,
+          casingIndex: Number(row.__index),
+          rowId: String(sourceRow?.rowId ?? '').trim() || null,
+          xField: isTopAnnotation ? 'directionalTopLabelXPos' : 'directionalBottomLabelXPos',
+          yField: isTopAnnotation ? 'directionalTopManualLabelDepth' : 'directionalBottomManualLabelDepth',
+          lineX1: anchor[0],
+          lineY1: anchor[1],
+          lineX2: boxEdgeX,
+          lineY2: lineY,
+          arrowHeadPoints,
+          boxX,
+          boxY,
+          boxWidth,
+          boxHeight,
+          text: labelText,
+          textX: boxX + (boxWidth / 2),
+          textY: lineY,
+          textAnchor: 'middle',
+          fontSize: depthLabelFontSize,
+          isPositionPinned: true
+        });
+        return;
+      }
+
       const placeRight = outward.x >= 0;
 
       let boxX = placeRight ? lineEnd[0] - 4 : lineEnd[0] - boxWidth + 4;
@@ -925,6 +1108,9 @@ const depthAnnotations = computed(() => {
       items.push({
         id: `depth-${row.__index}-${depthIndex}-${md.toFixed(3)}`,
         casingIndex: Number(row.__index),
+        rowId: String(sourceRow?.rowId ?? '').trim() || null,
+        xField: isTopAnnotation ? 'directionalTopLabelXPos' : 'directionalBottomLabelXPos',
+        yField: isTopAnnotation ? 'directionalTopManualLabelDepth' : 'directionalBottomManualLabelDepth',
         lineX1: anchor[0],
         lineY1: anchor[1],
         lineX2: arrowTargetX,
@@ -1047,7 +1233,10 @@ function buildDirectionalPipeLabelOverlays({
     if (largerRow) exposedTop = Math.max(exposedTop, Number(largerRow?.bottom));
     const midpoint = clamp((exposedTop + rowBottom) / 2, rowTop, rowBottom);
 
-    const manualDepth = toFiniteNumber(sourceRow?.manualLabelDepth);
+    const manualDepth = toFiniteNumber(
+      sourceRow?.directionalManualLabelDepth,
+      toFiniteNumber(sourceRow?.manualLabelDepth, null)
+    );
     const hasManualDepth = Number.isFinite(manualDepth);
     const labelDepth = hasManualDepth
       ? (constrainManualDepthToInterval
@@ -1077,7 +1266,7 @@ function buildDirectionalPipeLabelOverlays({
     const boxWidth = clamp(maxLineWidth + (labelPaddingX * 2), 100, 280);
     const boxHeight = (lines.length * lineHeight) + (labelPaddingY * 2);
 
-    const manualXRatio = resolveDirectionalLabelXRatio(sourceRow?.labelXPos);
+    const manualXRatio = resolveDirectionalLabelXRatio(sourceRow?.directionalLabelXPos ?? sourceRow?.labelXPos);
     const manualX = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
       : null;
@@ -1179,6 +1368,7 @@ function buildDirectionalPipeLabelOverlays({
       id: `${pipeType}-label-${rowIndex}`,
       pipeType,
       rowIndex,
+      rowId: String(sourceRow?.rowId ?? '').trim() || null,
       side: isLabelOnRight ? 'right' : 'left',
       isLabelOnRight,
       anchorX: anchor[0],
@@ -1248,6 +1438,9 @@ function buildDirectionalPipeLabelOverlays({
       id: item.id,
       pipeType: item.pipeType,
       rowIndex: item.rowIndex,
+      rowId: item.rowId,
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
       dataKey,
       arrowStartX: resolvedArrowStartX,
       arrowStartY: resolvedArrowStartY,
@@ -1335,7 +1528,7 @@ const equipmentLabelOverlays = computed(() => {
     const anchor = project.value(anchorMd, 0);
     if (!isFinitePoint(anchor)) return;
 
-    const manualDepth = toFiniteNumber(row?.manualLabelDepth);
+    const manualDepth = toFiniteNumber(row?.directionalManualLabelDepth, toFiniteNumber(row?.manualLabelDepth, null));
     const labelMd = Number.isFinite(manualDepth) ? clamp(manualDepth, 0, totalMd) : anchorMd;
     const center = project.value(labelMd, 0);
     const centerPoint = isFinitePoint(center) ? center : anchor;
@@ -1348,7 +1541,7 @@ const equipmentLabelOverlays = computed(() => {
     const boxWidth = clamp(estimateLineWidth(labelText, labelFontSize) + 16, 90, 260);
     const boxHeight = (lineHeight) + (labelPaddingY * 2);
 
-    const manualXRatio = resolveDirectionalLabelXRatio(row?.labelXPos);
+    const manualXRatio = resolveDirectionalLabelXRatio(row?.directionalLabelXPos ?? row?.labelXPos);
     const manualX = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
       : null;
@@ -1382,6 +1575,7 @@ const equipmentLabelOverlays = computed(() => {
     items.push({
       id: `equipment-label-${equipmentIndex}`,
       equipmentIndex,
+      rowId: String(row?.rowId ?? '').trim() || null,
       side: isLabelOnRight ? 'right' : 'left',
       isLabelOnRight,
       labelDepth: anchorMd,
@@ -1446,6 +1640,9 @@ const equipmentLabelOverlays = computed(() => {
     return {
       id: item.id,
       equipmentIndex: item.equipmentIndex,
+      rowId: item.rowId,
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
       arrowStartX: resolvedArrowStartX,
       arrowStartY: resolvedArrowStartY,
       arrowEndX: item.anchorX,
@@ -1477,14 +1674,23 @@ const plugLabelOverlays = computed(() => {
     const bottom = toFiniteNumber(plug?.bottom, null);
     if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return;
 
-    const md = clamp((top + bottom) / 2, 0, totalMd);
+    const manualDepth = toFiniteNumber(plug?.directionalManualLabelDepth, null);
+    const manualXRatio = resolveDirectionalLabelXRatio(plug?.directionalLabelXPos);
+    const md = Number.isFinite(manualDepth)
+      ? clamp(manualDepth, 0, totalMd)
+      : clamp((top + bottom) / 2, 0, totalMd);
     const center = project.value(md, 0);
     if (!isFinitePoint(center)) return;
-    const x = clamp(center[0], bounds.left + 5, bounds.right - 5);
+    const x = Number.isFinite(manualXRatio)
+      ? clamp(resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds), bounds.left + 5, bounds.right - 5)
+      : clamp(center[0], bounds.left + 5, bounds.right - 5);
     const y = clamp(center[1], bounds.top + 5, bounds.bottom - 5);
 
     items.push({
       id: `plug-label-${plugIndex}`,
+      rowId: String(plug?.rowId ?? '').trim() || null,
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
       x,
       y,
       text: label
@@ -1514,10 +1720,15 @@ const fluidLabelOverlays = computed(() => {
 
     const manualDepth = parseOptionalNumber(fluid?.manualDepth) ??
       parseOptionalNumber(normalizedFluid?.manualDepth);
+    const directionalManualDepth = parseOptionalNumber(fluid?.directionalManualLabelDepth) ??
+      parseOptionalNumber(normalizedFluid?.directionalManualLabelDepth);
+    const manualXRatio = resolveDirectionalLabelXRatio(fluid?.directionalLabelXPos ?? normalizedFluid?.directionalLabelXPos);
     const labelDepth = Number.isFinite(manualDepth)
       ? clamp(manualDepth, top, bottom)
       : ((top + bottom) / 2);
-    const md = clamp(labelDepth, 0, totalMd);
+    const md = Number.isFinite(directionalManualDepth)
+      ? clamp(directionalManualDepth, 0, totalMd)
+      : clamp(labelDepth, 0, totalMd);
 
     const fluidLayer = resolveFluidLayerAtDepth(labelDepth, fluidIndex, physicsContext);
     if (!fluidLayer) return;
@@ -1551,7 +1762,55 @@ const fluidLabelOverlays = computed(() => {
     const estimatedWidth = resolveLabelWidth(wrappedLines, fontSize);
 
     const standoffPx = resolveDirectionalIntervalCalloutStandoff(bounds);
-    const manualXRatio = resolveDirectionalLabelXRatio(fluid?.labelXPos);
+    if (Number.isFinite(directionalManualDepth) && Number.isFinite(manualXRatio)) {
+      const boxCenterX = resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds);
+      const boxCenterY = clamp(centerAnchor[1], bounds.top + 10, bounds.bottom - 10);
+      const boxX = clamp(boxCenterX - (estimatedWidth / 2), bounds.left + 5, bounds.right - estimatedWidth - 5);
+      const boxY = clamp(boxCenterY - (labelHeight / 2), bounds.top + 5, bounds.bottom - labelHeight - 5);
+      const sideAnchor = centerAnchor;
+      const textX = boxX + (estimatedWidth / 2);
+      const textY = boxY + (labelHeight / 2);
+      const firstLineOffset = -((wrappedLines.length - 1) * lineHeight) / 2;
+      const textLines = wrappedLines.map((lineText, index) => ({
+        id: `fluid-label-${fluidIndex}-text-${index}`,
+        text: lineText,
+        x: textX,
+        dy: index === 0 ? firstLineOffset : lineHeight
+      }));
+      const arrowStartX = (boxX + (estimatedWidth / 2)) <= sideAnchor[0] ? boxX + estimatedWidth : boxX;
+      const arrowStartY = boxY + (labelHeight / 2);
+      const arrowPoints = buildArrowHeadPoints([arrowStartX, arrowStartY], sideAnchor, 6, 3);
+      if (!arrowPoints) return;
+
+      items.push({
+        id: `fluid-label-${fluidIndex}`,
+        fluidIndex,
+        rowId: String(fluid?.rowId ?? normalizedFluid?.rowId ?? '').trim() || null,
+        xField: 'directionalLabelXPos',
+        yField: 'directionalManualLabelDepth',
+        strokeColor,
+        textColor,
+        side: (boxX + (estimatedWidth / 2)) <= sideAnchor[0] ? 'left' : 'right',
+        fontSize,
+        textAnchor: 'middle',
+        boxX,
+        boxY,
+        boxWidth: estimatedWidth,
+        boxHeight: labelHeight,
+        textX,
+        textY,
+        textLines,
+        arrowStartX,
+        arrowStartY,
+        arrowEndX: sideAnchor[0],
+        arrowEndY: sideAnchor[1],
+        arrowPoints,
+        isPositionPinned: true
+      });
+      return;
+    }
+
+    const legacyManualXRatio = resolveDirectionalLabelXRatio(fluid?.labelXPos);
     const preferredSidePlacement = resolveOverflowAwareSide({
       preferredSide: 'right',
       anchorLeft: leftAnchor,
@@ -1602,6 +1861,9 @@ const fluidLabelOverlays = computed(() => {
     items.push({
       id: `fluid-label-${fluidIndex}`,
       fluidIndex,
+      rowId: String(fluid?.rowId ?? normalizedFluid?.rowId ?? '').trim() || null,
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
       strokeColor,
       textColor,
       side: calloutPlacement.side === 'left' ? 'left' : 'right',
@@ -1619,7 +1881,7 @@ const fluidLabelOverlays = computed(() => {
       arrowEndX: sideAnchor[0],
       arrowEndY: sideAnchor[1],
       arrowPoints,
-      isPositionPinned: Number.isFinite(manualDepth) || Number.isFinite(manualXRatio)
+      isPositionPinned: Number.isFinite(directionalManualDepth) || Number.isFinite(manualXRatio) || Number.isFinite(legacyManualXRatio)
     });
   });
 
@@ -1747,7 +2009,8 @@ const annotationBandOverlays = computed(() => {
     );
     if (!verticalBounds) return null;
 
-    const manualXRatio = resolveDirectionalLabelXRatio(box?.labelXPos);
+    const manualXRatio = resolveDirectionalLabelXRatio(box?.directionalLabelXPos ?? box?.labelXPos);
+    const manualLabelDepth = toFiniteNumber(box?.directionalManualLabelDepth, null);
     const sideSign = Number.isFinite(manualXRatio) && manualXRatio >= 0 ? 1 : -1;
 
     const wallPoint = project.value(verticalBounds.midMD, sideSign * wallOffset);
@@ -1807,34 +2070,62 @@ const annotationBandOverlays = computed(() => {
     const textColor = box?.fontColor || fillColor;
     const boxOpacity = clamp(toFiniteNumber(box?.opacity, 0.35), 0.05, 1.0);
 
-    const manualXPixel = Number.isFinite(manualXRatio)
-      ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
-      : null;
-    const textAnchor = Number.isFinite(manualXRatio)
-      ? getHorizontalAnchor(manualXRatio, 1, sideSign > 0 ? 'start' : 'end')
-      : (sideSign > 0 ? 'start' : 'end');
-    const textX = Number.isFinite(manualXPixel)
-      ? clamp(manualXPixel, bandX + 10, bandX + bandWidth - 10)
-      : (sideSign > 0 ? bandX + 10 : bandX + bandWidth - 10);
+    const hasDirectManualPosition = Number.isFinite(manualXRatio) && Number.isFinite(manualLabelDepth);
+    let resolvedBandX = bandX;
+    let resolvedBandY = bandY;
+    let textAnchor;
+    let textX;
+    if (hasDirectManualPosition) {
+      resolvedBandX = clamp(
+        resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds) - (bandWidth / 2),
+        bounds.left + ANNOTATION_SIDE_PADDING_PX,
+        bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
+      );
+      const manualFrame = resolveScreenFrameAtMD(clamp(manualLabelDepth, 0, totalMd), frameContext.value);
+      if (!manualFrame) return null;
+      resolvedBandY = clamp(
+        manualFrame.center[1] - (bandHeight / 2),
+        bounds.top,
+        bounds.bottom - bandHeight
+      );
+      textAnchor = 'middle';
+      textX = resolvedBandX + (bandWidth / 2);
+    } else {
+      const manualXPixel = Number.isFinite(manualXRatio)
+        ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
+        : null;
+      textAnchor = Number.isFinite(manualXRatio)
+        ? getHorizontalAnchor(manualXRatio, 1, sideSign > 0 ? 'start' : 'end')
+        : (sideSign > 0 ? 'start' : 'end');
+      textX = Number.isFinite(manualXPixel)
+        ? clamp(manualXPixel, resolvedBandX + 10, resolvedBandX + bandWidth - 10)
+        : (sideSign > 0 ? resolvedBandX + 10 : resolvedBandX + bandWidth - 10);
+    }
     const textBlockHeight = (lines.length - 1) * lineHeight;
     const startY = clamp(
-      (bandY + (bandHeight / 2)) - (textBlockHeight / 2),
-      bandY + fontSize + 2,
-      bandY + bandHeight - textBlockHeight - 3
+      (resolvedBandY + (bandHeight / 2)) - (textBlockHeight / 2),
+      resolvedBandY + fontSize + 2,
+      resolvedBandY + bandHeight - textBlockHeight - 3
     );
     const textLines = lines.map((lineText, idx) => ({
       id: `annotation-${boxIndex}-text-${idx}`,
       text: lineText,
       x: textX,
-      y: clamp(startY + (idx * lineHeight), bandY + fontSize + 2, bandY + bandHeight - 3),
+      y: clamp(startY + (idx * lineHeight), resolvedBandY + fontSize + 2, resolvedBandY + bandHeight - 3),
       fontWeight: idx === 0 ? 'bold' : 'normal'
     }));
 
     return {
       id: `annotation-${boxIndex}`,
       boxIndex,
-      boxX: bandX,
-      boxY: bandY,
+      rowId: String(box?.rowId ?? '').trim() || null,
+      topDepth,
+      bottomDepth,
+      manualLabelDepth,
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
+      boxX: resolvedBandX,
+      boxY: resolvedBandY,
       boxWidth: bandWidth,
       boxHeight: bandHeight,
       fillColor,
@@ -1844,7 +2135,7 @@ const annotationBandOverlays = computed(() => {
       side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
       fontSize,
       textLines,
-      isPositionPinned: Number.isFinite(manualXRatio)
+      isPositionPinned: hasDirectManualPosition || Number.isFinite(manualXRatio)
     };
   }).filter(Boolean);
 });
@@ -1858,15 +2149,26 @@ const horizontalLineOverlays = computed(() => {
   const unitsLabel = props.config?.units === 'm' ? 'm' : 'ft';
   return lines.map((line, lineIndex) => {
     if (line?.show === false) return null;
-    const depthValue = toFiniteNumber(line?.depth, null);
-    if (!Number.isFinite(depthValue)) return null;
+    const depthMeta = resolveDirectionalReferenceHorizonDepthMeta(line);
+    const primaryDepth = toFiniteNumber(depthMeta.primaryDepth, null);
+    const secondaryDepth = toFiniteNumber(depthMeta.secondaryDepth, null);
+    if (!Number.isFinite(primaryDepth)) return null;
 
-    const md = clamp(depthValue, 0, totalMd);
+    const activeMode = depthMeta.mode;
+    const md = activeMode === 'md'
+      ? clamp(primaryDepth, 0, totalMd)
+      : clamp(toFiniteNumber(line?.directionalDepthMd, line?.depth), 0, totalMd);
     const frame = resolveScreenFrameAtMD(md, frameContext.value);
     if (!frame) return null;
 
-    const lineY = clamp(frame.center[1], bounds.top, bounds.bottom);
+    const lineY = activeMode === 'md'
+      ? clamp(frame.center[1], bounds.top, bounds.bottom)
+      : clamp(props.yScale(primaryDepth), bounds.top, bounds.bottom);
     if (!Number.isFinite(lineY)) return null;
+    const lineSegment = activeMode === 'md'
+      ? resolveLineSegmentInPlot(frame.center, frame.normal, bounds)
+      : null;
+    if (activeMode === 'md' && !lineSegment) return null;
 
     const lineStyle = getLineStyle(line?.lineStyle);
     const lineColor = line?.color || 'var(--color-default-line)';
@@ -1876,14 +2178,24 @@ const horizontalLineOverlays = computed(() => {
       : 11;
     const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 11);
 
-    const depthText = `${formatDepthValue(depthValue)} ${unitsLabel}`;
+    const depthText = `${depthMeta.primaryLabel} ${formatDepthValue(primaryDepth)} ${unitsLabel}`;
     const displayText = line?.label ? `${line.label} ${depthText}` : depthText;
-    const manualXRatio = resolveDirectionalLabelXRatio(line?.labelXPos);
+    const manualXRatio = resolveDirectionalLabelXRatio(line?.directionalLabelXPos ?? line?.labelXPos);
+    const manualLabelDepth = toFiniteNumber(line?.directionalManualLabelDepth, null);
+    const displayMd = activeMode === 'md' && Number.isFinite(manualLabelDepth)
+      ? clamp(manualLabelDepth, 0, totalMd)
+      : md;
+    const displayFrame = activeMode === 'md' && Number.isFinite(manualLabelDepth)
+      ? resolveScreenFrameAtMD(displayMd, frameContext.value)
+      : frame;
+    const lineLabelY = activeMode === 'md'
+      ? clamp(displayFrame?.center?.[1] ?? lineY, bounds.top, bounds.bottom)
+      : clamp(Number.isFinite(manualLabelDepth) ? props.yScale(manualLabelDepth) : lineY, bounds.top, bounds.bottom);
     const labelXPixelRaw = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
       : (bounds.right - 12);
     const labelXPixel = clamp(labelXPixelRaw, bounds.left + 10, bounds.right - 10);
-    const labelYPixel = clamp(lineY, bounds.top + 10, bounds.bottom - 10);
+    const labelYPixel = clamp(lineLabelY, bounds.top + 10, bounds.bottom - 10);
     const textAnchor = getHorizontalAnchor(
       Number.isFinite(manualXRatio) ? manualXRatio : 1,
       1,
@@ -1917,9 +2229,21 @@ const horizontalLineOverlays = computed(() => {
     return {
       id: `line-${lineIndex}`,
       lineIndex,
+      rowId: String(line?.rowId ?? '').trim() || null,
+      depthValue: toFiniteNumber(line?.depth, null),
+      manualLabelDepth,
+      anchorX: frame.center[0],
+      xField: 'directionalLabelXPos',
+      yField: 'directionalManualLabelDepth',
+      resolveDepthMode: activeMode === 'md' ? 'projected-y' : 'tvd-y',
+      activeMode,
+      primaryDepth,
+      secondaryDepth,
       y: lineY,
-      x1: bounds.left,
-      x2: bounds.right,
+      x1: activeMode === 'md' ? lineSegment.startX : bounds.left,
+      y1: activeMode === 'md' ? lineSegment.startY : lineY,
+      x2: activeMode === 'md' ? lineSegment.endX : bounds.right,
+      y2: activeMode === 'md' ? lineSegment.endY : lineY,
       stroke: lineColor,
       strokeDasharray: lineStyle,
       fontColor,
@@ -1933,7 +2257,7 @@ const horizontalLineOverlays = computed(() => {
       textX,
       textY,
       textLines,
-      isPositionPinned: Number.isFinite(manualXRatio)
+      isPositionPinned: Number.isFinite(manualXRatio) || Number.isFinite(manualLabelDepth)
     };
   }).filter(Boolean);
 });
@@ -2272,12 +2596,28 @@ const directionalOverlayState = computed(() => {
   };
   const bounds = plotBounds.value;
   if (smartLabelsEnabled.value !== true || !bounds) {
-    return base;
+    return {
+      ...base,
+      fluidLabelOverlays: applyDirectionalArrowPreview(base.fluidLabelOverlays),
+      depthAnnotations: applyDirectionalArrowPreview(base.depthAnnotations),
+      casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
+      transientPipeLabelOverlays: applyDirectionalArrowPreview(base.transientPipeLabelOverlays),
+      equipmentLabelOverlays: applyDirectionalArrowPreview(base.equipmentLabelOverlays)
+    };
   }
   const candidateMap = buildDirectionalLayoutCandidateMap(base, bounds);
-  if (!candidateMap) return base;
+  if (!candidateMap) {
+    return {
+      ...base,
+      fluidLabelOverlays: applyDirectionalArrowPreview(base.fluidLabelOverlays),
+      depthAnnotations: applyDirectionalArrowPreview(base.depthAnnotations),
+      casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
+      transientPipeLabelOverlays: applyDirectionalArrowPreview(base.transientPipeLabelOverlays),
+      equipmentLabelOverlays: applyDirectionalArrowPreview(base.equipmentLabelOverlays)
+    };
+  }
 
-  return {
+  const laidOut = {
     ...base,
     annotationBandOverlays: applyDirectionalLayoutToAnnotations(base.annotationBandOverlays, candidateMap),
     fluidLabelOverlays: applyDirectionalLayoutToFluid(base.fluidLabelOverlays, candidateMap),
@@ -2286,6 +2626,15 @@ const directionalOverlayState = computed(() => {
     transientPipeLabelOverlays: applyDirectionalLayoutToPipeLike(base.transientPipeLabelOverlays, candidateMap, 'transient'),
     equipmentLabelOverlays: applyDirectionalLayoutToPipeLike(base.equipmentLabelOverlays, candidateMap, 'equipment'),
     horizontalLineOverlays: applyDirectionalLayoutToLines(base.horizontalLineOverlays, candidateMap)
+  };
+
+  return {
+    ...laidOut,
+    fluidLabelOverlays: applyDirectionalArrowPreview(laidOut.fluidLabelOverlays),
+    depthAnnotations: applyDirectionalArrowPreview(laidOut.depthAnnotations),
+    casingLabelOverlays: applyDirectionalArrowPreview(laidOut.casingLabelOverlays),
+    transientPipeLabelOverlays: applyDirectionalArrowPreview(laidOut.transientPipeLabelOverlays),
+    equipmentLabelOverlays: applyDirectionalArrowPreview(laidOut.equipmentLabelOverlays)
   };
 });
 </script>
@@ -2297,9 +2646,20 @@ const directionalOverlayState = computed(() => {
       :key="annotation.id"
       class="directional-overlay-layer__annotation-group"
       :data-box-index="annotation.boxIndex"
+      :transform="resolveDepthShiftPreviewTransform(annotation.id)"
       @mousemove="handleBoxHover(annotation, $event)"
       @mouseleave="handleBoxLeave(annotation)"
       @click="handleBoxSelect(annotation)"
+      @pointerdown.stop.prevent="emitDragStartPayload('box', annotation, $event, {
+        dragKind: 'depth-shift',
+        entries: [
+          { field: 'topDepth', value: annotation.topDepth, min: 0, max: props.totalMd },
+          { field: 'bottomDepth', value: annotation.bottomDepth, min: 0, max: props.totalMd },
+          ...(Number.isFinite(annotation.manualLabelDepth)
+            ? [{ field: annotation.yField, value: annotation.manualLabelDepth, min: 0, max: props.totalMd }]
+            : [])
+        ]
+      })"
     >
       <rect
         class="directional-overlay-layer__annotation-fill"
@@ -2332,8 +2692,10 @@ const directionalOverlayState = computed(() => {
       class="directional-overlay-layer__plug-label"
       :x="plug.x"
       :y="plug.y"
+      :transform="resolvePreviewTransform(plug.id)"
       text-anchor="middle"
       dominant-baseline="middle"
+      @pointerdown.stop.prevent="emitDragStartPayload('plug', plug, $event, { centerX: plug.x, centerY: plug.y })"
     >
       {{ plug.text }}
     </text>
@@ -2346,6 +2708,7 @@ const directionalOverlayState = computed(() => {
       @mousemove="handleFluidHover(fluid, $event)"
       @mouseleave="handleFluidLeave(fluid)"
       @click="handleFluidSelect(fluid)"
+      @pointerdown.stop.prevent="emitDragStartPayload('fluid', fluid, $event)"
     >
       <line
         class="directional-overlay-layer__fluid-arrow-hit"
@@ -2403,6 +2766,7 @@ const directionalOverlayState = computed(() => {
       @mousemove="handleDepthHover(item, $event)"
       @mouseleave="handleDepthLeave(item)"
       @click="handleDepthSelect(item)"
+      @pointerdown.stop.prevent="emitDragStartPayload('casing', item, $event)"
     >
       <line
         class="directional-overlay-layer__depth-line-hit"
@@ -2451,6 +2815,7 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handlePipeLabelHover(label.pipeType, label.rowIndex, $event)"
       @mouseleave.stop="handlePipeLabelLeave(label.pipeType, label.rowIndex)"
       @click.stop="handlePipeLabelSelect(label.pipeType, label.rowIndex)"
+      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event)"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -2505,6 +2870,7 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handlePipeLabelHover(label.pipeType, label.rowIndex, $event)"
       @mouseleave.stop="handlePipeLabelLeave(label.pipeType, label.rowIndex)"
       @click.stop="handlePipeLabelSelect(label.pipeType, label.rowIndex)"
+      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event)"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -2559,6 +2925,7 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handleEquipmentHover(label, $event)"
       @mouseleave.stop="handleEquipmentLeave(label)"
       @click.stop="handleEquipmentSelect(label)"
+      @pointerdown.stop.prevent="emitDragStartPayload('equipment', label, $event)"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -2610,54 +2977,74 @@ const directionalOverlayState = computed(() => {
       :key="line.id"
       class="directional-overlay-layer__line-group"
       :data-line-index="line.lineIndex"
+      :transform="resolveDepthShiftPreviewTransform(line.id)"
       @mousemove="handleLineHover(line, $event)"
       @mouseleave="handleLineLeave(line)"
       @click="handleLineSelect(line)"
+      @pointerdown.stop.prevent="emitDragStartPayload('line', line, $event, {
+        dragKind: 'depth-shift',
+        resolveDepthMode: line.resolveDepthMode,
+        centerX: line.anchorX,
+        centerY: line.y,
+        entries: [
+          {
+            field: line.activeMode === 'md' ? 'directionalDepthMd' : 'directionalDepthTvd',
+            value: line.primaryDepth,
+            min: 0,
+            max: props.totalMd
+          },
+          ...(Number.isFinite(line.manualLabelDepth)
+            ? [{ field: line.yField, value: line.manualLabelDepth, min: 0, max: props.totalMd }]
+            : [])
+        ]
+      })"
     >
       <line
         class="directional-overlay-layer__line-hit-path"
         :x1="line.x1"
-        :y1="line.y"
+        :y1="line.y1"
         :x2="line.x2"
-        :y2="line.y"
+        :y2="line.y2"
       />
       <line
         class="directional-overlay-layer__line-path"
         :x1="line.x1"
-        :y1="line.y"
+        :y1="line.y1"
         :x2="line.x2"
-        :y2="line.y"
+        :y2="line.y2"
         :stroke="line.stroke"
         stroke-width="2"
         :stroke-dasharray="line.strokeDasharray"
       />
 
-      <rect
-        class="directional-overlay-layer__line-label-bg"
-        :x="line.boxX"
-        :y="line.boxY"
-        :width="line.boxWidth"
-        :height="line.boxHeight"
-        :stroke="line.fontColor"
-      />
+      <g>
+        <rect
+          class="directional-overlay-layer__line-label-bg"
+          :x="line.boxX"
+          :y="line.boxY"
+          :width="line.boxWidth"
+          :height="line.boxHeight"
+          :stroke="line.fontColor"
+        />
 
-      <text
-        class="directional-overlay-layer__line-label-text"
-        :x="line.textX"
-        :y="line.textY"
-        :text-anchor="line.textAnchor"
-        dominant-baseline="middle"
-        :style="{ fontSize: `${line.fontSize}px`, fill: line.fontColor }"
-      >
-        <tspan
-          v-for="segment in line.textLines"
-          :key="segment.id"
-          :x="segment.x"
-          :dy="segment.dy"
+        <text
+          class="directional-overlay-layer__line-label-text"
+          :x="line.textX"
+          :y="line.textY"
+          :text-anchor="line.textAnchor"
+          dominant-baseline="middle"
+          :style="{ fontSize: `${line.fontSize}px`, fill: line.fontColor }"
         >
-          {{ segment.text }}
-        </tspan>
-      </text>
+          <tspan
+            v-for="segment in line.textLines"
+            :key="segment.id"
+            :x="segment.x"
+            :dy="segment.dy"
+          >
+            {{ segment.text }}
+          </tspan>
+        </text>
+      </g>
     </g>
   </g>
 </template>
@@ -2686,7 +3073,8 @@ const directionalOverlayState = computed(() => {
   font-size: 10px;
   font-weight: 700;
   fill: var(--color-ink-strong);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: grab;
 }
 
 .directional-overlay-layer__depth-line,

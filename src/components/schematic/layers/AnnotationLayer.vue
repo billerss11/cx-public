@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { clamp, getHorizontalAnchor, resolveXPosition } from '@/utils/general.js';
+import { clamp, getHorizontalAnchor, parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
 import {
   resolveConfiguredIntervalCalloutStandoffPx
 } from '@/utils/labelLayout.js';
@@ -50,10 +50,72 @@ const props = defineProps({
   smartLabelsEnabled: {
     type: Boolean,
     default: true
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-box', 'hover-box', 'leave-box']);
+const emit = defineEmits(['select-box', 'hover-box', 'leave-box', 'start-label-drag']);
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function resolvePreviewTransform(id) {
+  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+  const offsetY = Number(props.dragPreviewOffset?.y);
+  if (!Number.isFinite(offsetY)) return null;
+  return `translate(0 ${offsetY})`;
+}
+
+function handleAnnotationPointerDown(segment, event) {
+  const rowId = String(segment?.rowId ?? '').trim();
+  if (!rowId) return;
+  const depthRange = resolveScaleRange(props.yScale);
+  emit('start-label-drag', {
+    previewId: segment.id,
+    entityType: 'box',
+    dragKind: 'depth-shift',
+    rowId,
+    centerX: segment.x + (segment.width / 2),
+    centerY: segment.y + (segment.height / 2),
+    entries: [
+      {
+        field: 'topDepth',
+        value: segment.topDepth,
+        min: depthRange?.min,
+        max: depthRange?.max
+      },
+      {
+        field: 'bottomDepth',
+        value: segment.bottomDepth,
+        min: depthRange?.min,
+        max: depthRange?.max
+      },
+      ...(Number.isFinite(segment.manualLabelDepth)
+        ? [{
+          field: 'manualLabelDepth',
+          value: segment.manualLabelDepth,
+          min: depthRange?.min,
+          max: depthRange?.max
+        }]
+        : [])
+    ]
+  }, event);
+}
 
 const annotationSegments = computed(() => {
   const rows = Array.isArray(props.boxes) ? props.boxes : [];
@@ -100,6 +162,8 @@ const annotationSegments = computed(() => {
       const boxOpacityRaw = Number(box.opacity);
       const boxOpacity = Number.isFinite(boxOpacityRaw) ? boxOpacityRaw : 0.35;
       const manualX = resolveXPosition(box.labelXPos, props.xHalf);
+      const manualLabelDepth = parseOptionalNumber(box?.manualLabelDepth);
+      const hasDirectManualPosition = Number.isFinite(manualLabelDepth) && manualX !== null && manualX !== undefined;
       const sideSign = Number.isFinite(manualX)
         ? (manualX >= 0 ? 1 : -1)
         : (smartLabelsEnabled ? 0 : -1);
@@ -118,16 +182,22 @@ const annotationSegments = computed(() => {
         40,
         Math.max(40, availableBandWidth)
       );
-      const bandX = sideSign > 0
+      let bandX = sideSign > 0
         ? rightBandStartX
         : (sideSign < 0
           ? Math.max(leftBandStartX, leftSideBandStartX - bandWidth)
           : clamp(centerX - (bandWidth / 2), leftBandStartX, props.width - bandWidth - 10));
+      if (hasDirectManualPosition) {
+        bandX = clamp(props.xScale(manualX) - (bandWidth / 2), 0, props.width - bandWidth);
+      }
 
       const centerDepth = (topDepth + bottomDepth) / 2;
       let textAnchor;
       let labelX;
-      if (manualX !== null && manualX !== undefined) {
+      if (hasDirectManualPosition) {
+        textAnchor = 'middle';
+        labelX = bandX + (bandWidth / 2);
+      } else if (manualX !== null && manualX !== undefined) {
         textAnchor = getHorizontalAnchor(manualX, props.xHalf, sideSign > 0 ? 'start' : 'end');
         labelX = clamp(props.xScale(manualX), bandX + 8, bandX + bandWidth - 8);
       } else {
@@ -159,11 +229,20 @@ const annotationSegments = computed(() => {
         textSegments.push({ text: 'Annotation', fontSize: resolvedBaseFontSize, fontWeight: 'bold' });
       }
       const spacing = Math.max(resolvedBaseFontSize + 4, 16);
-      const startY = props.yScale(centerDepth) - ((textSegments.length - 1) * spacing) / 2;
+      const segmentCenterDepth = Number.isFinite(manualLabelDepth) ? manualLabelDepth : centerDepth;
+      const segmentCenterY = props.yScale(segmentCenterDepth);
+      const bandY = hasDirectManualPosition
+        ? clamp(segmentCenterY - (boxHeight / 2), plotTop, plotBottom - boxHeight)
+        : topY;
+      const startY = clamp(
+        segmentCenterY - ((textSegments.length - 1) * spacing) / 2,
+        bandY + 12,
+        bandY + boxHeight - 4
+      );
       const labels = textSegments.map((segment, labelIndex) => ({
         id: `annotation-${index}-label-${labelIndex}`,
         x: labelX,
-        y: clamp(startY + labelIndex * spacing, topY + 12, bottomY - 4),
+        y: clamp(startY + labelIndex * spacing, bandY + 12, bandY + boxHeight - 4),
         text: segment.text,
         fontSize: segment.fontSize,
         fontWeight: segment.fontWeight
@@ -172,8 +251,12 @@ const annotationSegments = computed(() => {
       return {
         id: `annotation-${index}`,
         index,
+        rowId: String(box?.rowId ?? '').trim() || null,
+        topDepth,
+        bottomDepth,
+        manualLabelDepth,
         x: bandX,
-        y: topY,
+        y: bandY,
         width: bandWidth,
         height: boxHeight,
         fillColor,
@@ -182,7 +265,7 @@ const annotationSegments = computed(() => {
         textAnchor,
         side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
         labels,
-        isPositionPinned: Number.isFinite(manualX)
+        isPositionPinned: hasDirectManualPosition || Number.isFinite(manualX)
       };
     })
     .filter(Boolean);
@@ -255,9 +338,11 @@ const annotationSegments = computed(() => {
       :key="segment.id"
       class="annotation-layer__group"
       :data-box-index="segment.index"
+      :transform="resolvePreviewTransform(segment.id)"
       @click="emit('select-box', segment.index)"
       @mousemove="emit('hover-box', segment.index, $event)"
       @mouseleave="emit('leave-box', segment.index)"
+      @pointerdown.stop.prevent="handleAnnotationPointerDown(segment, $event)"
     >
       <rect
         class="annotation-layer__fill"

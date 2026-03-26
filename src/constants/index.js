@@ -92,9 +92,19 @@ export const CASING_NUMERIC_FIELDS = new Set([
     'boc',
     'labelXPos',
     'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
     'casingLabelFontSize',
     'depthLabelFontSize',
-    'depthLabelOffset'
+    'depthLabelOffset',
+    'topLabelXPos',
+    'topManualLabelDepth',
+    'bottomLabelXPos',
+    'bottomManualLabelDepth',
+    'directionalTopLabelXPos',
+    'directionalTopManualLabelDepth',
+    'directionalBottomLabelXPos',
+    'directionalBottomManualLabelDepth'
 ]);
 export const TUBING_NUMERIC_FIELDS = new Set([
     'od',
@@ -104,6 +114,8 @@ export const TUBING_NUMERIC_FIELDS = new Set([
     'bottom',
     'labelXPos',
     'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
     'labelFontSize'
 ]);
 export const DRILL_STRING_NUMERIC_FIELDS = new Set([
@@ -114,6 +126,8 @@ export const DRILL_STRING_NUMERIC_FIELDS = new Set([
     'bottom',
     'labelXPos',
     'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
     'labelFontSize'
 ]);
 export const EQUIPMENT_NUMERIC_FIELDS = new Set([
@@ -121,13 +135,51 @@ export const EQUIPMENT_NUMERIC_FIELDS = new Set([
     'scale',
     'labelXPos',
     'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
     'labelFontSize'
 ]);
-export const LINE_NUMERIC_FIELDS = new Set(['depth', 'fontSize', 'labelXPos']);
-export const BOX_NUMERIC_FIELDS = new Set(['topDepth', 'bottomDepth', 'fontSize', 'labelXPos', 'bandWidth', 'opacity']);
-export const PLUG_NUMERIC_FIELDS = new Set(['top', 'bottom', 'manualWidth']);
+export const LINE_NUMERIC_FIELDS = new Set([
+    'depth',
+    'directionalDepthMd',
+    'directionalDepthTvd',
+    'fontSize',
+    'labelXPos',
+    'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth'
+]);
+export const BOX_NUMERIC_FIELDS = new Set([
+    'topDepth',
+    'bottomDepth',
+    'fontSize',
+    'labelXPos',
+    'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
+    'bandWidth',
+    'opacity'
+]);
+export const PLUG_NUMERIC_FIELDS = new Set([
+    'top',
+    'bottom',
+    'manualWidth',
+    'labelXPos',
+    'manualLabelDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth'
+]);
 export const MARKER_NUMERIC_FIELDS = new Set(['top', 'bottom', 'scale']);
-export const FLUID_NUMERIC_FIELDS = new Set(['top', 'bottom', 'labelXPos', 'manualDepth', 'fontSize', 'manualOD']);
+export const FLUID_NUMERIC_FIELDS = new Set([
+    'top',
+    'bottom',
+    'labelXPos',
+    'manualDepth',
+    'directionalLabelXPos',
+    'directionalManualLabelDepth',
+    'fontSize',
+    'manualOD'
+]);
 
 export const FLUID_PLACEMENT_AUTO_OPTIONS = [
     'Auto: Formation Annulus',

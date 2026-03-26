@@ -22,9 +22,19 @@ const SCHEMAS = {
             'Hole Size',
             'Label X',
             'Label Depth',
+            'Directional Label X',
+            'Directional Label Depth',
             'Casing Label Font Size',
             'Depth Label Font Size',
             'Depth Label X Offset',
+            'Top Label X',
+            'Top Label Depth',
+            'Bottom Label X',
+            'Bottom Label Depth',
+            'Directional Top Label X',
+            'Directional Top Label Depth',
+            'Directional Bottom Label X',
+            'Directional Bottom Label Depth',
             'Show Top',
             'Show Bottom'
         ]
@@ -37,12 +47,12 @@ const SCHEMAS = {
     horizons: {
         sheet: 'Horizons',
         required: ['Depth', 'Label'],
-        optional: ['Color', 'Font Color', 'Font Size', 'Line Style', 'Label X', 'Show']
+        optional: ['Directional Depth Mode', 'Directional Depth MD', 'Directional Depth TVD', 'Color', 'Font Color', 'Font Size', 'Line Style', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Show']
     },
     callouts: {
         sheet: 'Callouts',
         required: ['Top', 'Bottom', 'Label'],
-        optional: ['Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Band Width', 'Opacity', 'Show Details', 'Show']
+        optional: ['Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Band Width', 'Opacity', 'Show Details', 'Show']
     },
     markers: {
         sheet: 'Markers',
@@ -127,9 +137,19 @@ export function parseStrictExcelProject(fileBuffer) {
             manualHoleSize: parseOptionalNumber(row['Hole Size']),
             labelXPos: parseOptionalNumber(row['Label X']),
             manualLabelDepth: parseOptionalNumber(row['Label Depth']),
+            directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
+            directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
             casingLabelFontSize: parseOptionalNumber(row['Casing Label Font Size']),
             depthLabelFontSize: parseOptionalNumber(row['Depth Label Font Size']),
             depthLabelOffset: parseOptionalNumber(row['Depth Label X Offset']),
+            topLabelXPos: parseOptionalNumber(row['Top Label X']),
+            topManualLabelDepth: parseOptionalNumber(row['Top Label Depth']),
+            bottomLabelXPos: parseOptionalNumber(row['Bottom Label X']),
+            bottomManualLabelDepth: parseOptionalNumber(row['Bottom Label Depth']),
+            directionalTopLabelXPos: parseOptionalNumber(row['Directional Top Label X']),
+            directionalTopManualLabelDepth: parseOptionalNumber(row['Directional Top Label Depth']),
+            directionalBottomLabelXPos: parseOptionalNumber(row['Directional Bottom Label X']),
+            directionalBottomManualLabelDepth: parseOptionalNumber(row['Directional Bottom Label Depth']),
             showTop: toBoolean(row['Show Top'], true),
             showBottom: toBoolean(row['Show Bottom'], true)
         };
@@ -140,12 +160,18 @@ export function parseStrictExcelProject(fileBuffer) {
     const lineRows = readRows(workbook, SCHEMAS.horizons);
     const horizontalLines = lineRows.map((row, index) => ({
         depth: parseRequiredNumber(row, 'Depth', `Horizons row ${index + 2}`),
+        directionalDepthMode: String(row['Directional Depth Mode'] ?? '').trim().toLowerCase() || null,
+        directionalDepthMd: parseOptionalNumber(row['Directional Depth MD']),
+        directionalDepthTvd: parseOptionalNumber(row['Directional Depth TVD']),
         label: toTrimmedString(row.Label),
         color: toTrimmedString(row.Color) || DEFAULT_LINE_COLOR,
         fontColor: toTrimmedString(row['Font Color']) || toTrimmedString(row.Color) || DEFAULT_LINE_COLOR,
         fontSize: parseOptionalNumber(row['Font Size']) ?? 11,
         lineStyle: normalizeLineStyle(row['Line Style'] || 'Solid'),
         labelXPos: parseOptionalNumber(row['Label X']),
+        manualLabelDepth: parseOptionalNumber(row['Label Depth']),
+        directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
+        directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
         show: toBoolean(row.Show, true)
     }));
 
@@ -159,6 +185,9 @@ export function parseStrictExcelProject(fileBuffer) {
         fontColor: toTrimmedString(row['Font Color']) || DEFAULT_BOX_FONT_COLOR,
         fontSize: parseOptionalNumber(row['Font Size']) ?? 12,
         labelXPos: parseOptionalNumber(row['Label X']),
+        manualLabelDepth: parseOptionalNumber(row['Label Depth']),
+        directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
+        directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
         bandWidth: parseOptionalNumber(row['Band Width']) ?? 1.0,
         opacity: parseOptionalNumber(row.Opacity) ?? 0.25,
         showDetails: toBoolean(row['Show Details'], true),

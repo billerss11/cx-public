@@ -100,4 +100,88 @@ describe('visualInspectorSchema equipment extension merge', () => {
     expect(Array.isArray(casingFields)).toBe(true);
     expect(casingFields.length).toBeGreaterThan(0);
   });
+
+  it('exposes draggable label position controls for supported label families', () => {
+    const casingFields = getVisualInspectorFields('casing', {
+      rowData: {
+        label: 'Surface',
+        top: 0,
+        bottom: 1000,
+        showTop: true,
+        showBottom: true
+      }
+    }).map((fieldDefinition) => fieldDefinition.field);
+    expect(casingFields).toEqual(expect.arrayContaining([
+      'topLabelXPos',
+      'topManualLabelDepth',
+      'bottomLabelXPos',
+      'bottomManualLabelDepth',
+      'directionalTopLabelXPos',
+      'directionalTopManualLabelDepth',
+      'directionalBottomLabelXPos',
+      'directionalBottomManualLabelDepth'
+    ]));
+
+    const equipmentFields = getVisualInspectorFields('equipment', {
+      rowData: {
+        type: 'Packer',
+        depth: 5000,
+        label: 'Packer 1',
+        showLabel: true
+      }
+    }).map((fieldDefinition) => fieldDefinition.field);
+    expect(equipmentFields).toEqual(expect.arrayContaining([
+      'labelXPos',
+      'manualLabelDepth',
+      'directionalLabelXPos',
+      'directionalManualLabelDepth'
+    ]));
+
+    const lineFields = getVisualInspectorFields('line', {
+      rowData: {
+        depth: 1200,
+        label: 'Landing',
+        show: true
+      }
+    }).map((fieldDefinition) => fieldDefinition.field);
+    expect(lineFields).toEqual(expect.arrayContaining([
+      'labelXPos',
+      'manualLabelDepth',
+      'directionalLabelXPos',
+      'directionalManualLabelDepth'
+    ]));
+
+    const plugFields = getVisualInspectorFields('plug', {
+      rowData: {
+        top: 3000,
+        bottom: 3200,
+        type: 'Cement',
+        attachToRow: '#1',
+        label: 'Plug',
+        show: true
+      }
+    }).map((fieldDefinition) => fieldDefinition.field);
+    expect(plugFields).toEqual(expect.arrayContaining([
+      'labelXPos',
+      'manualLabelDepth',
+      'directionalLabelXPos',
+      'directionalManualLabelDepth'
+    ]));
+
+    const boxFields = getVisualInspectorFields('box', {
+      rowData: {
+        topDepth: 500,
+        bottomDepth: 800,
+        label: 'Zone',
+        detail: 'notes',
+        show: true
+      }
+    }).map((fieldDefinition) => fieldDefinition.field);
+    expect(boxFields).toEqual(expect.arrayContaining([
+      'labelXPos',
+      'manualLabelDepth',
+      'directionalLabelXPos',
+      'directionalManualLabelDepth'
+    ]));
+  });
 });

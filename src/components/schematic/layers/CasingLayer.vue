@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { COLOR_PALETTES, PHYSICS_CONSTANTS } from '@/constants/index.js';
-import { estimateCasingID, parseOptionalNumber } from '@/utils/general.js';
+import { clamp, estimateCasingID, parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
 import {
   resolveSmartLabelAutoScale,
   resolveSmartLabelFontSize
@@ -9,6 +9,7 @@ import {
 import { isOpenHoleRow } from '@/app/domain.js';
 import { resolveOpenHoleWaveConfig } from '@/utils/openHoleWave.js';
 import { generateWavyPath } from '@/utils/wavyPath.js';
+import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 
 const DEFAULT_DEPTH_LABEL_FONT_SIZE = 9;
 const DEFAULT_DEPTH_LABEL_OFFSET = 35;
@@ -54,10 +55,18 @@ const props = defineProps({
   barriers: {
     type: Array,
     default: () => []
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-pipe', 'hover-pipe', 'leave-pipe']);
+const emit = defineEmits(['select-pipe', 'hover-pipe', 'leave-pipe', 'start-label-drag']);
 
 const paletteColors = computed(() => (
   COLOR_PALETTES[props.colorPalette] ?? COLOR_PALETTES['Tableau 10']
@@ -113,6 +122,33 @@ function resolveDepthAnnotationGeometry(startX, depth, yScale, unitsLabel, depth
     textY: labelY,
     fontSize
   };
+}
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function handleDepthAnnotationPointerDown(annotation, event) {
+  const rowId = String(annotation?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: annotation.id,
+    entityType: 'casing',
+    rowId,
+    centerX: annotation.boxX + (annotation.boxWidth / 2),
+    centerY: annotation.boxY + (annotation.boxHeight / 2),
+    xField: annotation.xField,
+    yField: annotation.yField,
+    xRange: resolveScaleRange(props.xScale),
+    depthRange: resolveScaleRange(props.yScale)
+  }, event);
 }
 
 function normalizePipeType(pipeType) {
@@ -179,7 +215,12 @@ const casingSegments = computed(() => {
   const diameterScale = Number.isFinite(Number(props.diameterScale)) && Number(props.diameterScale) > 0
     ? Number(props.diameterScale)
     : 1;
+  const xRange = typeof props.xScale?.range === 'function' ? props.xScale.range() : [];
+  const rawLeft = Number(xRange[0]);
+  const rawRight = Number(xRange[xRange.length - 1]);
   const yRange = typeof props.yScale?.range === 'function' ? props.yScale.range() : [];
+  const plotLeft = Math.min(rawLeft, rawRight);
+  const plotRight = Math.max(rawLeft, rawRight);
   const rawTop = Number(yRange[0]);
   const rawBottom = Number(yRange[yRange.length - 1]);
   const plotTop = Math.min(rawTop, rawBottom);
@@ -254,21 +295,84 @@ const casingSegments = computed(() => {
         maxPx: 40
       });
       const annotations = [];
-      const buildAnnotation = (depth) => resolveDepthAnnotationGeometry(
-        outerRight,
-        depth,
-        props.yScale,
-        props.unitsLabel,
-        depthLabelOffset,
-        depthLabelFontSize
-      );
+      const xDomainRange = resolveScaleRange(props.xScale);
+      const buildAnnotation = (depth, options = {}) => {
+        const manualX = resolveXPosition(row?.[options.xField], xDomainRange?.max ?? 0);
+        const manualLabelDepth = parseOptionalNumber(row?.[options.yField]);
+        if (Number.isFinite(manualLabelDepth) && manualX !== null && manualX !== undefined) {
+          const fontSize = Number.isFinite(depthLabelFontSize) ? depthLabelFontSize : DEFAULT_DEPTH_LABEL_FONT_SIZE;
+          const text = `${Number(depth).toLocaleString()} ${props.unitsLabel}`;
+          const boxWidth = text.length * (fontSize * 0.6) + 10;
+          const boxHeight = 20;
+          const anchorY = props.yScale(depth);
+          const boxCenterX = props.xScale(manualX);
+          const boxCenterY = props.yScale(manualLabelDepth);
+          const boxX = clamp(boxCenterX - (boxWidth / 2), plotLeft + 2, plotRight - boxWidth - 2);
+          const boxY = clamp(boxCenterY - (boxHeight / 2), plotTop + 2, plotBottom - boxHeight - 2);
+          const boxEdgeX = (boxX + (boxWidth / 2)) <= outerRight ? boxX + boxWidth : boxX;
+          const boxEdgeY = boxY + (boxHeight / 2);
+          const arrowDirection = boxEdgeX >= outerRight ? 1 : -1;
+          const arrowSize = 3;
+
+          return {
+            id: options.id,
+            rowId: String(row?.rowId ?? '').trim() || null,
+            xField: options.xField,
+            yField: options.yField,
+            lineX1: outerRight,
+            lineY1: anchorY,
+            lineX2: boxEdgeX,
+            lineY2: boxEdgeY,
+            arrowPoints: [
+              `${boxEdgeX},${boxEdgeY}`,
+              `${boxEdgeX - (arrowDirection * arrowSize)},${boxEdgeY - arrowSize}`,
+              `${boxEdgeX - (arrowDirection * arrowSize)},${boxEdgeY + arrowSize}`
+            ].join(' '),
+            boxX,
+            boxY,
+            boxWidth,
+            boxHeight,
+            text,
+            textX: boxX + (boxWidth / 2),
+            textY: boxEdgeY,
+            textAnchor: 'middle',
+            fontSize
+          };
+        }
+
+        const geometry = resolveDepthAnnotationGeometry(
+          outerRight,
+          depth,
+          props.yScale,
+          props.unitsLabel,
+          depthLabelOffset,
+          depthLabelFontSize
+        );
+        if (!geometry) return null;
+        return {
+          ...geometry,
+          id: options.id,
+          rowId: String(row?.rowId ?? '').trim() || null,
+          xField: options.xField,
+          yField: options.yField,
+          textAnchor: 'start'
+        };
+      };
       if (shouldShowTop && top > props.minDepth) {
-        const topAnnotation = buildAnnotation(top);
-        if (topAnnotation) annotations.push({ id: `top-${index}`, ...topAnnotation });
+        const topAnnotation = buildAnnotation(top, {
+          id: `top-${index}`,
+          xField: 'topLabelXPos',
+          yField: 'topManualLabelDepth'
+        });
+        if (topAnnotation) annotations.push(topAnnotation);
       }
       if (shouldShowBottom) {
-        const bottomAnnotation = buildAnnotation(bottom);
-        if (bottomAnnotation) annotations.push({ id: `bottom-${index}`, ...bottomAnnotation });
+        const bottomAnnotation = buildAnnotation(bottom, {
+          id: `bottom-${index}`,
+          xField: 'bottomLabelXPos',
+          yField: 'bottomManualLabelDepth'
+        });
+        if (bottomAnnotation) annotations.push(bottomAnnotation);
       }
 
       const defaultColor = pipeType === 'tubing'
@@ -317,7 +421,22 @@ const casingSegments = computed(() => {
         hasLinerHanger,
         hangerY,
         hangerOuterHalfWidth,
-        annotations,
+        annotations: annotations.map((annotation) => applyPreviewToArrowedBoxLabel(
+          annotation,
+          props.dragPreviewId,
+          props.dragPreviewOffset,
+          {
+            buildArrowHeadPoints: (start, end) => {
+              const arrowSize = 3;
+              const direction = start[0] >= end[0] ? 1 : -1;
+              return [
+                `${start[0]},${start[1]}`,
+                `${start[0] - (direction * arrowSize)},${start[1] - arrowSize}`,
+                `${start[0] - (direction * arrowSize)},${start[1] + arrowSize}`
+              ].join(' ');
+            }
+          }
+        )),
         isSelectable: Boolean(pipeKey),
         color: defaultColor,
         isOpenHole,
@@ -442,7 +561,12 @@ const casingSegments = computed(() => {
         :height="segment.wallHeight"
       />
 
-      <g v-for="annotation in segment.annotations" :key="annotation.id" class="casing-layer__depth-annotation">
+      <g
+        v-for="annotation in segment.annotations"
+        :key="annotation.id"
+        class="casing-layer__depth-annotation"
+        @pointerdown.stop.prevent="handleDepthAnnotationPointerDown(annotation, $event)"
+      >
         <line
           class="casing-layer__depth-line"
           :x1="annotation.lineX1"
@@ -463,7 +587,7 @@ const casingSegments = computed(() => {
           class="casing-layer__depth-text"
           :x="annotation.textX"
           :y="annotation.textY"
-          text-anchor="start"
+          :text-anchor="annotation.textAnchor || 'start'"
           dominant-baseline="middle"
           :style="{ fontSize: `${annotation.fontSize}px` }"
         >

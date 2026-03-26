@@ -41,6 +41,21 @@ describe('DirectionalSchematicCanvas camera pan contract', () => {
     expect(source).toContain('handleCanvasBackgroundClick(event);');
   });
 
+  it('skips background click clearing right after a label drag finishes', () => {
+    const source = readDirectionalSchematicCanvasSource();
+
+    expect(source).toContain('const consumedLabelDragClick = labelDrag.consumeFinishedDragClick();');
+    expect(source).toContain('if (consumedLabelDragClick) return;');
+  });
+
+  it('suppresses post-drag selection toggles before entity click handlers can clear the inspector context', () => {
+    const source = readDirectionalSchematicCanvasSource();
+
+    expect(source).toContain('function consumeSelectionClickAfterLabelDrag() {');
+    expect(source).toContain('if (consumeSelectionClickAfterLabelDrag()) return;');
+    expect(source).toContain('consumeSelectClick: consumeSelectionClickAfterLabelDrag');
+  });
+
   it('keeps pan session state local without worker drift instrumentation hooks', () => {
     const source = readDirectionalSchematicCanvasSource();
 

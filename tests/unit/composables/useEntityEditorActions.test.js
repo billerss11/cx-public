@@ -60,6 +60,43 @@ describe('useEntityEditorActions', () => {
     expect(projectDataStore.equipmentData[0].annularSeal).toBe('true');
   });
 
+  it('updates multiple row fields by rowId in a single patch', () => {
+    const projectDataStore = useProjectDataStore();
+    projectDataStore.setHorizontalLines([
+      {
+        rowId: 'line-1',
+        depth: 1000,
+        label: 'Landing',
+        labelXPos: 0.2,
+        manualLabelDepth: null,
+        directionalLabelXPos: null,
+        directionalManualLabelDepth: null,
+        show: true
+      }
+    ]);
+
+    const { updateFields } = useEntityEditorActions();
+    const changed = updateFields({
+      entityType: 'line',
+      rowId: 'line-1',
+      patch: {
+        labelXPos: 0.45,
+        manualLabelDepth: 1125,
+        directionalLabelXPos: 0.3,
+        directionalManualLabelDepth: 1100
+      }
+    });
+
+    expect(changed).toBe(true);
+    expect(projectDataStore.horizontalLines[0]).toMatchObject({
+      rowId: 'line-1',
+      labelXPos: 0.45,
+      manualLabelDepth: 1125,
+      directionalLabelXPos: 0.3,
+      directionalManualLabelDepth: 1100
+    });
+  });
+
   it('adds, reorders, and deletes rows by rowId', () => {
     const projectDataStore = useProjectDataStore();
     projectDataStore.setHorizontalLines([

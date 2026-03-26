@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { parseOptionalNumber, resolveXPosition } from '@/utils/general.js';
 import { resolveVerticalPlugFill } from './verticalHatchPatterns.js';
 
 const props = defineProps({
@@ -19,18 +20,65 @@ const props = defineProps({
     type: Number,
     default: 1
   },
+  xHalf: {
+    type: Number,
+    default: 0
+  },
   plugs: {
     type: Array,
     default: () => []
+  },
+  dragPreviewId: {
+    type: String,
+    default: null
+  },
+  dragPreviewOffset: {
+    type: Object,
+    default: () => ({ x: 0, y: 0 })
   }
 });
 
-const emit = defineEmits(['select-plug', 'hover-plug', 'leave-plug']);
+const emit = defineEmits(['select-plug', 'hover-plug', 'leave-plug', 'start-label-drag']);
 
 const PLUG_SEGMENT_MERGE_EPSILON = 0.01;
 
 function nearlyEqual(left, right, epsilon = PLUG_SEGMENT_MERGE_EPSILON) {
   return Math.abs(Number(left) - Number(right)) <= epsilon;
+}
+
+function resolveScaleRange(scale) {
+  const domain = typeof scale?.domain === 'function' ? scale.domain() : [];
+  const start = Number(domain[0]);
+  const end = Number(domain[domain.length - 1]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    min: Math.min(start, end),
+    max: Math.max(start, end)
+  };
+}
+
+function resolvePreviewTransform(id) {
+  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+  const offsetX = Number(props.dragPreviewOffset?.x);
+  const offsetY = Number(props.dragPreviewOffset?.y);
+  if (!Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return null;
+  return `translate(${offsetX} ${offsetY})`;
+}
+
+function handleLabelPointerDown(label, event) {
+  const rowId = String(label?.rowId ?? '').trim();
+  if (!rowId) return;
+  emit('start-label-drag', {
+    previewId: label.id,
+    entityType: 'plug',
+    rowId,
+    centerX: label.x,
+    centerY: label.y,
+    xField: 'labelXPos',
+    yField: 'manualLabelDepth',
+    xRange: resolveScaleRange(props.xScale),
+    depthRange: resolveScaleRange(props.yScale)
+  }, event);
 }
 
 function hasEquivalentRects(left = [], right = []) {
@@ -156,13 +204,18 @@ const plugLabels = computed(() => {
       const top = Number(plug?.top);
       const bottom = Number(plug?.bottom);
       if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) return null;
+      const manualX = resolveXPosition(plug?.labelXPos, props.xHalf);
+      const manualDepth = parseOptionalNumber(plug?.manualLabelDepth);
+      const labelDepth = Number.isFinite(manualDepth) ? manualDepth : ((top + bottom) / 2);
+      const labelX = manualX !== null && manualX !== undefined ? manualX : 0;
 
       return {
         id: `plug-label-${index}`,
         index,
+        rowId: String(plug?.rowId ?? '').trim() || null,
         label,
-        x: props.xScale(0),
-        y: props.yScale((top + bottom) / 2)
+        x: props.xScale(labelX),
+        y: props.yScale(labelDepth)
       };
     })
     .filter(Boolean);
@@ -192,17 +245,23 @@ const plugLabels = computed(() => {
       />
     </g>
 
-    <text
+    <g
       v-for="label in plugLabels"
       :key="label.id"
-      class="plug-layer__label"
-      :x="label.x"
-      :y="label.y"
-      text-anchor="middle"
-      dominant-baseline="middle"
+      class="plug-layer__label-group"
+      :transform="resolvePreviewTransform(label.id)"
+      @pointerdown.stop.prevent="handleLabelPointerDown(label, $event)"
     >
-      {{ label.label }}
-    </text>
+      <text
+        class="plug-layer__label"
+        :x="label.x"
+        :y="label.y"
+        text-anchor="middle"
+        dominant-baseline="middle"
+      >
+        {{ label.label }}
+      </text>
+    </g>
   </g>
 </template>
 
@@ -216,10 +275,13 @@ const plugLabels = computed(() => {
   opacity: 0.95;
 }
 
+.plug-layer__label-group {
+  cursor: grab;
+}
+
 .plug-layer__label {
   fill: var(--color-ink-strong);
   font-size: 10px;
   font-weight: 700;
-  pointer-events: none;
 }
 </style>

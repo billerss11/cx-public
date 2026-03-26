@@ -46,6 +46,7 @@ import {
   buildDirectionalProjector,
   isFinitePoint,
   normalizeXExaggeration,
+  resolveMDFromTVD,
   resolveProjectedDepthBounds,
   resolveScreenFrameAtMD
 } from './layers/directionalProjection.js';
@@ -55,6 +56,10 @@ import { useCrossSectionDepthInteraction } from '@/composables/useCrossSectionDe
 import { useMagnifierOverlayDom } from '@/composables/useMagnifierOverlayDom.js';
 import { useCameraPanSession } from '@/composables/useCameraPanSession.js';
 import { createSchematicPointerMapping } from '@/composables/useSchematicPointerMapping.js';
+import { useDiagramLabelDrag } from '@/composables/useDiagramLabelDrag.js';
+import { useEntityEditorActions } from '@/composables/useEntityEditorActions.js';
+import { resolveDirectionalDepthShiftPatch, resolveDirectionalLabelDragPatch } from '@/utils/diagramLabelDrag.js';
+import { resolveDirectionalReferenceHorizonDepthMeta } from '@/utils/referenceHorizons.js';
 import { solveOptimalFigureHeight } from '@/utils/autoFitMath.js';
 import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgTransformMath.js';
 import {
@@ -105,6 +110,10 @@ const props = defineProps({
     type: Object,
     default: null
   },
+  readonly: {
+    type: Boolean,
+    default: false
+  },
   analysisRequestId: {
     type: [Number, String],
     default: null
@@ -115,6 +124,8 @@ const emit = defineEmits(['svg-ready', 'analysis-geometry-ready']);
 const magnifierIdToken = Math.random().toString(36).slice(2, 9);
 const interactionStore = useInteractionStore();
 const viewConfigStore = useViewConfigStore();
+const { updateFields } = useEntityEditorActions();
+const isReadonly = computed(() => props.readonly === true);
 
 const IDENTITY_CAMERA_STATE = Object.freeze({
   scale: 1,
@@ -487,10 +498,20 @@ const rawMaxTvdValue = computed(() => {
   return 1000;
 });
 
-const minXData = computed(() => rawMinXValue.value);
+const DIRECTIONAL_MIN_X_SPAN = 100;
+
+const minXData = computed(() => {
+  const center = (rawMinXValue.value + rawMaxXValue.value) / 2;
+  const actualSpread = Math.max(0, rawMaxXValue.value - rawMinXValue.value);
+  const targetSpread = Math.max(DIRECTIONAL_MIN_X_SPAN, actualSpread);
+  return center - (targetSpread / 2);
+});
+
 const maxXData = computed(() => {
-  const maxValue = rawMaxXValue.value;
-  return maxValue > minXData.value ? maxValue : minXData.value + 1;
+  const center = (rawMinXValue.value + rawMaxXValue.value) / 2;
+  const actualSpread = Math.max(0, rawMaxXValue.value - rawMinXValue.value);
+  const targetSpread = Math.max(DIRECTIONAL_MIN_X_SPAN, actualSpread);
+  return center + (targetSpread / 2);
 });
 const minTvdData = computed(() => rawMinTvdValue.value);
 const maxTvdData = computed(() => {
@@ -655,6 +676,16 @@ function resolveNearestMDFromPointer(pointer) {
   });
 
   return Number.isFinite(bestMD) ? bestMD : null;
+}
+
+function resolveNearestMDFromProjectedY(pointerY) {
+  const yValue = Number(pointerY);
+  if (!Number.isFinite(yValue)) return null;
+
+  const tvd = Number(yScale.value.invert(yValue));
+  if (!Number.isFinite(tvd)) return null;
+
+  return resolveMDFromTVD(tvd, trajectoryPoints.value);
 }
 
 function resolveLineSegmentInPlot(center, direction, bounds) {
@@ -833,6 +864,72 @@ const cameraPanSession = useCameraPanSession({
   }
 });
 const isCameraPanActive = cameraPanSession.isPanActive;
+const labelDrag = useDiagramLabelDrag({
+  enabled: true,
+  resolvePointer: (event) => pointerMapping.resolvePointer(event)?.canonicalPoint ?? null
+});
+
+function buildDirectionalLabelPatch(payload, previewOffset = {}) {
+  if (!payload) return null;
+  if (payload.dragKind === 'depth-shift') {
+    const resolveDepthFromPoint = payload.resolveDepthMode === 'projected-y'
+      ? (point) => resolveNearestMDFromProjectedY(point?.y)
+      : payload.resolveDepthMode === 'tvd-y'
+        ? (point) => {
+          const tvd = Number(yScale.value.invert(point?.y));
+          return Number.isFinite(tvd) ? tvd : null;
+        }
+      : resolveNearestMDFromPointer;
+    return resolveDirectionalDepthShiftPatch({
+      startPointer: { x: Number(payload.centerX), y: Number(payload.centerY) },
+      pointer: {
+        x: Number(payload.centerX) + Number(previewOffset?.x ?? 0),
+        y: Number(payload.centerY) + Number(previewOffset?.y ?? 0)
+      },
+      lockXToStart: true,
+      resolveDepthFromPoint,
+      entries: Array.isArray(payload.entries) ? payload.entries : []
+    });
+  }
+  return resolveDirectionalLabelDragPatch({
+    pointer: {
+      x: Number(payload.centerX) + Number(previewOffset?.x ?? 0),
+      y: Number(payload.centerY) + Number(previewOffset?.y ?? 0)
+    },
+    bounds: payload.bounds,
+    resolveDepthFromPoint: resolveNearestMDFromPointer,
+    xField: payload.xField,
+    yField: payload.yField,
+    depthRange: {
+      min: 0,
+      max: Math.max(0, Number(totalMDValue.value))
+    }
+  });
+}
+
+function handleStartLabelDrag(payload, event) {
+  if (isReadonly.value || !payload) return;
+  labelDrag.startDrag({
+    previewId: payload.previewId,
+    buildPatch: ({ previewOffset }) => buildDirectionalLabelPatch(payload, previewOffset),
+    commitPatch: (patch) => {
+      if (!patch || typeof patch !== 'object') return;
+      updateFields({
+        entityType: payload.entityType,
+        rowId: payload.rowId,
+        patch
+      });
+    }
+  }, event);
+}
+
+function handleWindowPointerMove(event) {
+  labelDrag.updateDrag(event);
+}
+
+function handleWindowPointerUp(event) {
+  labelDrag.finishDrag(event);
+}
 
 const depthCursorLineSegment = computed(() => {
   if (!depthCursor.visible.value) return null;
@@ -1112,9 +1209,14 @@ function resolvePipeRow(entity) {
 }
 
 function handleSelectPipe(entity) {
+  if (consumeSelectionClickAfterLabelDrag()) return;
   const normalized = normalizePipeEntity(entity);
   if (!normalized) return;
   dispatchSchematicInteraction('select', { type: 'pipe', id: normalized });
+}
+
+function consumeSelectionClickAfterLabelDrag() {
+  return labelDrag.consumeFinishedDragClick() === true;
 }
 
 function handleHoverPipe(entity, event) {
@@ -1167,13 +1269,27 @@ function resolveFluidTooltipMeta({ index, event }) {
   };
 }
 
+function resolveLineTooltipMeta({ row }) {
+  if (!row || typeof row !== 'object') return null;
+  const depthMeta = resolveDirectionalReferenceHorizonDepthMeta(row);
+  return {
+    directionalReferenceHorizonMode: depthMeta.mode,
+    primaryDepth: depthMeta.primaryDepth,
+    secondaryDepth: depthMeta.secondaryDepth,
+    primaryLabel: depthMeta.primaryLabel,
+    secondaryLabel: depthMeta.secondaryLabel
+  };
+}
+
 const lineHandlers = usePlotEntityHandlers({
   type: 'line',
   rows: horizontalLineRows,
   unitsLabel,
   buildTooltipModel: buildLineTooltipModel,
+  resolveTooltipMeta: resolveLineTooltipMeta,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const boxHandlers = usePlotEntityHandlers({
   type: 'box',
@@ -1181,7 +1297,8 @@ const boxHandlers = usePlotEntityHandlers({
   unitsLabel,
   buildTooltipModel: buildBoxTooltipModel,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const markerHandlers = usePlotEntityHandlers({
   type: 'marker',
@@ -1189,7 +1306,8 @@ const markerHandlers = usePlotEntityHandlers({
   unitsLabel,
   buildTooltipModel: buildMarkerTooltipModel,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const plugHandlers = usePlotEntityHandlers({
   type: 'plug',
@@ -1197,7 +1315,8 @@ const plugHandlers = usePlotEntityHandlers({
   unitsLabel,
   buildTooltipModel: buildPlugTooltipModel,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const fluidHandlers = usePlotEntityHandlers({
   type: 'fluid',
@@ -1206,7 +1325,8 @@ const fluidHandlers = usePlotEntityHandlers({
   buildTooltipModel: buildFluidTooltipModel,
   resolveTooltipMeta: resolveFluidTooltipMeta,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 const equipmentHandlers = usePlotEntityHandlers({
   type: 'equipment',
@@ -1214,7 +1334,8 @@ const equipmentHandlers = usePlotEntityHandlers({
   unitsLabel,
   buildTooltipModel: buildEquipmentTooltipModel,
   showTooltip,
-  hideTooltip
+  hideTooltip,
+  consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
 
 const handleSelectLine = lineHandlers.handleSelect;
@@ -1283,6 +1404,7 @@ function hideStaleTooltipOnMouseMove() {
 }
 
 function handleCanvasMouseMove(event) {
+  if (labelDrag.activePreviewId.value) return;
   if (isCameraPanActive.value) return;
   hideStaleTooltipOnMouseMove();
   if (crossSectionVisible.value) {
@@ -1345,6 +1467,8 @@ function clearAllSelections() {
 }
 
 function handleCanvasBackgroundClick(event) {
+  const consumedLabelDragClick = labelDrag.consumeFinishedDragClick();
+  if (consumedLabelDragClick) return;
   if (crossSectionVisible.value) {
     crossSectionDepthInteraction.lockDepthFromEvent(event);
   }
@@ -1363,6 +1487,10 @@ function handleCanvasBackgroundClick(event) {
 onMounted(() => {
   updateContainerSize();
   emit('svg-ready', svgRef.value);
+  window.removeEventListener('pointermove', handleWindowPointerMove);
+  window.removeEventListener('pointerup', handleWindowPointerUp);
+  window.addEventListener('pointermove', handleWindowPointerMove);
+  window.addEventListener('pointerup', handleWindowPointerUp);
   if (typeof ResizeObserver !== 'function') return;
   resizeObserver = new ResizeObserver(() => {
     updateContainerSize();
@@ -1378,6 +1506,9 @@ onBeforeUnmount(() => {
   setLastAutoFitSignature(trajectorySignature.value);
   directionalRenderRequestVersion += 1;
   cancelRenderModelWorkerJobs();
+  window.removeEventListener('pointermove', handleWindowPointerMove);
+  window.removeEventListener('pointerup', handleWindowPointerUp);
+  labelDrag.clearDrag();
   hideTooltip();
   emit('svg-ready', null);
   resizeObserver?.disconnect();
@@ -1539,6 +1670,8 @@ defineExpose({
         :max-projected-radius="maxProjectedRadiusValue"
         :x-exaggeration="xExaggerationValue"
         :x-origin="xOriginValue"
+        :drag-preview-id="labelDrag.activePreviewId.value"
+        :drag-preview-offset="labelDrag.previewOffset.value"
         @select-line="handleSelectLine"
         @hover-line="handleHoverLine"
         @leave-line="handleLeaveLine"
@@ -1554,6 +1687,7 @@ defineExpose({
         @select-box="handleSelectBox"
         @hover-box="handleHoverBox"
         @leave-box="handleLeaveBox"
+        @start-label-drag="handleStartLabelDrag"
       />
 
       <DirectionalPhysicsDebugLayer
