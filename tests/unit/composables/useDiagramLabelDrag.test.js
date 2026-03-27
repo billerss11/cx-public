@@ -53,6 +53,29 @@ describe('useDiagramLabelDrag', () => {
     wrapper.unmount();
   });
 
+  it('does not consume a plain click when the pointer never meaningfully moved', () => {
+    const wrapper = mount(Harness);
+    const commitDrag = controller.commitDrag;
+    const buildPatch = vi.fn(() => ({ labelXPos: 0.55 }));
+
+    controller.startDrag({
+      previewId: 'pipe-label-click',
+      buildPatch
+    }, {
+      pointer: { x: 140, y: 180 }
+    });
+
+    controller.finishDrag({
+      pointer: { x: 140, y: 180 }
+    });
+
+    expect(buildPatch).not.toHaveBeenCalled();
+    expect(commitDrag).not.toHaveBeenCalled();
+    expect(controller.consumeFinishedDragClick()).toBe(false);
+
+    wrapper.unmount();
+  });
+
   it('suppresses the immediate background click after finishing a drag and expires the guard quickly', () => {
     vi.useFakeTimers();
     const wrapper = mount(Harness);

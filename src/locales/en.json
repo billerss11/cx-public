@@ -93,7 +93,6 @@
     "ui.depth_cursor_directional_mode": "Directional cursor readout:",
     "ui.depth_cursor_mode.tvd": "TVD (vertical depth)",
     "ui.depth_cursor_mode.md": "MD (measured depth)",
-    "ui.reference_horizon_mode.label": "Horizons",
     "ui.depth_cross_section": "Depth Cross-Section",
     "ui.cross_section_exact_depth": "Exact depth",
     "ui.annulus_mode": "Annulus mode:",

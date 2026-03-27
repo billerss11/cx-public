@@ -31,10 +31,13 @@ describe('DirectionalOverlayLayer smart-label contract', () => {
     expect(source).toContain('v-for="line in directionalOverlayState.horizontalLineOverlays"');
   });
 
-  it('applies directional horizon drag preview at the outer line group only so the label stays attached to the line', () => {
+  it('recomputes directional horizon preview geometry through the shared preview helper instead of freezing a group transform', () => {
     const source = readDirectionalOverlaySource();
 
-    expect(source).toContain(':transform="resolveDepthShiftPreviewTransform(line.id)"');
+    expect(source).toContain('function applyDirectionalHorizonLinePreview(items = [], bounds) {');
+    expect(source).toContain('applyPreviewToDirectionalLineOverlay(');
+    expect(source).toContain('horizontalLineOverlays: applyDirectionalHorizonLinePreview(');
+    expect(source).not.toContain(':transform="resolveDepthShiftPreviewTransform(line.id)"');
     expect(source).not.toContain('<g :transform="resolvePreviewTransform(line.id)">');
   });
 

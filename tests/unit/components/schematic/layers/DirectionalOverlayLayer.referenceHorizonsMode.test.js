@@ -11,37 +11,42 @@ function createLinearScale(domainMin, domainMax, rangeMin, rangeMax) {
   return scale;
 }
 
-function createWrapper(directionalDepthMode = 'tvd') {
+function createWrapper(directionalDepthMode = 'tvd', options = {}) {
   const xScale = createLinearScale(-20, 20, 0, 600);
   const yScale = createLinearScale(0, 2000, 0, 600);
+  const horizontalLines = Array.isArray(options.horizontalLines) && options.horizontalLines.length > 0
+    ? options.horizontalLines
+    : [
+      {
+        rowId: 'line-1',
+        depth: 1000,
+        directionalDepthMd: 1500,
+        directionalDepthTvd: 700,
+        directionalDepthMode,
+        label: 'Landing',
+        color: 'steelblue',
+        fontColor: 'steelblue',
+        fontSize: 11,
+        lineStyle: 'Solid',
+        show: true
+      }
+    ];
   return mount(DirectionalOverlayLayer, {
     props: {
-      trajectoryPoints: [
-        { md: 0, x: 0, tvd: 0 },
-        { md: 2000, x: 10, tvd: 1200 }
-      ],
+      trajectoryPoints: Array.isArray(options.trajectoryPoints) && options.trajectoryPoints.length > 0
+        ? options.trajectoryPoints
+        : [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 2000, x: 10, tvd: 1200 }
+        ],
       physicsContext: null,
       casingData: [],
-      horizontalLines: [
-        {
-          rowId: 'line-1',
-          depth: 1000,
-          directionalDepthMd: 1500,
-          directionalDepthTvd: 700,
-          directionalDepthMode,
-          label: 'Landing',
-          color: 'steelblue',
-          fontColor: 'steelblue',
-          fontSize: 11,
-          lineStyle: 'Solid',
-          show: true
-        }
-      ],
+      horizontalLines,
       annulusFluids: [],
       cementPlugs: [],
       annotationBoxes: [],
       config: {
-        smartLabelsEnabled: true,
+        smartLabelsEnabled: options.smartLabelsEnabled ?? true,
         directionalLabelScale: 1
       },
       xScale,
@@ -69,6 +74,133 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
 
     expect(Number(mdLine.attributes('y1'))).not.toBe(Number(mdLine.attributes('y2')));
     expect(Number(tvdLine.attributes('y1'))).toBe(Number(tvdLine.attributes('y2')));
+  });
+
+  it('rotates the md horizon label group to match the line angle while keeping tvd labels horizontal', () => {
+    const mdWrapper = createWrapper('md');
+    const tvdWrapper = createWrapper('tvd');
+
+    const mdLine = mdWrapper.get('.directional-overlay-layer__line-path');
+    const mdLabelGroup = mdWrapper.get('.directional-overlay-layer__line-label-group');
+    const tvdLabelGroup = tvdWrapper.get('.directional-overlay-layer__line-label-group');
+
+    const x1 = Number(mdLine.attributes('x1'));
+    const y1 = Number(mdLine.attributes('y1'));
+    const x2 = Number(mdLine.attributes('x2'));
+    const y2 = Number(mdLine.attributes('y2'));
+    const expectedAngle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+    const transform = mdLabelGroup.attributes('transform');
+    const angleMatch = /rotate\(([-\d.]+)/.exec(transform ?? '');
+    const actualAngle = Number(angleMatch?.[1]);
+
+    expect(actualAngle).toBeCloseTo(expectedAngle, 3);
+    expect(tvdLabelGroup.attributes('transform')).toBeUndefined();
+  });
+
+  it('keeps md label text direction readable when the line segment endpoints are reversed by a steep projected angle', () => {
+    const wrapper = createWrapper('md', {
+      trajectoryPoints: [
+        { md: 0, x: 0, tvd: 0 },
+        { md: 2000, x: 10, tvd: 100 }
+      ]
+    });
+
+    const mdLine = wrapper.get('.directional-overlay-layer__line-path');
+    const mdLabelGroup = wrapper.get('.directional-overlay-layer__line-label-group');
+
+    const rawX1 = Number(mdLine.attributes('x1'));
+    const rawY1 = Number(mdLine.attributes('y1'));
+    const rawX2 = Number(mdLine.attributes('x2'));
+    const rawY2 = Number(mdLine.attributes('y2'));
+    expect(rawX2).toBeLessThan(rawX1);
+
+    const normalizedX1 = rawX2;
+    const normalizedY1 = rawY2;
+    const normalizedX2 = rawX1;
+    const normalizedY2 = rawY1;
+    const expectedReadableAngle = Math.atan2(
+      normalizedY2 - normalizedY1,
+      normalizedX2 - normalizedX1
+    ) * (180 / Math.PI);
+
+    const transform = mdLabelGroup.attributes('transform');
+    const angleMatch = /rotate\(([-\d.]+)/.exec(transform ?? '');
+    const actualAngle = Number(angleMatch?.[1]);
+
+    expect(actualAngle).toBeCloseTo(expectedReadableAngle, 3);
+  });
+
+  it('keeps the md label centered on the angled horizon line at the label position', () => {
+    const wrapper = createWrapper('md');
+
+    const line = wrapper.get('.directional-overlay-layer__line-path');
+    const labelBox = wrapper.get('.directional-overlay-layer__line-label-bg');
+    const labelText = wrapper.get('.directional-overlay-layer__line-label-text');
+
+    const x1 = Number(line.attributes('x1'));
+    const y1 = Number(line.attributes('y1'));
+    const x2 = Number(line.attributes('x2'));
+    const y2 = Number(line.attributes('y2'));
+    const boxX = Number(labelBox.attributes('x'));
+    const boxWidth = Number(labelBox.attributes('width'));
+    const textY = Number(labelText.attributes('y'));
+    const boxCenterX = boxX + (boxWidth / 2);
+    const expectedLineYAtLabel = y1 + (((boxCenterX - x1) / (x2 - x1)) * (y2 - y1));
+
+    expect(textY).toBeCloseTo(expectedLineYAtLabel, 3);
+  });
+
+  it('keeps md horizon labels attached to their own line center even when nearby horizons overlap', () => {
+    const wrapper = createWrapper('md', {
+      horizontalLines: [
+        {
+          rowId: 'line-1',
+          depth: 1000,
+          directionalDepthMd: 1480,
+          directionalDepthTvd: 690,
+          directionalDepthMode: 'md',
+          label: 'Upper',
+          color: 'steelblue',
+          fontColor: 'steelblue',
+          fontSize: 11,
+          lineStyle: 'Solid',
+          show: true
+        },
+        {
+          rowId: 'line-2',
+          depth: 1000,
+          directionalDepthMd: 1520,
+          directionalDepthTvd: 710,
+          directionalDepthMode: 'md',
+          label: 'Lower',
+          color: 'seagreen',
+          fontColor: 'seagreen',
+          fontSize: 11,
+          lineStyle: 'Solid',
+          show: true
+        }
+      ]
+    });
+
+    const linePaths = wrapper.findAll('.directional-overlay-layer__line-path');
+    const labelBoxes = wrapper.findAll('.directional-overlay-layer__line-label-bg');
+    const labelTexts = wrapper.findAll('.directional-overlay-layer__line-label-text');
+
+    labelTexts.forEach((labelText, index) => {
+      const line = linePaths[index];
+      const labelBox = labelBoxes[index];
+      const x1 = Number(line.attributes('x1'));
+      const y1 = Number(line.attributes('y1'));
+      const x2 = Number(line.attributes('x2'));
+      const y2 = Number(line.attributes('y2'));
+      const boxX = Number(labelBox.attributes('x'));
+      const boxWidth = Number(labelBox.attributes('width'));
+      const textY = Number(labelText.attributes('y'));
+      const boxCenterX = boxX + (boxWidth / 2);
+      const expectedLineYAtLabel = y1 + (((boxCenterX - x1) / (x2 - x1)) * (y2 - y1));
+
+      expect(textY).toBeCloseTo(expectedLineYAtLabel, 3);
+    });
   });
 
   it('emits a mode-aware drag payload for directional horizons', async () => {

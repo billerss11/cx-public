@@ -46,7 +46,6 @@
     "ui.depth_cursor_directional_mode": "定向模式深度读数：",
     "ui.depth_cursor_mode.tvd": "TVD（垂直深度）",
     "ui.depth_cursor_mode.md": "MD（测量深度）",
-    "ui.reference_horizon_mode.label": "\u53c2\u8003\u5c42\u4f4d",
     "ui.depth_cross_section": "深度剖面",
     "ui.cross_section_exact_depth": "精确深度",
     "ui.annulus_mode": "环空模式：",

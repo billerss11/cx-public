@@ -1,5 +1,7 @@
 import { onBeforeUnmount, ref } from 'vue';
 
+const DEFAULT_DRAG_MOVEMENT_EPSILON = 0.5;
+
 function zeroOffset() {
   return { x: 0, y: 0 };
 }
@@ -12,6 +14,9 @@ export function useDiagramLabelDrag(options = {}) {
   const commitDrag = typeof options.commitDrag === 'function'
     ? options.commitDrag
     : () => {};
+  const movementEpsilon = Number.isFinite(Number(options.movementEpsilon))
+    ? Math.max(0, Number(options.movementEpsilon))
+    : DEFAULT_DRAG_MOVEMENT_EPSILON;
   let finishedDragClickGuardTimer = null;
 
   function clearFinishedDragClickGuard() {
@@ -46,6 +51,11 @@ export function useDiagramLabelDrag(options = {}) {
   function resolvePointer(event) {
     if (options.enabled === false || typeof options.resolvePointer !== 'function') return null;
     return options.resolvePointer(event);
+  }
+
+  function hasMeaningfulMovement(offset) {
+    return Math.abs(Number(offset?.x ?? 0)) > movementEpsilon
+      || Math.abs(Number(offset?.y ?? 0)) > movementEpsilon;
   }
 
   function startDrag(descriptor = {}, event) {
@@ -86,11 +96,21 @@ export function useDiagramLabelDrag(options = {}) {
       return false;
     }
 
+    const finishOffset = {
+      x: Number(pointer.x) - Number(drag.startPointer.x),
+      y: Number(pointer.y) - Number(drag.startPointer.y)
+    };
+
+    if (!hasMeaningfulMovement(finishOffset)) {
+      clearDrag();
+      return true;
+    }
+
     const patch = typeof drag.descriptor?.buildPatch === 'function'
       ? drag.descriptor.buildPatch({
         pointer,
         startPointer: drag.startPointer,
-        previewOffset: previewOffset.value
+        previewOffset: finishOffset
       })
       : null;
 
