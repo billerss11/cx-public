@@ -24,6 +24,7 @@ import {
   resolveSmartLabelFontSize
 } from '@/utils/smartLabels.js';
 import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
+import { applyPreviewToDirectionalLineLabel } from '@/utils/diagramLabelPreview.js';
 import { applyPreviewToDirectionalLineOverlay } from '@/utils/diagramLabelPreview.js';
 import { t } from '@/app/i18n.js';
 import { isOpenHoleRow } from '@/app/domain.js';
@@ -32,7 +33,8 @@ import { LAYOUT_CONSTANTS } from '@/constants/index.js';
 import {
   resolveDirectionalLayerVisualRadii,
   resolveDirectionalMaxVisualRadiusPx,
-  resolveDirectionalPipeVisualGeometry
+  resolveDirectionalPipeVisualGeometry,
+  resolveDirectionalVisualInsetPadding
 } from '@/utils/directionalSizing.js';
 import {
   DIRECTIONAL_EPSILON,
@@ -445,11 +447,8 @@ function applyDirectionalHorizonLinePreview(items = [], bounds) {
   const safeBounds = bounds ?? plotBounds.value;
   const trajectory = Array.isArray(props.trajectoryPoints) ? props.trajectoryPoints : [];
 
-  return (Array.isArray(items) ? items : []).map((item) => applyPreviewToDirectionalLineOverlay(
-    item,
-    props.dragPreviewId,
-    props.dragPreviewOffset,
-    {
+  return (Array.isArray(items) ? items : []).map((item) => {
+    const previewOptions = {
       resolveDepthFromPreviewY: (screenY) => {
         if (item?.activeMode !== 'md') return null;
         const tvd = Number(props.yScale.invert(screenY));
@@ -474,24 +473,46 @@ function applyDirectionalHorizonLinePreview(items = [], bounds) {
         const fallbackY = Number(line?.boxY) + (Number(line?.boxHeight) / 2);
         return resolveLineSegmentYAtX(segment, labelCenterX, fallbackY);
       }
+    };
+
+    const activePreviewId = String(props.dragPreviewId ?? '').trim();
+    if (activePreviewId === `${item?.id}:label`) {
+      return applyPreviewToDirectionalLineLabel(
+        item,
+        props.dragPreviewId,
+        props.dragPreviewOffset,
+        {
+          previewId: `${item?.id}:label`,
+          bounds: item?.lineBounds ?? safeBounds,
+          resolveLabelCenterYFromSegment: previewOptions.resolveLabelCenterYFromSegment
+        }
+      );
     }
-  ));
+
+    return applyPreviewToDirectionalLineOverlay(
+      item,
+      props.dragPreviewId,
+      props.dragPreviewOffset,
+      previewOptions
+    );
+  });
 }
 
 function emitDragStartPayload(entityType, item, event, options = {}) {
   const rowId = String(item?.rowId ?? '').trim();
   if (!rowId) return;
-  const bounds = plotBounds.value;
+  const bounds = options.bounds ?? plotBounds.value;
   emit('start-label-drag', {
-    previewId: item.id,
+    previewId: String(options.previewId ?? item.id ?? '').trim() || item.id,
     entityType,
     rowId,
     dragKind: options.dragKind ?? null,
     resolveDepthMode: options.resolveDepthMode ?? null,
     centerX: Number.isFinite(Number(options.centerX)) ? Number(options.centerX) : item.boxX + (item.boxWidth / 2),
     centerY: Number.isFinite(Number(options.centerY)) ? Number(options.centerY) : item.boxY + (item.boxHeight / 2),
-    xField: item.xField,
-    yField: item.yField,
+    xField: options.xField ?? item.xField,
+    yField: options.yField ?? item.yField,
+    clearYField: options.clearYField ?? null,
     entries: options.entries ?? null,
     bounds: bounds
       ? {
@@ -537,6 +558,28 @@ const plotBounds = computed(() => {
     height: Math.max(1, yMax - yMin)
   };
 });
+
+const directionalLabelBounds = computed(() => {
+  const bounds = plotBounds.value;
+  if (!bounds) return null;
+
+  const visualInsetPadding = resolveDirectionalVisualInsetPadding({
+    visualMaxRadiusPx: resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius)),
+    formationThicknessPx: props.visualSizing?.formationThicknessPx
+  });
+  const horizontalPad = Math.max(0, Number(visualInsetPadding?.horizontal) || 0);
+
+  return {
+    left: bounds.left - horizontalPad,
+    right: bounds.right + horizontalPad,
+    top: bounds.top,
+    bottom: bounds.bottom,
+    width: bounds.width + (horizontalPad * 2),
+    height: bounds.height
+  };
+});
+
+const referenceHorizonBounds = computed(() => directionalLabelBounds.value);
 
 const frameContext = computed(() => ({
   project: project.value,
@@ -1539,7 +1582,7 @@ function buildDirectionalPipeLabelOverlays({
 
 const casingLabelOverlays = computed(() => {
   const physicsContext = resolvedPhysicsContext.value;
-  const bounds = plotBounds.value;
+  const bounds = directionalLabelBounds.value ?? plotBounds.value;
   if (!physicsContext || !bounds) return [];
 
   return buildDirectionalPipeLabelOverlays({
@@ -1560,7 +1603,7 @@ const casingLabelOverlays = computed(() => {
 
 const transientPipeLabelOverlays = computed(() => {
   const physicsContext = resolvedPhysicsContext.value;
-  const bounds = plotBounds.value;
+  const bounds = directionalLabelBounds.value ?? plotBounds.value;
   if (!physicsContext || !bounds) return [];
 
   const transientPipeType = resolveTransientPipeTypeFromOperationPhase(physicsContext.operationPhase);
@@ -1581,7 +1624,7 @@ const transientPipeLabelOverlays = computed(() => {
 
 const equipmentLabelOverlays = computed(() => {
   const physicsContext = resolvedPhysicsContext.value;
-  const bounds = plotBounds.value;
+  const bounds = directionalLabelBounds.value ?? plotBounds.value;
   const totalMd = Math.max(0, Number(props.totalMd));
   if (!physicsContext || !bounds || totalMd <= DIRECTIONAL_EPSILON) return [];
 
@@ -2221,9 +2264,10 @@ const annotationBandOverlays = computed(() => {
 
 const horizontalLineOverlays = computed(() => {
   const bounds = plotBounds.value;
+  const lineBounds = referenceHorizonBounds.value ?? bounds;
   const totalMd = Math.max(0, Number(props.totalMd));
   const lines = Array.isArray(props.horizontalLines) ? props.horizontalLines : [];
-  if (!bounds || totalMd <= DIRECTIONAL_EPSILON || lines.length === 0) return [];
+  if (!bounds || !lineBounds || totalMd <= DIRECTIONAL_EPSILON || lines.length === 0) return [];
 
   const unitsLabel = props.config?.units === 'm' ? 'm' : 'ft';
   return lines.map((line, lineIndex) => {
@@ -2245,7 +2289,7 @@ const horizontalLineOverlays = computed(() => {
       : clamp(props.yScale(primaryDepth), bounds.top, bounds.bottom);
     if (!Number.isFinite(lineY)) return null;
     const lineSegment = activeMode === 'md'
-      ? resolveLineSegmentInPlot(frame.center, frame.normal, bounds)
+      ? resolveLineSegmentInPlot(frame.center, frame.normal, lineBounds)
       : null;
     if (activeMode === 'md' && !lineSegment) return null;
 
@@ -2268,9 +2312,9 @@ const horizontalLineOverlays = computed(() => {
       ? resolveScreenFrameAtMD(displayMd, frameContext.value)
       : frame;
     const labelXPixelRaw = Number.isFinite(manualXRatio)
-      ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
-      : (bounds.right - 12);
-    const labelXPixel = clamp(labelXPixelRaw, bounds.left + 10, bounds.right - 10);
+      ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, lineBounds)
+      : (lineBounds.right - 12);
+    const labelXPixel = clamp(labelXPixelRaw, lineBounds.left + 10, lineBounds.right - 10);
     const textAnchor = getHorizontalAnchor(
       Number.isFinite(manualXRatio) ? manualXRatio : 1,
       1,
@@ -2286,9 +2330,9 @@ const horizontalLineOverlays = computed(() => {
     if (textAnchor === 'end') boxX = labelXPixel - estimatedWidth + 5;
     else if (textAnchor === 'middle') boxX = labelXPixel - (estimatedWidth / 2);
     else boxX = labelXPixel - 5;
-    boxX = clamp(boxX, bounds.left + 5, bounds.right - estimatedWidth - 5);
+    boxX = clamp(boxX, lineBounds.left + 5, lineBounds.right - estimatedWidth - 5);
     const displayLineSegment = activeMode === 'md' && displayFrame?.center && displayFrame?.normal
-      ? resolveLineSegmentInPlot(displayFrame.center, displayFrame.normal, bounds)
+      ? resolveLineSegmentInPlot(displayFrame.center, displayFrame.normal, lineBounds)
       : null;
     const labelCenterX = boxX + (estimatedWidth / 2);
     const labelYPixel = activeMode === 'md'
@@ -2330,9 +2374,9 @@ const horizontalLineOverlays = computed(() => {
       primaryDepth,
       secondaryDepth,
       y: lineY,
-      x1: activeMode === 'md' ? lineSegment.startX : bounds.left,
+      x1: activeMode === 'md' ? lineSegment.startX : lineBounds.left,
       y1: activeMode === 'md' ? lineSegment.startY : lineY,
-      x2: activeMode === 'md' ? lineSegment.endX : bounds.right,
+      x2: activeMode === 'md' ? lineSegment.endX : lineBounds.right,
       y2: activeMode === 'md' ? lineSegment.endY : lineY,
       stroke: lineColor,
       strokeDasharray: lineStyle,
@@ -2347,6 +2391,11 @@ const horizontalLineOverlays = computed(() => {
       textX,
       textY,
       textLines,
+      lineBounds: {
+        left: lineBounds.left,
+        right: lineBounds.right,
+        width: lineBounds.width
+      },
       // Directional reference horizons should stay attached to their line rather than
       // participating in vertical smart-label reflow. Other overlay families route around them.
       isPositionPinned: true
@@ -2687,6 +2736,7 @@ const directionalOverlayState = computed(() => {
     horizontalLineOverlays: horizontalLineOverlays.value
   };
   const bounds = plotBounds.value;
+  const lineBounds = referenceHorizonBounds.value ?? bounds;
   if (smartLabelsEnabled.value !== true || !bounds) {
     return {
       ...base,
@@ -2695,7 +2745,7 @@ const directionalOverlayState = computed(() => {
       casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
       transientPipeLabelOverlays: applyDirectionalArrowPreview(base.transientPipeLabelOverlays),
       equipmentLabelOverlays: applyDirectionalArrowPreview(base.equipmentLabelOverlays),
-      horizontalLineOverlays: applyDirectionalHorizonLinePreview(base.horizontalLineOverlays, bounds)
+      horizontalLineOverlays: applyDirectionalHorizonLinePreview(base.horizontalLineOverlays, lineBounds)
     };
   }
   const candidateMap = buildDirectionalLayoutCandidateMap(base, bounds);
@@ -2707,7 +2757,7 @@ const directionalOverlayState = computed(() => {
       casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
       transientPipeLabelOverlays: applyDirectionalArrowPreview(base.transientPipeLabelOverlays),
       equipmentLabelOverlays: applyDirectionalArrowPreview(base.equipmentLabelOverlays),
-      horizontalLineOverlays: applyDirectionalHorizonLinePreview(base.horizontalLineOverlays, bounds)
+      horizontalLineOverlays: applyDirectionalHorizonLinePreview(base.horizontalLineOverlays, lineBounds)
     };
   }
 
@@ -2729,7 +2779,7 @@ const directionalOverlayState = computed(() => {
     casingLabelOverlays: applyDirectionalArrowPreview(laidOut.casingLabelOverlays),
     transientPipeLabelOverlays: applyDirectionalArrowPreview(laidOut.transientPipeLabelOverlays),
     equipmentLabelOverlays: applyDirectionalArrowPreview(laidOut.equipmentLabelOverlays),
-    horizontalLineOverlays: applyDirectionalHorizonLinePreview(laidOut.horizontalLineOverlays, bounds)
+    horizontalLineOverlays: applyDirectionalHorizonLinePreview(laidOut.horizontalLineOverlays, lineBounds)
   };
 });
 </script>
@@ -2910,7 +2960,9 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handlePipeLabelHover(label.pipeType, label.rowIndex, $event)"
       @mouseleave.stop="handlePipeLabelLeave(label.pipeType, label.rowIndex)"
       @click.stop="handlePipeLabelSelect(label.pipeType, label.rowIndex)"
-      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event)"
+      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event, {
+        bounds: directionalLabelBounds
+      })"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -2965,7 +3017,9 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handlePipeLabelHover(label.pipeType, label.rowIndex, $event)"
       @mouseleave.stop="handlePipeLabelLeave(label.pipeType, label.rowIndex)"
       @click.stop="handlePipeLabelSelect(label.pipeType, label.rowIndex)"
-      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event)"
+      @pointerdown.stop.prevent="emitDragStartPayload(label.pipeType, label, $event, {
+        bounds: directionalLabelBounds
+      })"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -3020,7 +3074,9 @@ const directionalOverlayState = computed(() => {
       @mousemove.stop="handleEquipmentHover(label, $event)"
       @mouseleave.stop="handleEquipmentLeave(label)"
       @click.stop="handleEquipmentSelect(label)"
-      @pointerdown.stop.prevent="emitDragStartPayload('equipment', label, $event)"
+      @pointerdown.stop.prevent="emitDragStartPayload('equipment', label, $event, {
+        bounds: directionalLabelBounds
+      })"
     >
       <rect
         class="directional-overlay-layer__casing-label-hitbox"
@@ -3114,6 +3170,15 @@ const directionalOverlayState = computed(() => {
       <g
         class="directional-overlay-layer__line-label-group"
         :transform="resolveDirectionalHorizonLabelTransform(line)"
+        @pointerdown.stop.prevent="emitDragStartPayload('line', line, $event, {
+          previewId: `${line.id}:label`,
+          dragKind: 'line-label-slide',
+          xField: line.xField,
+          clearYField: line.yField,
+          centerX: line.boxX + (line.boxWidth / 2),
+          centerY: line.boxY + (line.boxHeight / 2),
+          bounds: line.lineBounds
+        })"
       >
         <rect
           class="directional-overlay-layer__line-label-bg"

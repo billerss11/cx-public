@@ -45,6 +45,7 @@ describe('DirectionalOverlayLayer smart-label contract', () => {
     const source = readDirectionalOverlaySource();
 
     expect(source).toContain("centerX: line.anchorX");
-    expect(source).not.toContain("centerX: line.boxX + (line.boxWidth / 2)");
+    expect(source).toContain("dragKind: 'line-label-slide'");
+    expect(source).toContain("centerX: line.boxX + (line.boxWidth / 2)");
   });
 });

@@ -159,7 +159,68 @@ export function applyPreviewToDirectionalLineOverlay(line = {}, activePreviewId,
   return next;
 }
 
+export function applyPreviewToDirectionalLineLabel(line = {}, activePreviewId, previewOffset, options = {}) {
+  const previewId = options.previewId ?? `${line?.id}:label`;
+  const offset = normalizeOffset(activePreviewId, previewId, previewOffset);
+  if (!offset) return line;
+
+  const bounds = options.bounds && typeof options.bounds === 'object'
+    ? options.bounds
+    : null;
+  const boxWidth = Number(line?.boxWidth);
+  const boxHeight = Number(line?.boxHeight);
+  const startBoxX = Number(line?.boxX);
+  const startBoxY = Number(line?.boxY);
+  if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || !Number.isFinite(startBoxX) || !Number.isFinite(startBoxY)) {
+    return line;
+  }
+
+  const minX = Number(bounds?.left);
+  const maxX = Number(bounds?.right);
+  const nextCenterXRaw = startBoxX + (boxWidth / 2) + offset.x;
+  const nextCenterX = Number.isFinite(minX) && Number.isFinite(maxX)
+    ? Math.max(Math.min(nextCenterXRaw, Math.max(minX, maxX) - (boxWidth / 2)), Math.min(minX, maxX) + (boxWidth / 2))
+    : nextCenterXRaw;
+  const nextBoxX = nextCenterX - (boxWidth / 2);
+
+  const currentCenterY = startBoxY + (boxHeight / 2);
+  const nextCenterY = typeof options.resolveLabelCenterYFromSegment === 'function'
+    ? Number(options.resolveLabelCenterYFromSegment({
+      x1: line?.x1,
+      y1: line?.y1,
+      x2: line?.x2,
+      y2: line?.y2
+    }, {
+      ...line,
+      boxX: nextBoxX,
+      boxY: startBoxY
+    }))
+    : currentCenterY;
+  const resolvedCenterY = Number.isFinite(nextCenterY) ? nextCenterY : currentCenterY;
+  const deltaX = nextBoxX - startBoxX;
+  const deltaY = resolvedCenterY - currentCenterY;
+
+  const next = {
+    ...line,
+    boxX: nextBoxX,
+    boxY: startBoxY + deltaY
+  };
+
+  if (Number.isFinite(Number(line?.textX))) next.textX = Number(line.textX) + deltaX;
+  if (Number.isFinite(Number(line?.textY))) next.textY = Number(line.textY) + deltaY;
+  if (Array.isArray(line?.textLines)) {
+    next.textLines = line.textLines.map((textLine) => ({
+      ...textLine,
+      x: Number(textLine?.x) + deltaX,
+      ...(Number.isFinite(Number(textLine?.y)) ? { y: Number(textLine.y) + deltaY } : {})
+    }));
+  }
+
+  return next;
+}
+
 export default {
   applyPreviewToArrowedBoxLabel,
-  applyPreviewToDirectionalLineOverlay
+  applyPreviewToDirectionalLineOverlay,
+  applyPreviewToDirectionalLineLabel
 };

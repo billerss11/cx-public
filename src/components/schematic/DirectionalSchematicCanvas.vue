@@ -58,7 +58,11 @@ import { useCameraPanSession } from '@/composables/useCameraPanSession.js';
 import { createSchematicPointerMapping } from '@/composables/useSchematicPointerMapping.js';
 import { useDiagramLabelDrag } from '@/composables/useDiagramLabelDrag.js';
 import { useEntityEditorActions } from '@/composables/useEntityEditorActions.js';
-import { resolveDirectionalDepthShiftPatch, resolveDirectionalLabelDragPatch } from '@/utils/diagramLabelDrag.js';
+import {
+  resolveDirectionalDepthShiftPatch,
+  resolveDirectionalLabelDragPatch,
+  resolveDirectionalLineLabelSlidePatch
+} from '@/utils/diagramLabelDrag.js';
 import { resolveDirectionalReferenceHorizonDepthMeta } from '@/utils/referenceHorizons.js';
 import { solveOptimalFigureHeight } from '@/utils/autoFitMath.js';
 import { buildCameraTransform, clampZoom, invertCameraPoint } from '@/utils/svgTransformMath.js';
@@ -889,6 +893,16 @@ function buildDirectionalLabelPatch(payload, previewOffset = {}) {
       lockXToStart: true,
       resolveDepthFromPoint,
       entries: Array.isArray(payload.entries) ? payload.entries : []
+    });
+  }
+  if (payload.dragKind === 'line-label-slide') {
+    return resolveDirectionalLineLabelSlidePatch({
+      pointer: {
+        x: Number(payload.centerX) + Number(previewOffset?.x ?? 0)
+      },
+      bounds: payload.bounds,
+      xField: payload.xField,
+      clearYField: payload.clearYField
     });
   }
   return resolveDirectionalLabelDragPatch({

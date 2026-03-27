@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   resolveDirectionalDepthShiftPatch,
+  resolveDirectionalLineLabelSlidePatch,
   resolveDirectionalLabelDragPatch,
   resolveVerticalDepthShiftPatch,
   resolveVerticalLabelDragPatch
@@ -46,6 +47,20 @@ describe('diagramLabelDrag patch mapping', () => {
     expect(patch).toEqual({
       directionalLabelXPos: 0,
       directionalManualLabelDepth: 60
+    });
+  });
+
+  it('maps a canonical pointer to directional horizon label slide ratio without introducing free Y drift', () => {
+    const patch = resolveDirectionalLineLabelSlidePatch({
+      pointer: { x: 150 },
+      bounds: { left: 100, right: 300, width: 200 },
+      xField: 'directionalLabelXPos',
+      clearYField: 'directionalManualLabelDepth'
+    });
+
+    expect(patch).toEqual({
+      directionalLabelXPos: -0.5,
+      directionalManualLabelDepth: null
     });
   });
 

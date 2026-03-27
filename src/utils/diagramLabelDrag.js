@@ -17,6 +17,16 @@ function clampIfFinite(value, range) {
   return value;
 }
 
+function resolveDirectionalRatioFromBounds(pointerX, bounds) {
+  const left = Number(bounds?.left);
+  const right = Number(bounds?.right);
+  const width = Math.max(1, Number(bounds?.width) || (right - left));
+  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(width)) return null;
+
+  const clampedX = clamp(Number(pointerX), Math.min(left, right), Math.max(left, right));
+  return clamp((((clampedX - left) / width) * 2) - 1, -1, 1);
+}
+
 function clampDelta(rawDelta, entries = []) {
   let minDelta = Number.NEGATIVE_INFINITY;
   let maxDelta = Number.POSITIVE_INFINITY;
@@ -92,20 +102,34 @@ export function resolveDirectionalLabelDragPatch(options = {}) {
   const resolveDepthFromPoint = options.resolveDepthFromPoint;
   if (!pointer || !bounds || typeof resolveDepthFromPoint !== 'function') return null;
 
-  const left = Number(bounds.left);
-  const right = Number(bounds.right);
-  const width = Math.max(1, Number(bounds.width) || (right - left));
-  if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(width)) return null;
-
-  const clampedX = clamp(Number(pointer.x), Math.min(left, right), Math.max(left, right));
-  const ratio = clamp((((clampedX - left) / width) * 2) - 1, -1, 1);
+  const ratio = resolveDirectionalRatioFromBounds(pointer.x, bounds);
   const depth = clampIfFinite(Number(resolveDepthFromPoint(pointer)), options.depthRange);
-  if (!Number.isFinite(depth)) return null;
+  if (!Number.isFinite(ratio) || !Number.isFinite(depth)) return null;
 
   return {
     [String(options.xField || 'directionalLabelXPos')]: ratio,
     [String(options.yField || 'directionalManualLabelDepth')]: depth
   };
+}
+
+export function resolveDirectionalLineLabelSlidePatch(options = {}) {
+  const pointer = options.pointer;
+  const bounds = options.bounds;
+  if (!pointer || !bounds) return null;
+
+  const ratio = resolveDirectionalRatioFromBounds(pointer.x, bounds);
+  if (!Number.isFinite(ratio)) return null;
+
+  const patch = {
+    [String(options.xField || 'directionalLabelXPos')]: ratio
+  };
+
+  const clearYField = String(options.clearYField ?? '').trim();
+  if (clearYField) {
+    patch[clearYField] = null;
+  }
+
+  return patch;
 }
 
 export function resolveDirectionalDepthShiftPatch(options = {}) {
@@ -134,5 +158,6 @@ export default {
   resolveVerticalDepthShiftPatch,
   resolveVerticalLabelDragPatch,
   resolveDirectionalDepthShiftPatch,
-  resolveDirectionalLabelDragPatch
+  resolveDirectionalLabelDragPatch,
+  resolveDirectionalLineLabelSlidePatch
 };

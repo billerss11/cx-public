@@ -12,8 +12,8 @@ function createLinearScale(domainMin, domainMax, rangeMin, rangeMax) {
 }
 
 function createWrapper(directionalDepthMode = 'tvd', options = {}) {
-  const xScale = createLinearScale(-20, 20, 0, 600);
-  const yScale = createLinearScale(0, 2000, 0, 600);
+  const xScale = options.xScale ?? createLinearScale(-20, 20, 0, 600);
+  const yScale = options.yScale ?? createLinearScale(0, 2000, 0, 600);
   const horizontalLines = Array.isArray(options.horizontalLines) && options.horizontalLines.length > 0
     ? options.horizontalLines
     : [
@@ -51,13 +51,14 @@ function createWrapper(directionalDepthMode = 'tvd', options = {}) {
       },
       xScale,
       yScale,
-      minXData: -20,
-      maxXData: 20,
-      minYData: 0,
-      maxYData: 2000,
+      minXData: options.minXData ?? -20,
+      maxXData: options.maxXData ?? 20,
+      minYData: options.minYData ?? 0,
+      maxYData: options.maxYData ?? 2000,
       totalMd: 2000,
       diameterScale: 1,
-      maxProjectedRadius: 8,
+      maxProjectedRadius: options.maxProjectedRadius ?? 8,
+      visualSizing: options.visualSizing ?? null,
       xExaggeration: 1,
       xOrigin: 0
     }
@@ -74,6 +75,24 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
 
     expect(Number(mdLine.attributes('y1'))).not.toBe(Number(mdLine.attributes('y2')));
     expect(Number(tvdLine.attributes('y1'))).toBe(Number(tvdLine.attributes('y2')));
+  });
+
+  it('extends directional horizon line rendering across the full visual well span, not just the centerline data span', () => {
+    const xScale = createLinearScale(0, 100, 200, 400);
+    const yScale = createLinearScale(0, 2000, 0, 600);
+    const wrapper = createWrapper('tvd', {
+      xScale,
+      yScale,
+      minXData: 0,
+      maxXData: 100,
+      maxProjectedRadius: 40,
+      visualSizing: { formationThicknessPx: 18 }
+    });
+
+    const line = wrapper.get('.directional-overlay-layer__line-path');
+
+    expect(Number(line.attributes('x1'))).toBeLessThan(200);
+    expect(Number(line.attributes('x2'))).toBeGreaterThan(400);
   });
 
   it('rotates the md horizon label group to match the line angle while keeping tvd labels horizontal', () => {
@@ -223,5 +242,140 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
       dragKind: 'depth-shift',
       resolveDepthMode: 'tvd-y'
     });
+  });
+
+  it('emits a constrained label-slide payload when dragging a directional horizon label', async () => {
+    const wrapper = createWrapper('md');
+
+    await wrapper.get('.directional-overlay-layer__line-label-group').trigger('pointerdown');
+
+    const payload = wrapper.emitted('start-label-drag')?.[0]?.[0];
+    expect(payload).toMatchObject({
+      entityType: 'line',
+      dragKind: 'line-label-slide',
+      xField: 'directionalLabelXPos',
+      clearYField: 'directionalManualLabelDepth'
+    });
+  });
+
+  it('allows directional casing labels to use the full visual inset span in deviated sections instead of clamping to the centerline bounds', () => {
+    const xScale = createLinearScale(0, 100, 200, 400);
+    const yScale = createLinearScale(0, 2000, 0, 600);
+    const wrapper = mount(DirectionalOverlayLayer, {
+      props: {
+        trajectoryPoints: [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 1000, x: 60, tvd: 900 }
+        ],
+        physicsContext: {
+          __physicsContext: true,
+          operationPhase: 'production',
+          casingRows: [
+            { __index: 0, od: 10.75, top: 0, bottom: 1000 }
+          ]
+        },
+        casingData: [
+          {
+            rowId: 'casing-1',
+            label: 'Production',
+            od: 10.75,
+            weight: 40,
+            grade: 'L80',
+            top: 0,
+            bottom: 1000,
+            directionalLabelXPos: 1,
+            directionalManualLabelDepth: 900,
+            showTop: false,
+            showBottom: false
+          }
+        ],
+        horizontalLines: [],
+        annulusFluids: [],
+        cementPlugs: [],
+        annotationBoxes: [],
+        config: {
+          smartLabelsEnabled: true,
+          directionalLabelScale: 1
+        },
+        xScale,
+        yScale,
+        minXData: 0,
+        maxXData: 100,
+        minYData: 0,
+        maxYData: 2000,
+        totalMd: 1000,
+        diameterScale: 10,
+        maxProjectedRadius: 40,
+        visualSizing: { formationThicknessPx: 18 },
+        xExaggeration: 1,
+        xOrigin: 0
+      }
+    });
+
+    const labelBox = wrapper.get('.directional-overlay-layer__casing-label-bg');
+    const centerX = Number(labelBox.attributes('x')) + (Number(labelBox.attributes('width')) / 2);
+
+    expect(centerX).toBeGreaterThan(400);
+  });
+
+  it('emits extended directional bounds for casing label dragging in deviated sections', async () => {
+    const xScale = createLinearScale(0, 100, 200, 400);
+    const yScale = createLinearScale(0, 2000, 0, 600);
+    const wrapper = mount(DirectionalOverlayLayer, {
+      props: {
+        trajectoryPoints: [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 1000, x: 60, tvd: 900 }
+        ],
+        physicsContext: {
+          __physicsContext: true,
+          operationPhase: 'production',
+          casingRows: [
+            { __index: 0, od: 10.75, top: 0, bottom: 1000 }
+          ]
+        },
+        casingData: [
+          {
+            rowId: 'casing-1',
+            label: 'Production',
+            od: 10.75,
+            weight: 40,
+            grade: 'L80',
+            top: 0,
+            bottom: 1000,
+            directionalLabelXPos: 0.6,
+            directionalManualLabelDepth: 900,
+            showTop: false,
+            showBottom: false
+          }
+        ],
+        horizontalLines: [],
+        annulusFluids: [],
+        cementPlugs: [],
+        annotationBoxes: [],
+        config: {
+          smartLabelsEnabled: true,
+          directionalLabelScale: 1
+        },
+        xScale,
+        yScale,
+        minXData: 0,
+        maxXData: 100,
+        minYData: 0,
+        maxYData: 2000,
+        totalMd: 1000,
+        diameterScale: 10,
+        maxProjectedRadius: 40,
+        visualSizing: { formationThicknessPx: 18 },
+        xExaggeration: 1,
+        xOrigin: 0
+      }
+    });
+
+    await wrapper.get('.directional-overlay-layer__casing-group').trigger('pointerdown');
+
+    const payload = wrapper.emitted('start-label-drag')?.[0]?.[0];
+    expect(payload.bounds.left).toBeLessThan(200);
+    expect(payload.bounds.right).toBeGreaterThan(400);
   });
 });

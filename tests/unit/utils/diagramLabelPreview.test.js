@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyPreviewToArrowedBoxLabel,
+  applyPreviewToDirectionalLineLabel,
   applyPreviewToDirectionalLineOverlay
 } from '@/utils/diagramLabelPreview.js';
 
@@ -115,5 +116,39 @@ describe('diagramLabelPreview', () => {
     expect(previewed.y2).toBe(240);
     expect(previewed.boxY).toBe(210);
     expect(previewed.textY).toBe(220);
+  });
+
+  it('slides a directional md horizon label along the existing line without free vertical drift', () => {
+    const previewed = applyPreviewToDirectionalLineLabel(
+      {
+        id: 'line-1',
+        activeMode: 'md',
+        x1: 0,
+        y1: 200,
+        x2: 100,
+        y2: 240,
+        boxX: 40,
+        boxY: 204,
+        boxWidth: 40,
+        boxHeight: 20,
+        textX: 60,
+        textY: 214
+      },
+      'line-1:label',
+      { x: 20, y: 30 },
+      {
+        bounds: { left: 0, right: 100 },
+        resolveLabelCenterYFromSegment: (segment, line) => {
+          const centerX = Number(line.boxX) + (Number(line.boxWidth) / 2);
+          const t = (centerX - Number(segment.x1)) / (Number(segment.x2) - Number(segment.x1));
+          return Number(segment.y1) + (t * (Number(segment.y2) - Number(segment.y1)));
+        }
+      }
+    );
+
+    expect(previewed.boxX).toBe(60);
+    expect(previewed.boxY).toBe(222);
+    expect(previewed.textX).toBe(80);
+    expect(previewed.textY).toBe(232);
   });
 });
