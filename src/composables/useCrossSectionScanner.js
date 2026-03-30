@@ -250,23 +250,25 @@ function collectActiveEquipment(depth, context) {
 
             const tubingInnerDiameter = Number(row?.tubingParentID ?? tubingParentRow?.innerDiameter);
             const tubingOuterDiameter = Number(row?.tubingParentOD ?? tubingParentRow?.od);
+            const hostInnerDiameter = Number(row?.hostInnerDiameter ?? row?.tubingParentID ?? tubingParentRow?.innerDiameter);
             const parentInnerDiameter = Number(row?.parentInnerDiameter ?? parentCasingRow?.innerDiameter);
             const resolvedSealInnerDiameter = Number(row?.sealInnerDiameter);
             const resolvedSealOuterDiameter = Number(row?.sealOuterDiameter);
             const hasResolvedSealInnerDiameter = Number.isFinite(resolvedSealInnerDiameter) && resolvedSealInnerDiameter > 0;
             const hasResolvedSealOuterDiameter = Number.isFinite(resolvedSealOuterDiameter) && resolvedSealOuterDiameter > 0;
             const isPackerLike = semantics.isPackerLike;
+            const isBridgePlug = semantics.isBridgePlug;
             const isExplicitOrphan = Boolean(row?.isOrphaned);
             const packerSealInnerDiameter = hasResolvedSealInnerDiameter
                 ? resolvedSealInnerDiameter
-                : (isPackerLike && isExplicitOrphan ? null : tubingOuterDiameter);
+                : ((isPackerLike || isBridgePlug) && isExplicitOrphan ? null : tubingOuterDiameter);
             const packerSealOuterDiameter = hasResolvedSealOuterDiameter
                 ? resolvedSealOuterDiameter
-                : (isPackerLike && isExplicitOrphan ? null : parentInnerDiameter);
+                : ((isPackerLike || isBridgePlug) && isExplicitOrphan ? null : parentInnerDiameter);
             const hasPackerSealGeometry = Number.isFinite(packerSealInnerDiameter)
                 && Number.isFinite(packerSealOuterDiameter)
                 && packerSealOuterDiameter > packerSealInnerDiameter + EPSILON;
-            const isOrphaned = Boolean(row?.isOrphaned) || (isPackerLike && !hasPackerSealGeometry);
+            const isOrphaned = Boolean(row?.isOrphaned) || ((isPackerLike || isBridgePlug) && !hasPackerSealGeometry);
 
             return {
                 id: `equipment-${sourceIndex}`,
@@ -276,6 +278,7 @@ function collectActiveEquipment(depth, context) {
                 scale: Number.isFinite(Number(row?.scale)) && Number(row.scale) > 0 ? Number(row.scale) : 1,
                 isOrphaned,
                 tubingInnerRadius: Number.isFinite(tubingInnerDiameter) && tubingInnerDiameter > 0 ? tubingInnerDiameter / 2 : null,
+                hostBoreRadius: Number.isFinite(hostInnerDiameter) && hostInnerDiameter > 0 ? hostInnerDiameter / 2 : null,
                 tubingOuterRadius: Number.isFinite(tubingOuterDiameter) && tubingOuterDiameter > 0 ? tubingOuterDiameter / 2 : null,
                 parentInnerRadius: Number.isFinite(parentInnerDiameter) && parentInnerDiameter > 0 ? parentInnerDiameter / 2 : null,
                 sealInnerRadius: Number.isFinite(packerSealInnerDiameter) && packerSealInnerDiameter > 0

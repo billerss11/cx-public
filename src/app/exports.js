@@ -147,6 +147,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
         'manualLabelDepth',
         'directionalLabelXPos',
         'directionalManualLabelDepth',
+        'directionalManualLabelTvd',
         'casingLabelFontSize',
         'depthLabelFontSize',
         'depthLabelOffset',
@@ -162,7 +163,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
         'showBottom'
     ];
     const lineFields = ['depth', 'directionalDepthMode', 'directionalDepthMd', 'directionalDepthTvd', 'label', 'color', 'fontColor', 'fontSize', 'labelXPos', 'manualLabelDepth', 'directionalLabelXPos', 'directionalManualLabelDepth', 'lineStyle', 'show'];
-    const boxFields = ['topDepth', 'bottomDepth', 'label', 'color', 'fontColor', 'fontSize', 'labelXPos', 'manualLabelDepth', 'directionalLabelXPos', 'directionalManualLabelDepth', 'bandWidth', 'opacity', 'detail', 'showDetails', 'show'];
+    const boxFields = ['topDepth', 'bottomDepth', 'label', 'color', 'fontColor', 'fontSize', 'labelXPos', 'manualLabelDepth', 'directionalLabelXPos', 'directionalManualLabelDepth', 'directionalManualLabelTvd', 'bandWidth', 'opacity', 'detail', 'showDetails', 'show'];
     const markerFields = ['top', 'type', 'attachToRow', 'side', 'color', 'scale', 'label', 'show'];
 
     const casingSheetData = [
@@ -181,6 +182,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
             'Label Depth',
             'Directional Label X',
             'Directional Label Depth',
+            'Directional Label TVD',
             'Casing Label Font Size',
             'Depth Label Font Size',
             'Depth Label X Offset',
@@ -212,6 +214,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
                 toNumberOrBlank(row.manualLabelDepth),
                 toNumberOrBlank(row.directionalLabelXPos),
                 toNumberOrBlank(row.directionalManualLabelDepth),
+                toNumberOrBlank(row.directionalManualLabelTvd),
                 toNumberOrBlank(row.casingLabelFontSize),
                 toNumberOrBlank(row.depthLabelFontSize),
                 toNumberOrBlank(row.depthLabelOffset),
@@ -251,7 +254,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
     ];
 
     const boxesSheetData = [
-        ['Top', 'Bottom', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Band Width', 'Opacity', 'Show Details', 'Show'],
+        ['Top', 'Bottom', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show'],
         ...boxRows
             .filter(row => rowHasAnyValue(row, boxFields))
             .map(row => [
@@ -266,6 +269,7 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
                 toNumberOrBlank(row.manualLabelDepth),
                 toNumberOrBlank(row.directionalLabelXPos),
                 toNumberOrBlank(row.directionalManualLabelDepth),
+                toNumberOrBlank(row.directionalManualLabelTvd),
                 toNumberOrBlank(row.bandWidth),
                 toNumberOrBlank(row.opacity),
                 Boolean(row.showDetails),
@@ -410,6 +414,7 @@ export function downloadExcelTemplate() {
             'Label Depth',
             'Directional Label X',
             'Directional Label Depth',
+            'Directional Label TVD',
             'Casing Label Font Size',
             'Depth Label Font Size',
             'Depth Label X Offset',
@@ -424,10 +429,10 @@ export function downloadExcelTemplate() {
             'Show Top',
             'Show Bottom'
         ],
-        [t('sample.casing.conductor'), 20, 94, 'H40', 0, 1000, 0, 900, '', '', -0.8, '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
-        [t('sample.casing.surface'), 13.375, 54.5, 'J55', 0, 3500, 500, 3400, '', 17.5, -0.8, '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
-        [t('sample.casing.intermediate'), 9.625, 40, 'L80', 0, 9000, 2000, 8800, '', 12.25, -0.8, '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
-        [t('sample.casing.production'), 7, 29, 'P110', 8500, 12500, 8700, 12400, '', 8.5, -0.8, 10000, 0.3, 10000, 11, 9, 35, -0.6, 8525, -0.55, 12450, 0.45, 8550, 0.4, 12425, true, true]
+        [t('sample.casing.conductor'), 20, 94, 'H40', 0, 1000, 0, 900, '', '', -0.8, '', '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
+        [t('sample.casing.surface'), 13.375, 54.5, 'J55', 0, 3500, 500, 3400, '', 17.5, -0.8, '', '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
+        [t('sample.casing.intermediate'), 9.625, 40, 'L80', 0, 9000, 2000, 8800, '', 12.25, -0.8, '', '', '', '', 11, 9, 35, '', '', '', '', '', '', '', '', true, true],
+        [t('sample.casing.production'), 7, 29, 'P110', 8500, 12500, 8700, 12400, '', 8.5, -0.8, 10000, 0.3, 10000, '', 11, 9, 35, -0.6, 8525, -0.55, 12450, 0.45, 8550, 0.4, 12425, true, true]
     ]);
 
     const linesSheet = XLSX.utils.aoa_to_sheet([
@@ -437,9 +442,9 @@ export function downloadExcelTemplate() {
     ]);
 
     const boxesSheet = XLSX.utils.aoa_to_sheet([
-        ['Top', 'Bottom', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Band Width', 'Opacity', 'Show Details', 'Show'],
-        [1000, 3000, t('sample.box.reservoir'), t('sample.box.detail'), 'lightsteelblue', 'steelblue', 12, -0.5, '', '', '', 1.0, 0.35, true, true],
-        [6000, 8000, t('sample.box.producer'), t('sample.box.detail2'), 'lightgray', 'seagreen', 12, -0.5, 7050, -0.2, 7100, 1.0, 0.4, true, true]
+        ['Top', 'Bottom', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show'],
+        [1000, 3000, t('sample.box.reservoir'), t('sample.box.detail'), 'lightsteelblue', 'steelblue', 12, -0.5, '', '', '', '', 1.0, 0.35, true, true],
+        [6000, 8000, t('sample.box.producer'), t('sample.box.detail2'), 'lightgray', 'seagreen', 12, -0.5, 7050, -0.2, 7100, '', 1.0, 0.4, true, true]
     ]);
 
     const markersSheet = XLSX.utils.aoa_to_sheet([

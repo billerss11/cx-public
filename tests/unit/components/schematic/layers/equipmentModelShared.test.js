@@ -16,7 +16,9 @@ describe('equipmentModelShared', () => {
     const bridgePlug = resolveEquipmentTypeSemantics('bridge_plug');
     expect(bridgePlug.typeKey).toBe('bridge-plug');
     expect(bridgePlug.label).toBe('Bridge Plug');
-    expect(bridgePlug.isPackerLike).toBe(true);
+    expect(bridgePlug.renderFamily).toBe('bridgePlug');
+    expect(bridgePlug.isPackerLike).toBe(false);
+    expect(bridgePlug.isBridgePlug).toBe(true);
     expect(bridgePlug.isSafetyValve).toBe(false);
 
     const safetyValve = resolveEquipmentTypeSemantics('Safety valve');
@@ -36,7 +38,7 @@ describe('equipmentModelShared', () => {
 
   it('exposes convenience type guards', () => {
     expect(isPackerLikeEquipmentType('Packer')).toBe(true);
-    expect(isPackerLikeEquipmentType('bridge-plug')).toBe(true);
+    expect(isPackerLikeEquipmentType('bridge-plug')).toBe(false);
     expect(isPackerLikeEquipmentType('Safety Valve')).toBe(false);
 
     expect(isSafetyValveEquipmentType('safety_valve')).toBe(true);

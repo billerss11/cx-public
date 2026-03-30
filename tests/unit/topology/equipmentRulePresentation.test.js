@@ -115,7 +115,7 @@ describe('equipment rule presentation helper', () => {
     expect(presentation.summary.behaviorState).toBe('failed_closed');
   });
 
-  it('marks bridge plug as bore-focused and keeps annular controls secondary', () => {
+  it('summarizes bridge plug as sealing the host bore and resolved annulus', () => {
     const presentation = resolveEquipmentRulePresentation({
       rowId: 'eq-bridge',
       type: 'Bridge Plug',
@@ -128,8 +128,8 @@ describe('equipment rule presentation helper', () => {
       tubingRows: [{ rowId: 'tbg-1', top: 0, bottom: 3000 }]
     });
 
-    expect(presentation.summary.sealedVolumeKeys).toEqual(['BORE']);
-    expect(presentation.summary.notes).toContain('bridge_plug_is_bore_focused');
+    expect(presentation.summary.sealedVolumeKeys).toEqual(['BORE', 'ANNULUS_A']);
+    expect(presentation.summary.notes).toContain('bridge_plug_seals_host_bore_and_annulus');
     expect(presentation.fieldBehavior['properties.boreSeal']).toMatchObject({
       emphasis: 'read_only',
       isRelevant: false

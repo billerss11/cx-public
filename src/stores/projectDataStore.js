@@ -16,7 +16,10 @@ import {
     findEquipmentAttachOptionByValue,
     normalizeEquipmentAttachHostType
 } from '@/utils/equipmentAttachReference.js';
-import { normalizeEquipmentRow } from '@/equipment/rowNormalization.js';
+import {
+    normalizeEquipmentRow,
+    synchronizeRecognizedEquipmentTypeFields
+} from '@/equipment/rowNormalization.js';
 import { resolveEquipmentHostConfig } from '@/topology/equipmentDefinitions/index.js';
 import { resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
 import { syncDirectionalReferenceHorizons } from '@/utils/referenceHorizons.js';
@@ -259,7 +262,8 @@ function resolveLegacyEquipmentAttachOption(row, attachOptions, casingRows, tubi
 
 function normalizeEquipmentAttachReferenceRow(row, pipeReferenceMap, casingRows, tubingRows) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
-    const normalizedRow = normalizeEquipmentRow(row);
+    const synchronizedTypeRow = synchronizeRecognizedEquipmentTypeFields(row);
+    const normalizedRow = normalizeEquipmentRow(synchronizedTypeRow);
     const hostContract = resolveEquipmentHostContract(normalizedRow);
     if (hostContract?.usesAttachReference !== true) return normalizedRow;
 

@@ -55,7 +55,7 @@ const shapes = computed(() => {
     const scaleFactor = Number.isFinite(Number(item?.scale)) && Number(item.scale) > 0 ? Number(item.scale) : 1;
     const semantics = resolveEquipmentTypeSemantics(item?.type);
 
-    if (semantics.isPackerLike) {
+    if (semantics.isPackerLike || semantics.isBridgePlug) {
       const isOrphaned = item?.isOrphaned === true;
       const innerRadius = Number(item?.sealInnerRadius ?? item?.tubingOuterRadius);
       const outerRadius = Number(item?.sealOuterRadius ?? item?.parentInnerRadius);
@@ -87,6 +87,24 @@ const shapes = computed(() => {
           entity,
           isActive
         });
+      }
+
+      if (semantics.isBridgePlug && hasResolvedGeometry && !isOrphaned) {
+        const hostBoreRadius = Number(item?.hostBoreRadius ?? item?.tubingInnerRadius);
+        if (Number.isFinite(hostBoreRadius) && hostBoreRadius > EPSILON) {
+          entries.push({
+            id: `equipment-bridge-plug-bore-${entity.id}`,
+            type: 'circle',
+            cx: 0,
+            cy: 0,
+            r: hostBoreRadius * scale,
+            fill: color,
+            color,
+            strokeDasharray: null,
+            entity,
+            isActive
+          });
+        }
       }
       return;
     } else if (semantics.isInlineValve) {
@@ -188,7 +206,7 @@ const shapes = computed(() => {
       :stroke="shape.color"
       :stroke-dasharray="shape.strokeDasharray || null"
       stroke-width="1.4"
-      fill="none"
+      :fill="shape.fill || 'none'"
       :class="{ 'cross-section-equipment-layer__shape--active': shape.isActive }"
       :data-equipment-index="shape.entity.id"
       @click="emit('select-equipment', shape.entity, $event)"
@@ -206,7 +224,7 @@ const shapes = computed(() => {
       :stroke="shape.color"
       :stroke-dasharray="shape.strokeDasharray || null"
       stroke-width="1.4"
-      fill="none"
+      :fill="shape.fill || 'none'"
       :class="{ 'cross-section-equipment-layer__shape--active': shape.isActive }"
       :data-equipment-index="shape.entity.id"
       @click="emit('select-equipment', shape.entity, $event)"

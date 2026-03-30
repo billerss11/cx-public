@@ -25,16 +25,22 @@ function validate(row = {}, context = {}) {
 }
 
 function resolveSealContext(row = {}) {
+    const packerSealContext = packerDefinition?.engineering?.resolveSealContext?.(row)
+        ?? packerDefinition?.resolveSealContext?.(row)
+        ?? null;
+    if (packerSealContext) {
+        return {
+            ...packerSealContext
+        };
+    }
+
     const resolvedSealNodeKind = normalizeSourceVolumeKind(row?.sealNodeKind);
-    const hasResolvedHost = Boolean(resolvedSealNodeKind);
     return {
         defaultSealByVolume: buildSealByVolumeDefaults({
             bore: false,
             annulus: false
         }),
-        resolvedBoreSeal: hasResolvedHost,
-        resolvedAnnularSeal: false,
-        applyAnnularOverride: false
+        annularOverrideVolumeKeys: resolvedSealNodeKind ? [resolvedSealNodeKind] : []
     };
 }
 
@@ -83,7 +89,7 @@ const bridgePlugDefinition = Object.freeze({
         resolveConnections: () => []
     }),
     render: Object.freeze({
-        family: 'packerLike'
+        family: 'bridgePlug'
     }),
     ui: Object.freeze({
         inspectorFields: Object.freeze([]),

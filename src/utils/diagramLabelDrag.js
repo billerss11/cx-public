@@ -27,6 +27,17 @@ function resolveDirectionalRatioFromBounds(pointerX, bounds) {
   return clamp((((clampedX - left) / width) * 2) - 1, -1, 1);
 }
 
+function resolveDirectionalLineLabelAnchorX(options = {}) {
+  const boxX = toFiniteNumber(options?.boxX);
+  const boxWidth = toFiniteNumber(options?.boxWidth);
+  if (!Number.isFinite(boxX) || !Number.isFinite(boxWidth)) return null;
+
+  const textAnchor = String(options?.textAnchor ?? '').trim().toLowerCase();
+  if (textAnchor === 'end') return boxX + boxWidth - 5;
+  if (textAnchor === 'middle') return boxX + (boxWidth / 2);
+  return boxX + 5;
+}
+
 function clampDelta(rawDelta, entries = []) {
   let minDelta = Number.NEGATIVE_INFINITY;
   let maxDelta = Number.POSITIVE_INFINITY;
@@ -106,10 +117,23 @@ export function resolveDirectionalLabelDragPatch(options = {}) {
   const depth = clampIfFinite(Number(resolveDepthFromPoint(pointer)), options.depthRange);
   if (!Number.isFinite(ratio) || !Number.isFinite(depth)) return null;
 
-  return {
+  const patch = {
     [String(options.xField || 'directionalLabelXPos')]: ratio,
     [String(options.yField || 'directionalManualLabelDepth')]: depth
   };
+
+  const tvdField = String(options.tvdField ?? '').trim();
+  const resolveTvdFromPoint = typeof options.resolveTvdFromPoint === 'function'
+    ? options.resolveTvdFromPoint
+    : null;
+  if (tvdField && resolveTvdFromPoint) {
+    const tvd = clampIfFinite(Number(resolveTvdFromPoint(pointer)), options.tvdRange ?? options.depthRange);
+    if (Number.isFinite(tvd)) {
+      patch[tvdField] = tvd;
+    }
+  }
+
+  return patch;
 }
 
 export function resolveDirectionalLineLabelSlidePatch(options = {}) {
@@ -117,7 +141,11 @@ export function resolveDirectionalLineLabelSlidePatch(options = {}) {
   const bounds = options.bounds;
   if (!pointer || !bounds) return null;
 
-  const ratio = resolveDirectionalRatioFromBounds(pointer.x, bounds);
+  const semanticAnchorX = resolveDirectionalLineLabelAnchorX(options);
+  const ratio = resolveDirectionalRatioFromBounds(
+    Number.isFinite(semanticAnchorX) ? semanticAnchorX : pointer.x,
+    bounds
+  );
   if (!Number.isFinite(ratio)) return null;
 
   const patch = {

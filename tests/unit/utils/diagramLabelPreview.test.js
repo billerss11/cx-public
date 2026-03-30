@@ -151,4 +151,51 @@ describe('diagramLabelPreview', () => {
     expect(previewed.textX).toBe(80);
     expect(previewed.textY).toBe(232);
   });
+
+  it('re-anchors a directional md horizon label to the next preview segment instead of preserving stale vertical offset', () => {
+    const previewed = applyPreviewToDirectionalLineOverlay(
+      {
+        id: 'line-1',
+        activeMode: 'md',
+        y: 200,
+        x1: 0,
+        y1: 200,
+        x2: 100,
+        y2: 240,
+        boxX: 40,
+        boxY: 240,
+        boxWidth: 40,
+        boxHeight: 20,
+        textX: 60,
+        textY: 250
+      },
+      'line-1',
+      { x: 0, y: 20 },
+      {
+        resolveDepthFromPreviewY: (screenY) => screenY,
+        resolveSegmentAtDepth: (depth) => {
+          if (depth !== 220) return null;
+          return {
+            x1: 10,
+            y1: 210,
+            x2: 90,
+            y2: 250
+          };
+        },
+        resolveLabelCenterYFromSegment: (segment, line) => {
+          const centerX = Number(line.boxX) + (Number(line.boxWidth) / 2);
+          const t = (centerX - Number(segment.x1)) / (Number(segment.x2) - Number(segment.x1));
+          return Number(segment.y1) + (t * (Number(segment.y2) - Number(segment.y1)));
+        }
+      }
+    );
+
+    expect(previewed.y).toBe(230);
+    expect(previewed.x1).toBe(10);
+    expect(previewed.y1).toBe(210);
+    expect(previewed.x2).toBe(90);
+    expect(previewed.y2).toBe(250);
+    expect(previewed.boxY).toBe(225);
+    expect(previewed.textY).toBe(235);
+  });
 });

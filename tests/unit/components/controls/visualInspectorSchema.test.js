@@ -134,7 +134,8 @@ describe('visualInspectorSchema equipment extension merge', () => {
       'labelXPos',
       'manualLabelDepth',
       'directionalLabelXPos',
-      'directionalManualLabelDepth'
+      'directionalManualLabelDepth',
+      'directionalManualLabelTvd'
     ]));
 
     const lineFields = getVisualInspectorFields('line', {
@@ -165,7 +166,8 @@ describe('visualInspectorSchema equipment extension merge', () => {
       'labelXPos',
       'manualLabelDepth',
       'directionalLabelXPos',
-      'directionalManualLabelDepth'
+      'directionalManualLabelDepth',
+      'directionalManualLabelTvd'
     ]));
 
     const boxFields = getVisualInspectorFields('box', {
@@ -181,7 +183,8 @@ describe('visualInspectorSchema equipment extension merge', () => {
       'labelXPos',
       'manualLabelDepth',
       'directionalLabelXPos',
-      'directionalManualLabelDepth'
+      'directionalManualLabelDepth',
+      'directionalManualLabelTvd'
     ]));
   });
 });

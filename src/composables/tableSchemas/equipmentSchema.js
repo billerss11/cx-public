@@ -53,6 +53,7 @@ export function buildEquipmentTableSchema(domainState, options = {}) {
       tf('table.casing.label_depth', 'Label depth'),
       tf('table.directional.label_x', 'Directional Label X'),
       tf('table.directional.label_depth', 'Directional Label Depth'),
+      tf('table.directional.label_tvd', 'Directional Label TVD'),
       tf('table.boxes.font_size', 'Font Size'),
       tf('table.equipment.show_label', 'Show label')
     ],
@@ -95,6 +96,7 @@ export function buildEquipmentTableSchema(domainState, options = {}) {
         { data: 'manualLabelDepth', type: 'numeric' },
         { data: 'directionalLabelXPos', type: 'numeric' },
         { data: 'directionalManualLabelDepth', type: 'numeric' },
+        { data: 'directionalManualLabelTvd', type: 'numeric' },
         { data: 'labelFontSize', type: 'numeric' },
         { data: 'showLabel', type: 'checkbox', className: 'htCenter' }
       ];
@@ -135,6 +137,7 @@ export function buildEquipmentTableSchema(domainState, options = {}) {
         manualLabelDepth: null,
         directionalLabelXPos: null,
         directionalManualLabelDepth: null,
+        directionalManualLabelTvd: null,
         labelFontSize: null,
         showLabel: true
       };

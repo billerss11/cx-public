@@ -18,6 +18,7 @@ const projectDataStoreMock = {
       manualLabelDepth: 2500,
       directionalLabelXPos: 0.3,
       directionalManualLabelDepth: 2600,
+      directionalManualLabelTvd: 2610,
       casingLabelFontSize: 11,
       depthLabelFontSize: 9,
       depthLabelOffset: 35,
@@ -66,6 +67,7 @@ const projectDataStoreMock = {
       manualLabelDepth: 1450,
       directionalLabelXPos: -0.2,
       directionalManualLabelDepth: 1500,
+      directionalManualLabelTvd: 1400,
       bandWidth: 1.0,
       opacity: 0.35,
       showDetails: true,
@@ -175,6 +177,7 @@ describe('exports workbook label position columns', () => {
     expect(casingSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Directional Label X',
       'Directional Label Depth',
+      'Directional Label TVD',
       'Top Label X',
       'Top Label Depth',
       'Bottom Label X',
@@ -195,7 +198,8 @@ describe('exports workbook label position columns', () => {
     expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Label Depth',
       'Directional Label X',
-      'Directional Label Depth'
+      'Directional Label Depth',
+      'Directional Label TVD'
     ]));
   });
 
@@ -211,6 +215,7 @@ describe('exports workbook label position columns', () => {
     expect(casingSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Directional Label X',
       'Directional Label Depth',
+      'Directional Label TVD',
       'Top Label X',
       'Top Label Depth',
       'Bottom Label X',
@@ -231,7 +236,8 @@ describe('exports workbook label position columns', () => {
     expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Label Depth',
       'Directional Label X',
-      'Directional Label Depth'
+      'Directional Label Depth',
+      'Directional Label TVD'
     ]));
   });
 });

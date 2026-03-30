@@ -27,7 +27,7 @@ describe('CrossSectionEquipmentLayer', () => {
     expect(ring.attributes('fill')).toBe('black');
   });
 
-  it('renders bridge plug with packer-like cross-section geometry', () => {
+  it('renders bridge plug with annular ring and a blocked bore center', () => {
     const wrapper = mount(CrossSectionEquipmentLayer, {
       props: {
         items: [
@@ -37,6 +37,7 @@ describe('CrossSectionEquipmentLayer', () => {
             color: 'black',
             scale: 1,
             isOrphaned: false,
+            tubingInnerRadius: 1.2,
             sealInnerRadius: 1.5,
             sealOuterRadius: 3.0
           }
@@ -49,6 +50,7 @@ describe('CrossSectionEquipmentLayer', () => {
     const ring = wrapper.find('path.cross-section-equipment-layer__shape');
     expect(ring.exists()).toBe(true);
     expect(ring.attributes('fill')).toBe('black');
+    expect(wrapper.find('circle.cross-section-equipment-layer__shape').exists()).toBe(true);
   });
 });
 

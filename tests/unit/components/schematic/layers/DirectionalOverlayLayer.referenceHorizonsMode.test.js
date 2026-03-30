@@ -254,7 +254,10 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
       entityType: 'line',
       dragKind: 'line-label-slide',
       xField: 'directionalLabelXPos',
-      clearYField: 'directionalManualLabelDepth'
+      clearYField: 'directionalManualLabelDepth',
+      boxX: expect.any(Number),
+      boxWidth: expect.any(Number),
+      textAnchor: expect.stringMatching(/^(start|middle|end)$/)
     });
   });
 
@@ -377,5 +380,126 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
     const payload = wrapper.emitted('start-label-drag')?.[0]?.[0];
     expect(payload.bounds.left).toBeLessThan(200);
     expect(payload.bounds.right).toBeGreaterThan(400);
+  });
+
+  it('uses stored directional manual label tvd to preserve casing label screen y in deviated sections', () => {
+    const xScale = createLinearScale(0, 100, 200, 400);
+    const yScale = createLinearScale(0, 2000, 0, 600);
+    const wrapper = mount(DirectionalOverlayLayer, {
+      props: {
+        trajectoryPoints: [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 1000, x: 60, tvd: 900 }
+        ],
+        physicsContext: {
+          __physicsContext: true,
+          operationPhase: 'production',
+          casingRows: [
+            { __index: 0, od: 10.75, top: 0, bottom: 1000 }
+          ]
+        },
+        casingData: [
+          {
+            rowId: 'casing-1',
+            label: 'Production',
+            od: 10.75,
+            weight: 40,
+            grade: 'L80',
+            top: 0,
+            bottom: 1000,
+            directionalLabelXPos: 1,
+            directionalManualLabelDepth: 1000,
+            directionalManualLabelTvd: 1200,
+            showTop: false,
+            showBottom: false
+          }
+        ],
+        horizontalLines: [],
+        annulusFluids: [],
+        cementPlugs: [],
+        annotationBoxes: [],
+        config: {
+          smartLabelsEnabled: true,
+          directionalLabelScale: 1
+        },
+        xScale,
+        yScale,
+        minXData: 0,
+        maxXData: 100,
+        minYData: 0,
+        maxYData: 2000,
+        totalMd: 1000,
+        diameterScale: 10,
+        maxProjectedRadius: 40,
+        visualSizing: { formationThicknessPx: 18 },
+        xExaggeration: 1,
+        xOrigin: 0
+      }
+    });
+
+    const labelBox = wrapper.get('.directional-overlay-layer__casing-label-bg');
+    const centerY = Number(labelBox.attributes('y')) + (Number(labelBox.attributes('height')) / 2);
+
+    expect(centerY).toBeCloseTo(yScale(1200), 3);
+  });
+
+  it('emits directional manual label tvd in casing label drag payloads', async () => {
+    const xScale = createLinearScale(0, 100, 200, 400);
+    const yScale = createLinearScale(0, 2000, 0, 600);
+    const wrapper = mount(DirectionalOverlayLayer, {
+      props: {
+        trajectoryPoints: [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 1000, x: 60, tvd: 900 }
+        ],
+        physicsContext: {
+          __physicsContext: true,
+          operationPhase: 'production',
+          casingRows: [
+            { __index: 0, od: 10.75, top: 0, bottom: 1000 }
+          ]
+        },
+        casingData: [
+          {
+            rowId: 'casing-1',
+            label: 'Production',
+            od: 10.75,
+            weight: 40,
+            grade: 'L80',
+            top: 0,
+            bottom: 1000,
+            directionalLabelXPos: 0.6,
+            directionalManualLabelDepth: 900,
+            showTop: false,
+            showBottom: false
+          }
+        ],
+        horizontalLines: [],
+        annulusFluids: [],
+        cementPlugs: [],
+        annotationBoxes: [],
+        config: {
+          smartLabelsEnabled: true,
+          directionalLabelScale: 1
+        },
+        xScale,
+        yScale,
+        minXData: 0,
+        maxXData: 100,
+        minYData: 0,
+        maxYData: 2000,
+        totalMd: 1000,
+        diameterScale: 10,
+        maxProjectedRadius: 40,
+        visualSizing: { formationThicknessPx: 18 },
+        xExaggeration: 1,
+        xOrigin: 0
+      }
+    });
+
+    await wrapper.get('.directional-overlay-layer__casing-group').trigger('pointerdown');
+
+    const payload = wrapper.emitted('start-label-drag')?.[0]?.[0];
+    expect(payload.tvdField).toBe('directionalManualLabelTvd');
   });
 });

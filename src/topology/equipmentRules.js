@@ -623,17 +623,13 @@ function resolveFieldBehavior(rule = {}, sealBehaviorByVolume = {}) {
         return {
             'properties.boreSeal': createFieldBehavior({
                 emphasis: 'read_only',
-                isRelevant: false,
-                notes: ['bridge_plug_is_bore_focused']
+                isRelevant: false
             }),
             'properties.annularSeal': createFieldBehavior({
                 emphasis: 'advanced',
                 isRelevant: false,
                 supersededVolumeKeys: annularOverrideVolumes,
-                notes: [
-                    'bridge_plug_is_bore_focused',
-                    ...notes
-                ]
+                notes
             }),
             'properties.sealByVolume': createFieldBehavior({
                 emphasis: 'advanced',
@@ -678,7 +674,7 @@ function buildPresentationNotes(rule = {}, fieldBehavior = {}) {
     });
 
     if (rule?.type === NORMALIZED_EQUIPMENT_TYPE_BRIDGE_PLUG) {
-        notes.add('bridge_plug_is_bore_focused');
+        notes.add('bridge_plug_seals_host_bore_and_annulus');
     }
 
     return [...notes];

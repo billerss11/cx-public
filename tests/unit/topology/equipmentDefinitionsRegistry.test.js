@@ -68,7 +68,7 @@ describe('equipment definition registry', () => {
   });
 
   it('resolves render and host metadata from the shared contract', () => {
-    expect(resolveEquipmentRenderConfig('Bridge Plug')?.family).toBe('packerLike');
+    expect(resolveEquipmentRenderConfig('Bridge Plug')?.family).toBe('bridgePlug');
     expect(resolveEquipmentRenderConfig('Safety Valve')?.family).toBe('inlineValve');
 
     expect(resolveEquipmentHostConfig('Packer')?.allowedHostTypes).toEqual(['tubing', 'casing']);

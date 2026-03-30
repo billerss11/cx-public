@@ -83,6 +83,12 @@ function resolveSafetyValveHalfHeight(innerRadius, scale) {
   return Math.max(SAFETY_VALVE_MIN_HALF_HEIGHT, Math.min(maxHalfHeight, rawHalfHeight));
 }
 
+function resolveBridgePlugBoreRadius(equip) {
+  const hostInnerDiameter = Number(equip?.hostInnerDiameter ?? equip?.tubingParentID);
+  if (!Number.isFinite(hostInnerDiameter) || hostInnerDiameter <= 0) return null;
+  return (hostInnerDiameter / 2) * props.diameterScale;
+}
+
 function estimateLineWidth(text, fontSize) {
   return Array.from(String(text ?? '')).reduce((total, ch) => (
     total + (ch.charCodeAt(0) > 255 ? fontSize * 0.95 : fontSize * 0.58)
@@ -155,7 +161,7 @@ const equipmentShapes = computed(() => {
       ? Number(equip.sourceIndex)
       : index;
     const semantics = resolveEquipmentTypeSemantics(equip?.type);
-    if (semantics.isPackerLike) {
+    if (semantics.isPackerLike || semantics.isBridgePlug) {
       const isOrphaned = equip.isOrphaned === true;
       const y = props.yScale(equip.depth);
       const height = DEFAULT_PACKER_HEIGHT * equip.scale;
@@ -271,6 +277,25 @@ const equipmentShapes = computed(() => {
           y2: y - height / 2,
           color: equip.color,
         });
+
+        if (semantics.isBridgePlug) {
+          const bridgePlugBoreRadius = resolveBridgePlugBoreRadius(equip);
+          if (Number.isFinite(bridgePlugBoreRadius) && bridgePlugBoreRadius > 0) {
+            const boreLeftX = props.xScale(-bridgePlugBoreRadius);
+            const boreRightX = props.xScale(bridgePlugBoreRadius);
+            shapes.push({
+              type: 'rect',
+              id: `equip-${index}-bridge-plug-bore`,
+              equipmentIndex,
+              x: boreLeftX,
+              y: y - height / 2,
+              width: boreRightX - boreLeftX,
+              height,
+              color: equip.color,
+              fill: equip.color,
+            });
+          }
+        }
       }
     } else if (semantics.isInlineValve) {
       const isOrphaned = equip.tubingParentIndex === null;
@@ -517,7 +542,7 @@ const equipmentLabels = computed(() => {
         :height="shape.height"
         :stroke="shape.color"
         :stroke-dasharray="shape.isOrphaned ? ORPHAN_DASH_STYLE : null"
-        fill="none"
+        :fill="shape.fill ?? 'none'"
         pointer-events="none"
       />
       <line

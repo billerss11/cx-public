@@ -39,14 +39,17 @@ describe('diagramLabelDrag patch mapping', () => {
       pointer: { x: 75, y: 120 },
       bounds: { left: 25, right: 125, width: 100 },
       resolveDepthFromPoint: (point) => point.y / 2,
+      resolveTvdFromPoint: (point) => point.y / 3,
       xField: 'directionalLabelXPos',
       yField: 'directionalManualLabelDepth',
+      tvdField: 'directionalManualLabelTvd',
       depthRange: { min: 0, max: 100 }
     });
 
     expect(patch).toEqual({
       directionalLabelXPos: 0,
-      directionalManualLabelDepth: 60
+      directionalManualLabelDepth: 60,
+      directionalManualLabelTvd: 40
     });
   });
 
@@ -62,6 +65,21 @@ describe('diagramLabelDrag patch mapping', () => {
       directionalLabelXPos: -0.5,
       directionalManualLabelDepth: null
     });
+  });
+
+  it('maps directional horizon label slide ratio from the previewed label anchor so release does not snap sideways', () => {
+    const patch = resolveDirectionalLineLabelSlidePatch({
+      pointer: { x: 150 },
+      bounds: { left: 100, right: 300, width: 200 },
+      xField: 'directionalLabelXPos',
+      clearYField: 'directionalManualLabelDepth',
+      boxX: 160,
+      boxWidth: 80,
+      textAnchor: 'end'
+    });
+
+    expect(patch?.directionalLabelXPos).toBeCloseTo(0.35, 6);
+    expect(patch?.directionalManualLabelDepth).toBeNull();
   });
 
   it('shifts whole vertical entities by depth delta instead of relabeling them independently', () => {

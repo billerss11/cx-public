@@ -5,7 +5,9 @@ import {
 } from '@/topology/equipmentDefinitions/index.js';
 
 const RENDER_FAMILY_PACKER_LIKE = 'packerLike';
+const RENDER_FAMILY_BRIDGE_PLUG = 'bridgePlug';
 const RENDER_FAMILY_INLINE_VALVE = 'inlineValve';
+const BRIDGE_PLUG_TYPE_KEY = 'bridge-plug';
 const SAFETY_VALVE_TYPE_KEY = 'safety-valve';
 
 export function isPackerLikeEquipmentType(typeValue) {
@@ -24,6 +26,7 @@ export function resolveEquipmentTypeSemantics(typeValue) {
     label: resolveEquipmentTypeLabel(typeValue),
     renderFamily,
     isPackerLike: renderFamily === RENDER_FAMILY_PACKER_LIKE,
+    isBridgePlug: renderFamily === RENDER_FAMILY_BRIDGE_PLUG || typeKey === BRIDGE_PLUG_TYPE_KEY,
     isInlineValve: renderFamily === RENDER_FAMILY_INLINE_VALVE,
     isSafetyValve: typeKey === SAFETY_VALVE_TYPE_KEY
   };

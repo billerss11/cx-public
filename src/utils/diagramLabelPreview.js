@@ -110,24 +110,17 @@ export function applyPreviewToDirectionalLineOverlay(line = {}, activePreviewId,
     const segment = resolveSegmentAtDepth(nextDepth);
     if (segment) {
       const centerY = (Number(segment.y1) + Number(segment.y2)) / 2;
-      let deltaY = centerY - Number(line?.y);
+      let resolvedLabelCenterY = centerY;
       if (typeof options.resolveLabelCenterYFromSegment === 'function') {
-        const currentLabelCenterY = Number(line?.boxY) + (Number(line?.boxHeight) / 2);
-        const currentAlignedLabelCenterY = Number(options.resolveLabelCenterYFromSegment({
-          x1: line?.x1,
-          y1: line?.y1,
-          x2: line?.x2,
-          y2: line?.y2
-        }, line));
         const nextAlignedLabelCenterY = Number(options.resolveLabelCenterYFromSegment(segment, line));
-        if (
-          Number.isFinite(currentLabelCenterY) &&
-          Number.isFinite(currentAlignedLabelCenterY) &&
-          Number.isFinite(nextAlignedLabelCenterY)
-        ) {
-          deltaY = nextAlignedLabelCenterY - currentAlignedLabelCenterY;
+        if (Number.isFinite(nextAlignedLabelCenterY)) {
+          resolvedLabelCenterY = nextAlignedLabelCenterY;
         }
       }
+      const currentLabelCenterY = Number(line?.boxY) + (Number(line?.boxHeight) / 2);
+      const deltaY = Number.isFinite(currentLabelCenterY)
+        ? resolvedLabelCenterY - currentLabelCenterY
+        : resolvedLabelCenterY - Number(line?.y);
       next.y = centerY;
       next.x1 = Number(segment.x1);
       next.y1 = Number(segment.y1);

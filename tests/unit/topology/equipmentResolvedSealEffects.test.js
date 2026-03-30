@@ -100,7 +100,7 @@ describe('topology equipment resolved seal effects', () => {
     expect(effects.validationWarnings.some((warning) => warning.code === 'no_seal_behavior_at_boundary')).toBe(false);
   });
 
-  it('blocks bore only for bridge plug rows at a boundary', () => {
+  it('blocks the host bore and only the resolved host annulus for bridge plug rows at a boundary', () => {
     const effects = resolveBoundaryEquipmentEffects(
       1200,
       [{
@@ -119,7 +119,7 @@ describe('topology equipment resolved seal effects', () => {
     );
 
     expect(effects.byVolume.BORE.blocked).toBe(true);
-    expect(effects.byVolume.ANNULUS_A.blocked).toBe(false);
+    expect(effects.byVolume.ANNULUS_A.blocked).toBe(true);
     expect(effects.byVolume.ANNULUS_B.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_C.blocked).toBe(false);
     expect(effects.byVolume.ANNULUS_D.blocked).toBe(false);

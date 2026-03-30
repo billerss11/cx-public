@@ -45,4 +45,29 @@ describe('DirectionalEquipmentLayer hit targets', () => {
     expect(selectEvents.length).toBeGreaterThan(0);
     expect(selectEvents[0]).toEqual([0]);
   });
+
+  it('renders a filled bridge plug bore block in the directional schematic view', () => {
+    const wrapper = mount(DirectionalEquipmentLayer, {
+      props: {
+        equipment: [
+          {
+            sourceIndex: 0,
+            type: 'bridge_plug',
+            depth: 500,
+            scale: 1,
+            color: '#123456',
+            hostInnerDiameter: 4,
+            sealInnerDiameter: 6,
+            sealOuterDiameter: 10
+          }
+        ],
+        projector: createLinearProjector(),
+        totalMd: 2000,
+        diameterScale: 1
+      }
+    });
+
+    const filledPolygons = wrapper.findAll('polygon.equipment-shape').filter((node) => node.attributes('fill') === '#123456');
+    expect(filledPolygons).toHaveLength(1);
+  });
 });

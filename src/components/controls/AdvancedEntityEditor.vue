@@ -51,7 +51,7 @@ const EQUIPMENT_SECTION_ORDER = Object.freeze(['core', 'operating', 'seal']);
 const EQUIPMENT_PRESENTATION_NOTE_KEYS = Object.freeze({
   attach_resolution_controls_annulus_target: 'ui.equipment_editor.note.attach_resolution_controls_annulus_target',
   per_volume_override_supersedes_generic_annular: 'ui.equipment_editor.note.per_volume_override_supersedes_generic_annular',
-  bridge_plug_is_bore_focused: 'ui.equipment_editor.note.bridge_plug_is_bore_focused'
+  bridge_plug_seals_host_bore_and_annulus: 'ui.equipment_editor.note.bridge_plug_seals_host_bore_and_annulus'
 });
 
 function normalizeRowRef(value) {

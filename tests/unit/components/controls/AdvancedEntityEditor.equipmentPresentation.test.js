@@ -108,7 +108,7 @@ describe('AdvancedEntityEditor equipment presentation', () => {
     expect(wrapper.find('[data-testid="advanced-field-properties-boreseal"]').exists()).toBe(true);
   });
 
-  it('hides generic bridge plug seal overrides while still showing the bore-focused explainer', async () => {
+  it('hides generic bridge plug seal overrides while showing the host bore and annulus summary', async () => {
     const wrapper = mountEquipmentEditor({
       rowId: 'eq-bridge',
       depth: 1200,
@@ -133,7 +133,8 @@ describe('AdvancedEntityEditor equipment presentation', () => {
     });
 
     expect(wrapper.get('[data-testid="equipment-summary-volumes"]').text()).toContain('BORE');
-    expect(wrapper.get('[data-testid="equipment-summary-notes"]').text()).toContain('Bridge plugs currently behave as bore-focused barriers');
+    expect(wrapper.get('[data-testid="equipment-summary-volumes"]').text()).toContain('ANNULUS_A');
+    expect(wrapper.get('[data-testid="equipment-summary-notes"]').text()).toContain('Bridge plugs seal the resolved host bore and host annulus');
     expect(wrapper.find('[data-testid="advanced-field-properties-boreseal"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="advanced-field-properties-annularseal"]').exists()).toBe(false);
 

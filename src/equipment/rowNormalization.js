@@ -1,4 +1,5 @@
 import {
+    resolveEquipmentDefinition,
     normalizeEquipmentTypeKey,
     resolveEquipmentTypeLabel
 } from '@/equipment/definitions/index.js';
@@ -45,6 +46,30 @@ export function resolveLegacyEquipmentRowFields(row = {}) {
         boreSeal: properties.boreSeal,
         annularSeal: properties.annularSeal,
         sealByVolume: properties.sealByVolume
+    };
+}
+
+export function synchronizeRecognizedEquipmentTypeFields(row = {}) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
+
+    const rawType = normalizeStringOrNull(row.type);
+    if (!rawType) return row;
+
+    const definition = resolveEquipmentDefinition(rawType);
+    if (!definition) return row;
+
+    const nextTypeKey = normalizeStringOrNull(definition?.schema?.key) ?? normalizeEquipmentTypeKey(rawType);
+    const nextTypeLabel = resolveEquipmentTypeLabel(nextTypeKey, rawType);
+    const currentTypeKey = normalizeStringOrNull(row.typeKey);
+
+    if (currentTypeKey === nextTypeKey && row.type === nextTypeLabel) {
+        return row;
+    }
+
+    return {
+        ...row,
+        type: nextTypeLabel,
+        typeKey: nextTypeKey
     };
 }
 

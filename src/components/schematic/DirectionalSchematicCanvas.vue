@@ -902,7 +902,10 @@ function buildDirectionalLabelPatch(payload, previewOffset = {}) {
       },
       bounds: payload.bounds,
       xField: payload.xField,
-      clearYField: payload.clearYField
+      clearYField: payload.clearYField,
+      boxX: Number(payload.boxX) + Number(previewOffset?.x ?? 0),
+      boxWidth: Number(payload.boxWidth),
+      textAnchor: payload.textAnchor
     });
   }
   return resolveDirectionalLabelDragPatch({
@@ -912,11 +915,20 @@ function buildDirectionalLabelPatch(payload, previewOffset = {}) {
     },
     bounds: payload.bounds,
     resolveDepthFromPoint: resolveNearestMDFromPointer,
+    resolveTvdFromPoint: (point) => {
+      const tvd = Number(yScale.value.invert(point?.y));
+      return Number.isFinite(tvd) ? tvd : null;
+    },
     xField: payload.xField,
     yField: payload.yField,
+    tvdField: payload.tvdField,
     depthRange: {
       min: 0,
       max: Math.max(0, Number(totalMDValue.value))
+    },
+    tvdRange: {
+      min: Math.min(minYData.value, maxYData.value),
+      max: Math.max(minYData.value, maxYData.value)
     }
   });
 }

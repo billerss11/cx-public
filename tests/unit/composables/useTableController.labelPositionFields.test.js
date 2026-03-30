@@ -90,6 +90,7 @@ describe('useTableController label position fields', () => {
           'manualLabelDepth',
           'directionalLabelXPos',
           'directionalManualLabelDepth',
+          'directionalManualLabelTvd',
           'topLabelXPos',
           'topManualLabelDepth',
           'bottomLabelXPos',
@@ -107,7 +108,8 @@ describe('useTableController label position fields', () => {
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
-          'directionalManualLabelDepth'
+          'directionalManualLabelDepth',
+          'directionalManualLabelTvd'
         ]
       },
       {
@@ -131,7 +133,8 @@ describe('useTableController label position fields', () => {
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
-          'directionalManualLabelDepth'
+          'directionalManualLabelDepth',
+          'directionalManualLabelTvd'
         ]
       },
       {
@@ -141,7 +144,8 @@ describe('useTableController label position fields', () => {
           'labelXPos',
           'manualDepth',
           'directionalLabelXPos',
-          'directionalManualLabelDepth'
+          'directionalManualLabelDepth',
+          'directionalManualLabelTvd'
         ]
       },
       {
@@ -151,7 +155,8 @@ describe('useTableController label position fields', () => {
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
-          'directionalManualLabelDepth'
+          'directionalManualLabelDepth',
+          'directionalManualLabelTvd'
         ]
       }
     ];

@@ -24,6 +24,7 @@ const SCHEMAS = {
             'Label Depth',
             'Directional Label X',
             'Directional Label Depth',
+            'Directional Label TVD',
             'Casing Label Font Size',
             'Depth Label Font Size',
             'Depth Label X Offset',
@@ -52,7 +53,7 @@ const SCHEMAS = {
     callouts: {
         sheet: 'Callouts',
         required: ['Top', 'Bottom', 'Label'],
-        optional: ['Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Band Width', 'Opacity', 'Show Details', 'Show']
+        optional: ['Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show']
     },
     markers: {
         sheet: 'Markers',
@@ -139,6 +140,7 @@ export function parseStrictExcelProject(fileBuffer) {
             manualLabelDepth: parseOptionalNumber(row['Label Depth']),
             directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
             directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
+            directionalManualLabelTvd: parseOptionalNumber(row['Directional Label TVD']),
             casingLabelFontSize: parseOptionalNumber(row['Casing Label Font Size']),
             depthLabelFontSize: parseOptionalNumber(row['Depth Label Font Size']),
             depthLabelOffset: parseOptionalNumber(row['Depth Label X Offset']),
@@ -188,6 +190,7 @@ export function parseStrictExcelProject(fileBuffer) {
         manualLabelDepth: parseOptionalNumber(row['Label Depth']),
         directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
         directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
+        directionalManualLabelTvd: parseOptionalNumber(row['Directional Label TVD']),
         bandWidth: parseOptionalNumber(row['Band Width']) ?? 1.0,
         opacity: parseOptionalNumber(row.Opacity) ?? 0.25,
         showDetails: toBoolean(row['Show Details'], true),

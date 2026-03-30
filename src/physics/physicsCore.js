@@ -583,6 +583,7 @@ function createUnresolvedPackerResolution(warningCode, hostType = null, hostRow 
         hostType,
         hostIndex: Number.isInteger(hostIndex) ? hostIndex : null,
         hostRowId: normalizeRowId(hostRow?.rowId),
+        hostInnerDiameter: null,
         parentCasingIndex: null,
         parentInnerDiameter: null,
         sealNodeKind: null,
@@ -636,11 +637,13 @@ function resolvePackerAttachment(equip, depth, pipeReferenceMap, options = {}) {
     const outerPipe = sealResolution.sealSlot?.outerPipe ?? null;
     const outerPipeIndex = Number(outerPipe?.__index);
     const outerPipeIsCasing = outerPipe?.pipeType === PIPE_TYPE_CASING;
+    const hostInnerDiameter = resolveRowInnerDiameter(hostRow);
 
     return {
         hostType: resolvedHost.hostType,
         hostIndex: Number.isInteger(Number(hostRow?.__index)) ? Number(hostRow.__index) : null,
         hostRowId: normalizeRowId(hostRow?.rowId),
+        hostInnerDiameter: Number.isFinite(hostInnerDiameter) ? hostInnerDiameter : null,
         parentCasingIndex: outerPipeIsCasing && Number.isInteger(outerPipeIndex)
             ? outerPipeIndex
             : null,
@@ -694,6 +697,7 @@ export function resolveEquipment(equipmentRows = [], tubingRows = [], casingRows
             hostType: null,
             hostIndex: null,
             hostRowId: null,
+            hostInnerDiameter: null,
             parentCasingIndex: null,
             parentInnerDiameter: null,
             sealNodeKind: null,

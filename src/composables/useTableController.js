@@ -387,6 +387,7 @@ function buildTableSchema(type, domainState) {
                 t('table.casing.label_depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('ui.casing_label_font_size'),
                 t('ui.depth_label_font_size'),
                 t('ui.depth_label_offset'),
@@ -426,6 +427,7 @@ function buildTableSchema(type, domainState) {
                 { data: 'manualLabelDepth', type: 'numeric' },
                 { data: 'directionalLabelXPos', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
+                { data: 'directionalManualLabelTvd', type: 'numeric' },
                 { data: 'casingLabelFontSize', type: 'numeric' },
                 { data: 'depthLabelFontSize', type: 'numeric' },
                 { data: 'depthLabelOffset', type: 'numeric' },
@@ -468,6 +470,7 @@ function buildTableSchema(type, domainState) {
                 manualLabelDepth: null,
                 directionalLabelXPos: null,
                 directionalManualLabelDepth: null,
+                directionalManualLabelTvd: null,
                 casingLabelFontSize: null,
                 depthLabelFontSize: null,
                 depthLabelOffset: null,
@@ -500,6 +503,7 @@ function buildTableSchema(type, domainState) {
                 t('table.casing.label_depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('table.boxes.font_size'),
                 t('table.fluids.show')
             ],
@@ -515,6 +519,7 @@ function buildTableSchema(type, domainState) {
                 { data: 'manualLabelDepth', type: 'numeric' },
                 { data: 'directionalLabelXPos', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
+                { data: 'directionalManualLabelTvd', type: 'numeric' },
                 { data: 'labelFontSize', type: 'numeric' },
                 { data: 'showLabel', type: 'checkbox', className: 'htCenter' }
             ],
@@ -534,6 +539,7 @@ function buildTableSchema(type, domainState) {
                 manualLabelDepth: null,
                 directionalLabelXPos: null,
                 directionalManualLabelDepth: null,
+                directionalManualLabelTvd: null,
                 labelFontSize: null,
                 showLabel: true
             })
@@ -556,6 +562,7 @@ function buildTableSchema(type, domainState) {
                 t('table.casing.label_depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('table.boxes.font_size'),
                 t('table.fluids.show')
             ],
@@ -578,6 +585,7 @@ function buildTableSchema(type, domainState) {
                 { data: 'manualLabelDepth', type: 'numeric' },
                 { data: 'directionalLabelXPos', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
+                { data: 'directionalManualLabelTvd', type: 'numeric' },
                 { data: 'labelFontSize', type: 'numeric' },
                 { data: 'showLabel', type: 'checkbox', className: 'htCenter' }
             ],
@@ -598,6 +606,7 @@ function buildTableSchema(type, domainState) {
                 manualLabelDepth: null,
                 directionalLabelXPos: null,
                 directionalManualLabelDepth: null,
+                directionalManualLabelTvd: null,
                 labelFontSize: null,
                 showLabel: true
             })
@@ -717,6 +726,7 @@ function buildTableSchema(type, domainState) {
                 tf('table.plugs.label_depth', 'Label Depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 tf('table.plugs.show', 'Show')
             ],
             columns: () => {
@@ -765,6 +775,7 @@ function buildTableSchema(type, domainState) {
                     { data: 'manualLabelDepth', type: 'numeric' },
                     { data: 'directionalLabelXPos', type: 'numeric' },
                     { data: 'directionalManualLabelDepth', type: 'numeric' },
+                    { data: 'directionalManualLabelTvd', type: 'numeric' },
                     { data: 'show', type: 'checkbox', className: 'htCenter' }
                 ];
             },
@@ -790,6 +801,7 @@ function buildTableSchema(type, domainState) {
                     manualLabelDepth: null,
                     directionalLabelXPos: null,
                     directionalManualLabelDepth: null,
+                    directionalManualLabelTvd: null,
                     show: true
                 };
             }
@@ -814,6 +826,7 @@ function buildTableSchema(type, domainState) {
                 t('table.fluids.label_depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('table.fluids.show')
             ],
             columns: () => {
@@ -870,6 +883,7 @@ function buildTableSchema(type, domainState) {
                     { data: 'manualDepth', type: 'numeric' },
                     { data: 'directionalLabelXPos', type: 'numeric' },
                     { data: 'directionalManualLabelDepth', type: 'numeric' },
+                    { data: 'directionalManualLabelTvd', type: 'numeric' },
                     { data: 'show', type: 'checkbox', className: 'htCenter' }
                 ];
             },
@@ -890,6 +904,7 @@ function buildTableSchema(type, domainState) {
                 manualDepth: null,
                 directionalLabelXPos: null,
                 directionalManualLabelDepth: null,
+                directionalManualLabelTvd: null,
                 show: true
             })
         };
@@ -1035,6 +1050,7 @@ function buildTableSchema(type, domainState) {
                 tf('table.boxes.label_depth', 'Label Depth'),
                 tf('table.directional.label_x', 'Directional Label X'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
+                tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('table.boxes.band_width'),
                 t('table.boxes.opacity'),
                 t('table.boxes.show_details'),
@@ -1071,6 +1087,7 @@ function buildTableSchema(type, domainState) {
                 { data: 'manualLabelDepth', type: 'numeric' },
                 { data: 'directionalLabelXPos', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
+                { data: 'directionalManualLabelTvd', type: 'numeric' },
                 { data: 'bandWidth', type: 'numeric' },
                 { data: 'opacity', type: 'numeric' },
                 { data: 'showDetails', type: 'checkbox', className: 'htCenter' },
@@ -1092,6 +1109,7 @@ function buildTableSchema(type, domainState) {
                 manualLabelDepth: null,
                 directionalLabelXPos: null,
                 directionalManualLabelDepth: null,
+                directionalManualLabelTvd: null,
                 bandWidth: 1.0,
                 opacity: 0.35,
                 detail: '',

@@ -104,4 +104,22 @@ describe('projectDataStore equipment attach normalization', () => {
     expect(row.actuationState).toBe('closed');
     expect(row.boreSeal).toBe('true');
   });
+
+  it('re-syncs equipment typeKey from the edited display type during full-row commits', () => {
+    const store = createStore();
+
+    store.setEquipmentData([
+      {
+        rowId: 'eq-edited',
+        type: 'Safety Valve',
+        typeKey: 'packer',
+        depth: 900,
+        show: true
+      }
+    ]);
+
+    const row = store.equipmentData[0];
+    expect(row.type).toBe('Safety Valve');
+    expect(row.typeKey).toBe('safety-valve');
+  });
 });

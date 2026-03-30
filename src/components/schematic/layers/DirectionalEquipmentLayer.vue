@@ -74,6 +74,16 @@ function resolveSafetyValveHalfHeight(startPoint, endPoint, scale) {
   return Math.max(SAFETY_VALVE_MIN_HALF_HEIGHT, Math.min(maxHalfHeight, rawHalfHeight));
 }
 
+function resolveBridgePlugBoreRadius(equip) {
+  const hostInnerDiameter = Number(equip?.hostInnerDiameter ?? equip?.tubingParentID);
+  if (!Number.isFinite(hostInnerDiameter) || hostInnerDiameter <= 0) return null;
+  return resolveDirectionalVisualRadiusForDiameter(
+    hostInnerDiameter,
+    props.visualSizing,
+    props.diameterScale
+  );
+}
+
 const equipmentShapes = computed(() => {
   const shapes = [];
 
@@ -86,7 +96,7 @@ const equipmentShapes = computed(() => {
     if (!frame) return;
     const semantics = resolveEquipmentTypeSemantics(equip?.type);
 
-    if (semantics.isPackerLike) {
+    if (semantics.isPackerLike || semantics.isBridgePlug) {
       const isOrphaned = equip.isOrphaned === true;
       const sealInnerDiameter = Number(equip.sealInnerDiameter ?? equip.tubingParentOD);
       const sealOuterDiameter = Number(equip.sealOuterDiameter ?? equip.parentInnerDiameter);
@@ -159,6 +169,26 @@ const equipmentShapes = computed(() => {
             color: equip.color,
           });
         });
+
+        if (semantics.isBridgePlug) {
+          const bridgePlugBoreRadius = resolveBridgePlugBoreRadius(equip);
+          if (Number.isFinite(bridgePlugBoreRadius) && bridgePlugBoreRadius > DIRECTIONAL_EPSILON) {
+            const leftStart = props.projector(md, -bridgePlugBoreRadius);
+            const rightStart = props.projector(md, bridgePlugBoreRadius);
+            if (isFinitePoint(leftStart) && isFinitePoint(rightStart)) {
+              const leftEnd = [leftStart[0] + (frame.tangent.x * height), leftStart[1] + (frame.tangent.y * height)];
+              const rightEnd = [rightStart[0] + (frame.tangent.x * height), rightStart[1] + (frame.tangent.y * height)];
+              shapes.push({
+                type: 'polygon',
+                id: `equip-${index}-bridge-plug-bore`,
+                equipmentIndex,
+                points: [leftStart, rightStart, rightEnd, leftEnd].map((point) => point.join(',')).join(' '),
+                color: equip.color,
+                fill: equip.color,
+              });
+            }
+          }
+        }
       }
     } else if (semantics.isInlineValve) {
       const isOrphaned = equip.tubingParentIndex === null;
@@ -258,7 +288,7 @@ const equipmentShapes = computed(() => {
         :points="shape.points"
         :stroke="shape.color"
         :stroke-dasharray="shape.isOrphaned ? ORPHAN_DASH_STYLE : null"
-        fill="none"
+        :fill="shape.fill ?? 'none'"
         pointer-events="none"
       />
       <ellipse

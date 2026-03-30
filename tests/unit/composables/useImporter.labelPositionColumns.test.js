@@ -26,6 +26,7 @@ describe('useImporter label position columns', () => {
         'Label Depth',
         'Directional Label X',
         'Directional Label Depth',
+        'Directional Label TVD',
         'Casing Label Font Size',
         'Depth Label Font Size',
         'Depth Label X Offset',
@@ -55,6 +56,7 @@ describe('useImporter label position columns', () => {
         2500,
         0.3,
         2600,
+        2610,
         11,
         9,
         35,
@@ -104,12 +106,13 @@ describe('useImporter label position columns', () => {
         'Label Depth',
         'Directional Label X',
         'Directional Label Depth',
+        'Directional Label TVD',
         'Band Width',
         'Opacity',
         'Show Details',
         'Show'
       ],
-      [1000, 1800, 'Zone', 'Notes', 'lightsteelblue', 'steelblue', 12, -0.4, 1450, -0.2, 1500, 1.0, 0.35, true, true]
+      [1000, 1800, 'Zone', 'Notes', 'lightsteelblue', 'steelblue', 12, -0.4, 1450, -0.2, 1500, 1400, 1.0, 0.35, true, true]
     ]);
 
     const fileBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
@@ -120,6 +123,7 @@ describe('useImporter label position columns', () => {
       manualLabelDepth: 2500,
       directionalLabelXPos: 0.3,
       directionalManualLabelDepth: 2600,
+      directionalManualLabelTvd: 2610,
       topLabelXPos: -0.6,
       topManualLabelDepth: 125,
       bottomLabelXPos: -0.55,
@@ -144,7 +148,8 @@ describe('useImporter label position columns', () => {
       labelXPos: -0.4,
       manualLabelDepth: 1450,
       directionalLabelXPos: -0.2,
-      directionalManualLabelDepth: 1500
+      directionalManualLabelDepth: 1500,
+      directionalManualLabelTvd: 1400
     });
   });
 });

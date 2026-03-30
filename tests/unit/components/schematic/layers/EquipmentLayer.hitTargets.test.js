@@ -61,16 +61,42 @@ describe('EquipmentLayer hit targets', () => {
             sealInnerDiameter: 6,
             sealOuterDiameter: 10,
             label: 'New equipment',
+            showLabel: false,
           },
         ],
         xScale: createLinearScale(8, 300),
         yScale: createLinearScale(1, 0),
         diameterScale: 1,
         xHalf: 30,
-        showLabels: false,
       },
     });
 
     expect(wrapper.findAll('.equipment-layer__label-group')).toHaveLength(0);
+  });
+
+  it('renders a filled bridge plug bore block in the vertical schematic view', () => {
+    const wrapper = mount(EquipmentLayer, {
+      props: {
+        equipment: [
+          {
+            sourceIndex: 0,
+            type: 'bridge-plug',
+            depth: 1000,
+            scale: 1,
+            color: '#123456',
+            hostInnerDiameter: 4,
+            sealInnerDiameter: 6,
+            sealOuterDiameter: 10,
+          },
+        ],
+        xScale: createLinearScale(8, 300),
+        yScale: createLinearScale(1, 0),
+        diameterScale: 1,
+        xHalf: 30,
+      },
+    });
+
+    const filledRects = wrapper.findAll('rect.equipment-shape').filter((node) => node.attributes('fill') === '#123456');
+    expect(filledRects).toHaveLength(1);
   });
 });

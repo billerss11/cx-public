@@ -94,6 +94,7 @@ export const CASING_NUMERIC_FIELDS = new Set([
     'manualLabelDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'casingLabelFontSize',
     'depthLabelFontSize',
     'depthLabelOffset',
@@ -116,6 +117,7 @@ export const TUBING_NUMERIC_FIELDS = new Set([
     'manualLabelDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'labelFontSize'
 ]);
 export const DRILL_STRING_NUMERIC_FIELDS = new Set([
@@ -128,6 +130,7 @@ export const DRILL_STRING_NUMERIC_FIELDS = new Set([
     'manualLabelDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'labelFontSize'
 ]);
 export const EQUIPMENT_NUMERIC_FIELDS = new Set([
@@ -137,6 +140,7 @@ export const EQUIPMENT_NUMERIC_FIELDS = new Set([
     'manualLabelDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'labelFontSize'
 ]);
 export const LINE_NUMERIC_FIELDS = new Set([
@@ -157,6 +161,7 @@ export const BOX_NUMERIC_FIELDS = new Set([
     'manualLabelDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'bandWidth',
     'opacity'
 ]);
@@ -167,7 +172,8 @@ export const PLUG_NUMERIC_FIELDS = new Set([
     'labelXPos',
     'manualLabelDepth',
     'directionalLabelXPos',
-    'directionalManualLabelDepth'
+    'directionalManualLabelDepth',
+    'directionalManualLabelTvd'
 ]);
 export const MARKER_NUMERIC_FIELDS = new Set(['top', 'bottom', 'scale']);
 export const FLUID_NUMERIC_FIELDS = new Set([
@@ -177,6 +183,7 @@ export const FLUID_NUMERIC_FIELDS = new Set([
     'manualDepth',
     'directionalLabelXPos',
     'directionalManualLabelDepth',
+    'directionalManualLabelTvd',
     'fontSize',
     'manualOD'
 ]);
