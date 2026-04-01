@@ -637,7 +637,7 @@ function buildTableSchema(type, domainState) {
                 t('table.lines.line_style'),
                 t('table.lines.label_x'),
                 tf('table.lines.label_depth', 'Label Depth'),
-                tf('table.directional.label_x', 'Directional Label X'),
+                tf('table.directional.centerline_offset', 'Directional Centerline Offset'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
                 t('table.lines.show')
             ],
@@ -678,7 +678,7 @@ function buildTableSchema(type, domainState) {
                 },
                 { data: 'labelXPos', type: 'numeric' },
                 { data: 'manualLabelDepth', type: 'numeric' },
-                { data: 'directionalLabelXPos', type: 'numeric' },
+                { data: 'directionalCenterlineOffsetPx', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
                 { data: 'show', type: 'checkbox', className: 'htCenter' }
             ],
@@ -699,7 +699,7 @@ function buildTableSchema(type, domainState) {
                 lineStyle: translateEnum('lineStyle', 'Solid'),
                 labelXPos: null,
                 manualLabelDepth: null,
-                directionalLabelXPos: null,
+                directionalCenterlineOffsetPx: null,
                 directionalManualLabelDepth: null,
                 show: true
             })
@@ -1041,6 +1041,11 @@ function buildTableSchema(type, domainState) {
             colHeaders: () => [
                 t('table.boxes.top'),
                 t('table.boxes.bottom'),
+                tf('table.directional.depth_mode', 'Directional Depth Mode'),
+                tf('table.directional.top_md', 'Directional Top MD'),
+                tf('table.directional.top_tvd', 'Directional Top TVD'),
+                tf('table.directional.bottom_md', 'Directional Bottom MD'),
+                tf('table.directional.bottom_tvd', 'Directional Bottom TVD'),
                 t('table.boxes.label'),
                 t('table.boxes.detail'),
                 t('table.boxes.fill_color'),
@@ -1048,7 +1053,7 @@ function buildTableSchema(type, domainState) {
                 t('table.boxes.font_size'),
                 t('table.boxes.label_x'),
                 tf('table.boxes.label_depth', 'Label Depth'),
-                tf('table.directional.label_x', 'Directional Label X'),
+                tf('table.directional.centerline_offset', 'Directional Centerline Offset'),
                 tf('table.directional.label_depth', 'Directional Label Depth'),
                 tf('table.directional.label_tvd', 'Directional Label TVD'),
                 t('table.boxes.band_width'),
@@ -1059,6 +1064,16 @@ function buildTableSchema(type, domainState) {
             columns: () => [
                 { data: 'topDepth', type: 'numeric' },
                 { data: 'bottomDepth', type: 'numeric' },
+                {
+                    data: 'directionalDepthMode',
+                    type: 'dropdown',
+                    source: ['tvd', 'md'],
+                    strict: true
+                },
+                { data: 'directionalTopDepthMd', type: 'numeric' },
+                { data: 'directionalTopDepthTvd', type: 'numeric' },
+                { data: 'directionalBottomDepthMd', type: 'numeric' },
+                { data: 'directionalBottomDepthTvd', type: 'numeric' },
                 { data: 'label', type: 'text' },
                 {
                     data: 'detail',
@@ -1085,7 +1100,7 @@ function buildTableSchema(type, domainState) {
                 { data: 'fontSize', type: 'numeric' },
                 { data: 'labelXPos', type: 'numeric' },
                 { data: 'manualLabelDepth', type: 'numeric' },
-                { data: 'directionalLabelXPos', type: 'numeric' },
+                { data: 'directionalCenterlineOffsetPx', type: 'numeric' },
                 { data: 'directionalManualLabelDepth', type: 'numeric' },
                 { data: 'directionalManualLabelTvd', type: 'numeric' },
                 { data: 'bandWidth', type: 'numeric' },
@@ -1101,13 +1116,18 @@ function buildTableSchema(type, domainState) {
             buildDefaultRow: () => ({
                 topDepth: 1000,
                 bottomDepth: 2000,
+                directionalDepthMode: 'md',
+                directionalTopDepthMd: null,
+                directionalTopDepthTvd: null,
+                directionalBottomDepthMd: null,
+                directionalBottomDepthTvd: null,
                 label: t('defaults.new_box'),
                 color: DEFAULT_BOX_COLOR,
                 fontColor: DEFAULT_BOX_FONT_COLOR,
                 fontSize: 12,
                 labelXPos: null,
                 manualLabelDepth: null,
-                directionalLabelXPos: null,
+                directionalCenterlineOffsetPx: null,
                 directionalManualLabelDepth: null,
                 directionalManualLabelTvd: null,
                 bandWidth: 1.0,

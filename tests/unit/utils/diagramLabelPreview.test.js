@@ -18,6 +18,14 @@ function buildArrowHeadPoints(start, end) {
   return `${start[0]},${start[1]} ${end[0]},${end[1]}`;
 }
 
+function resolvePointToLineDistance({ x1, y1, x2, y2, x, y }) {
+  const dx = Number(x2) - Number(x1);
+  const dy = Number(y2) - Number(y1);
+  const length = Math.hypot(dx, dy);
+  if (!Number.isFinite(length) || length <= 1e-6) return null;
+  return Math.abs((dy * Number(x)) - (dx * Number(y)) + (Number(x2) * Number(y1)) - (Number(y2) * Number(x1))) / length;
+}
+
 describe('diagramLabelPreview', () => {
   it('shifts the label box while keeping the anchor fixed for arrowed labels', () => {
     const previewed = applyPreviewToArrowedBoxLabel(
@@ -85,6 +93,15 @@ describe('diagramLabelPreview', () => {
       {
         id: 'line-1',
         activeMode: 'md',
+        centerlineAnchorX: 50,
+        centerlineAnchorY: 200,
+        centerlineOffsetPx: 0,
+        normalOffsetPx: 0,
+        textAnchor: 'middle',
+        anchorScreenX: 50,
+        anchorScreenY: 200,
+        boxWidth: 40,
+        boxHeight: 20,
         y: 200,
         x1: 0,
         y1: 200,
@@ -100,6 +117,8 @@ describe('diagramLabelPreview', () => {
         resolveSegmentAtDepth: (depth) => {
           if (depth !== 220) return null;
           return {
+            centerlineAnchorX: 50,
+            centerlineAnchorY: 220,
             x1: 10,
             y1: 200,
             x2: 90,
@@ -114,8 +133,17 @@ describe('diagramLabelPreview', () => {
     expect(previewed.y1).toBe(200);
     expect(previewed.x2).toBe(90);
     expect(previewed.y2).toBe(240);
-    expect(previewed.boxY).toBe(210);
-    expect(previewed.textY).toBe(220);
+    const centerX = Number(previewed.boxX) + (Number(previewed.boxWidth) / 2);
+    const centerY = Number(previewed.boxY) + (Number(previewed.boxHeight) / 2);
+    const distance = resolvePointToLineDistance({
+      x1: previewed.x1,
+      y1: previewed.y1,
+      x2: previewed.x2,
+      y2: previewed.y2,
+      x: centerX,
+      y: centerY
+    });
+    expect(distance).toBeCloseTo(0, 3);
   });
 
   it('slides a directional md horizon label along the existing line without free vertical drift', () => {
@@ -123,6 +151,12 @@ describe('diagramLabelPreview', () => {
       {
         id: 'line-1',
         activeMode: 'md',
+        centerlineAnchorX: 50,
+        centerlineAnchorY: 220,
+        centerlineOffsetPx: 25,
+        normalOffsetPx: 0,
+        textAnchor: 'middle',
+        anchorScreenX: 75,
         x1: 0,
         y1: 200,
         x2: 100,
@@ -136,20 +170,26 @@ describe('diagramLabelPreview', () => {
       },
       'line-1:label',
       { x: 20, y: 30 },
-      {
-        bounds: { left: 0, right: 100 },
-        resolveLabelCenterYFromSegment: (segment, line) => {
-          const centerX = Number(line.boxX) + (Number(line.boxWidth) / 2);
-          const t = (centerX - Number(segment.x1)) / (Number(segment.x2) - Number(segment.x1));
-          return Number(segment.y1) + (t * (Number(segment.y2) - Number(segment.y1)));
-        }
-      }
+      { bounds: { left: 0, right: 100 } }
     );
 
-    expect(previewed.boxX).toBe(60);
-    expect(previewed.boxY).toBe(222);
-    expect(previewed.textX).toBe(80);
-    expect(previewed.textY).toBe(232);
+    const centerX = Number(previewed.boxX) + (Number(previewed.boxWidth) / 2);
+    const centerY = Number(previewed.boxY) + (Number(previewed.boxHeight) / 2);
+    const distance = resolvePointToLineDistance({
+      x1: previewed.x1,
+      y1: previewed.y1,
+      x2: previewed.x2,
+      y2: previewed.y2,
+      x: centerX,
+      y: centerY
+    });
+    const expectedProjectedDelta = ((20 * 100) + (30 * 40)) / Math.hypot(100, 40);
+    const expectedOffsetPx = 25 + expectedProjectedDelta;
+    const expectedAnchorX = 50 + ((100 / Math.hypot(100, 40)) * expectedOffsetPx);
+
+    expect(previewed.centerlineOffsetPx).toBeCloseTo(expectedOffsetPx, 3);
+    expect(previewed.anchorScreenX).toBeCloseTo(expectedAnchorX, 3);
+    expect(distance).toBeCloseTo(0, 3);
   });
 
   it('re-anchors a directional md horizon label to the next preview segment instead of preserving stale vertical offset', () => {
@@ -157,6 +197,12 @@ describe('diagramLabelPreview', () => {
       {
         id: 'line-1',
         activeMode: 'md',
+        centerlineAnchorX: 50,
+        centerlineAnchorY: 220,
+        centerlineOffsetPx: 25,
+        normalOffsetPx: 0,
+        textAnchor: 'middle',
+        anchorScreenX: 75,
         y: 200,
         x1: 0,
         y1: 200,
@@ -176,26 +222,36 @@ describe('diagramLabelPreview', () => {
         resolveSegmentAtDepth: (depth) => {
           if (depth !== 220) return null;
           return {
+            centerlineAnchorX: 55,
+            centerlineAnchorY: 232.5,
             x1: 10,
             y1: 210,
             x2: 90,
             y2: 250
           };
-        },
-        resolveLabelCenterYFromSegment: (segment, line) => {
-          const centerX = Number(line.boxX) + (Number(line.boxWidth) / 2);
-          const t = (centerX - Number(segment.x1)) / (Number(segment.x2) - Number(segment.x1));
-          return Number(segment.y1) + (t * (Number(segment.y2) - Number(segment.y1)));
         }
       }
     );
+
+    const centerX = Number(previewed.boxX) + (Number(previewed.boxWidth) / 2);
+    const centerY = Number(previewed.boxY) + (Number(previewed.boxHeight) / 2);
+    const distance = resolvePointToLineDistance({
+      x1: previewed.x1,
+      y1: previewed.y1,
+      x2: previewed.x2,
+      y2: previewed.y2,
+      x: centerX,
+      y: centerY
+    });
 
     expect(previewed.y).toBe(230);
     expect(previewed.x1).toBe(10);
     expect(previewed.y1).toBe(210);
     expect(previewed.x2).toBe(90);
     expect(previewed.y2).toBe(250);
-    expect(previewed.boxY).toBe(225);
-    expect(previewed.textY).toBe(235);
+    expect(previewed.centerlineAnchorX).toBe(55);
+    expect(previewed.centerlineAnchorY).toBe(232.5);
+    expect(previewed.centerlineOffsetPx).toBe(25);
+    expect(distance).toBeCloseTo(0, 3);
   });
 });

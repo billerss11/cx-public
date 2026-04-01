@@ -122,7 +122,7 @@ describe('useTableController label position fields', () => {
           'directionalDepthTvd',
           'labelXPos',
           'manualLabelDepth',
-          'directionalLabelXPos',
+          'directionalCenterlineOffsetPx',
           'directionalManualLabelDepth'
         ]
       },
@@ -154,7 +154,7 @@ describe('useTableController label position fields', () => {
         expectedFields: [
           'labelXPos',
           'manualLabelDepth',
-          'directionalLabelXPos',
+          'directionalCenterlineOffsetPx',
           'directionalManualLabelDepth',
           'directionalManualLabelTvd'
         ]

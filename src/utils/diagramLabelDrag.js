@@ -1,4 +1,5 @@
 import { clamp } from '@/utils/general.js';
+import { resolveDirectionalLineProjectedDelta } from '@/utils/directionalLineLabelGeometry.js';
 
 function toFiniteNumber(value) {
   const parsed = Number(value);
@@ -141,9 +142,12 @@ export function resolveDirectionalLineLabelSlidePatch(options = {}) {
   const bounds = options.bounds;
   if (!pointer || !bounds) return null;
 
+  const resolvedAnchorX = toFiniteNumber(options?.anchorX);
   const semanticAnchorX = resolveDirectionalLineLabelAnchorX(options);
   const ratio = resolveDirectionalRatioFromBounds(
-    Number.isFinite(semanticAnchorX) ? semanticAnchorX : pointer.x,
+    Number.isFinite(resolvedAnchorX)
+      ? resolvedAnchorX
+      : (Number.isFinite(semanticAnchorX) ? semanticAnchorX : pointer.x),
     bounds
   );
   if (!Number.isFinite(ratio)) return null;
@@ -155,6 +159,39 @@ export function resolveDirectionalLineLabelSlidePatch(options = {}) {
   const clearYField = String(options.clearYField ?? '').trim();
   if (clearYField) {
     patch[clearYField] = null;
+  }
+
+  return patch;
+}
+
+export function resolveDirectionalCenterlineOffsetPatch(options = {}) {
+  const previewOffset = options.previewOffset && typeof options.previewOffset === 'object'
+    ? options.previewOffset
+    : null;
+  const startOffsetPx = toFiniteNumber(options?.startOffsetPx);
+  const offsetField = String(options?.offsetField ?? '').trim();
+  if (!previewOffset || !offsetField || !Number.isFinite(startOffsetPx)) return null;
+
+  const projectedDelta = resolveDirectionalLineProjectedDelta({
+    x1: options?.x1,
+    y1: options?.y1,
+    x2: options?.x2,
+    y2: options?.y2
+  }, previewOffset);
+  if (!Number.isFinite(projectedDelta)) return null;
+
+  const patch = {
+    [offsetField]: startOffsetPx + projectedDelta
+  };
+
+  const clearYField = String(options.clearYField ?? '').trim();
+  if (clearYField) {
+    patch[clearYField] = null;
+  }
+
+  const clearLegacyField = String(options.clearLegacyField ?? '').trim();
+  if (clearLegacyField) {
+    patch[clearLegacyField] = null;
   }
 
   return patch;
@@ -187,5 +224,6 @@ export default {
   resolveVerticalLabelDragPatch,
   resolveDirectionalDepthShiftPatch,
   resolveDirectionalLabelDragPatch,
-  resolveDirectionalLineLabelSlidePatch
+  resolveDirectionalLineLabelSlidePatch,
+  resolveDirectionalCenterlineOffsetPatch
 };

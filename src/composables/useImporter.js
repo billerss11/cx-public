@@ -48,12 +48,12 @@ const SCHEMAS = {
     horizons: {
         sheet: 'Horizons',
         required: ['Depth', 'Label'],
-        optional: ['Directional Depth Mode', 'Directional Depth MD', 'Directional Depth TVD', 'Color', 'Font Color', 'Font Size', 'Line Style', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Show']
+        optional: ['Directional Depth Mode', 'Directional Depth MD', 'Directional Depth TVD', 'Color', 'Font Color', 'Font Size', 'Line Style', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Centerline Offset', 'Directional Label Depth', 'Show']
     },
     callouts: {
         sheet: 'Callouts',
         required: ['Top', 'Bottom', 'Label'],
-        optional: ['Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show']
+        optional: ['Directional Depth Mode', 'Directional Top MD', 'Directional Top TVD', 'Directional Bottom MD', 'Directional Bottom TVD', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Label X', 'Directional Centerline Offset', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show']
     },
     markers: {
         sheet: 'Markers',
@@ -172,6 +172,7 @@ export function parseStrictExcelProject(fileBuffer) {
         lineStyle: normalizeLineStyle(row['Line Style'] || 'Solid'),
         labelXPos: parseOptionalNumber(row['Label X']),
         manualLabelDepth: parseOptionalNumber(row['Label Depth']),
+        directionalCenterlineOffsetPx: parseOptionalNumber(row['Directional Centerline Offset']),
         directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
         directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
         show: toBoolean(row.Show, true)
@@ -181,6 +182,11 @@ export function parseStrictExcelProject(fileBuffer) {
     const annotationBoxes = calloutRows.map((row, index) => ({
         topDepth: parseRequiredNumber(row, 'Top', `Callouts row ${index + 2}`),
         bottomDepth: parseRequiredNumber(row, 'Bottom', `Callouts row ${index + 2}`),
+        directionalDepthMode: String(row['Directional Depth Mode'] ?? '').trim().toLowerCase() || null,
+        directionalTopDepthMd: parseOptionalNumber(row['Directional Top MD']),
+        directionalTopDepthTvd: parseOptionalNumber(row['Directional Top TVD']),
+        directionalBottomDepthMd: parseOptionalNumber(row['Directional Bottom MD']),
+        directionalBottomDepthTvd: parseOptionalNumber(row['Directional Bottom TVD']),
         label: toTrimmedString(row.Label),
         detail: toTrimmedString(row.Detail),
         color: toTrimmedString(row.Color) || DEFAULT_BOX_COLOR,
@@ -188,6 +194,7 @@ export function parseStrictExcelProject(fileBuffer) {
         fontSize: parseOptionalNumber(row['Font Size']) ?? 12,
         labelXPos: parseOptionalNumber(row['Label X']),
         manualLabelDepth: parseOptionalNumber(row['Label Depth']),
+        directionalCenterlineOffsetPx: parseOptionalNumber(row['Directional Centerline Offset']),
         directionalLabelXPos: parseOptionalNumber(row['Directional Label X']),
         directionalManualLabelDepth: parseOptionalNumber(row['Directional Label Depth']),
         directionalManualLabelTvd: parseOptionalNumber(row['Directional Label TVD']),

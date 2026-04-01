@@ -49,7 +49,7 @@ const projectDataStoreMock = {
       lineStyle: 'Solid',
       labelXPos: 0.6,
       manualLabelDepth: 2550,
-      directionalLabelXPos: 0.25,
+      directionalCenterlineOffsetPx: 32,
       directionalManualLabelDepth: 2525,
       show: true
     }
@@ -58,6 +58,11 @@ const projectDataStoreMock = {
     {
       topDepth: 1000,
       bottomDepth: 1800,
+      directionalDepthMode: 'tvd',
+      directionalTopDepthMd: 1100,
+      directionalTopDepthTvd: 1000,
+      directionalBottomDepthMd: 1900,
+      directionalBottomDepthTvd: 1800,
       label: 'Zone',
       detail: 'Notes',
       color: 'lightsteelblue',
@@ -65,7 +70,7 @@ const projectDataStoreMock = {
       fontSize: 12,
       labelXPos: -0.4,
       manualLabelDepth: 1450,
-      directionalLabelXPos: -0.2,
+      directionalCenterlineOffsetPx: -80,
       directionalManualLabelDepth: 1500,
       directionalManualLabelTvd: 1400,
       bandWidth: 1.0,
@@ -192,12 +197,17 @@ describe('exports workbook label position columns', () => {
       'Directional Depth MD',
       'Directional Depth TVD',
       'Label Depth',
-      'Directional Label X',
+      'Directional Centerline Offset',
       'Directional Label Depth'
     ]));
     expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
+      'Directional Depth Mode',
+      'Directional Top MD',
+      'Directional Top TVD',
+      'Directional Bottom MD',
+      'Directional Bottom TVD',
       'Label Depth',
-      'Directional Label X',
+      'Directional Centerline Offset',
       'Directional Label Depth',
       'Directional Label TVD'
     ]));
@@ -230,12 +240,17 @@ describe('exports workbook label position columns', () => {
       'Directional Depth MD',
       'Directional Depth TVD',
       'Label Depth',
-      'Directional Label X',
+      'Directional Centerline Offset',
       'Directional Label Depth'
     ]));
     expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
+      'Directional Depth Mode',
+      'Directional Top MD',
+      'Directional Top TVD',
+      'Directional Bottom MD',
+      'Directional Bottom TVD',
       'Label Depth',
-      'Directional Label X',
+      'Directional Centerline Offset',
       'Directional Label Depth',
       'Directional Label TVD'
     ]));

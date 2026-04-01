@@ -1,3 +1,9 @@
+import {
+  resolveDirectionalLineLabelPlacement,
+  resolveDirectionalLinePointFromOffset,
+  resolveDirectionalLineProjectedDelta
+} from '@/utils/directionalLineLabelGeometry.js';
+
 function normalizeOffset(activePreviewId, labelId, previewOffset) {
   const active = String(activePreviewId ?? '').trim();
   const current = String(labelId ?? '').trim();
@@ -38,6 +44,37 @@ function resolveAnchor(label = {}) {
     : (Number.isFinite(Number(label?.arrowEndY)) ? Number(label.arrowEndY) : Number(label?.lineY1));
   if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return null;
   return { x: anchorX, y: anchorY };
+}
+
+function resolvePreviewedDirectionalLineLabelGeometry(line = {}, centerlineAnchor = {}, offsetPx = null, segmentOverride = null) {
+  const boxWidth = Number(line?.boxWidth);
+  const boxHeight = Number(line?.boxHeight);
+  if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || !Number.isFinite(offsetPx)) return null;
+  const segment = segmentOverride ?? {
+    x1: line?.x1,
+    y1: line?.y1,
+    x2: line?.x2,
+    y2: line?.y2
+  };
+  const anchorPoint = resolveDirectionalLinePointFromOffset(centerlineAnchor, segment, offsetPx);
+  if (!anchorPoint) return null;
+  const placement = resolveDirectionalLineLabelPlacement({
+    segment,
+    anchorX: anchorPoint.x,
+    anchorY: anchorPoint.y,
+    boxWidth,
+    boxHeight,
+    textAnchor: line?.textAnchor,
+    normalOffsetPx: line?.normalOffsetPx
+  });
+  if (!placement) return null;
+
+  return {
+    ...placement,
+    offsetPx,
+    anchorX: anchorPoint.x,
+    anchorY: anchorPoint.y
+  };
 }
 
 export function applyPreviewToArrowedBoxLabel(label = {}, activePreviewId, previewOffset, options = {}) {
@@ -110,29 +147,53 @@ export function applyPreviewToDirectionalLineOverlay(line = {}, activePreviewId,
     const segment = resolveSegmentAtDepth(nextDepth);
     if (segment) {
       const centerY = (Number(segment.y1) + Number(segment.y2)) / 2;
-      let resolvedLabelCenterY = centerY;
-      if (typeof options.resolveLabelCenterYFromSegment === 'function') {
-        const nextAlignedLabelCenterY = Number(options.resolveLabelCenterYFromSegment(segment, line));
-        if (Number.isFinite(nextAlignedLabelCenterY)) {
-          resolvedLabelCenterY = nextAlignedLabelCenterY;
-        }
-      }
-      const currentLabelCenterY = Number(line?.boxY) + (Number(line?.boxHeight) / 2);
-      const deltaY = Number.isFinite(currentLabelCenterY)
-        ? resolvedLabelCenterY - currentLabelCenterY
-        : resolvedLabelCenterY - Number(line?.y);
       next.y = centerY;
       next.x1 = Number(segment.x1);
       next.y1 = Number(segment.y1);
       next.x2 = Number(segment.x2);
       next.y2 = Number(segment.y2);
-      if (Number.isFinite(Number(line?.boxY))) next.boxY = Number(line.boxY) + deltaY;
-      if (Number.isFinite(Number(line?.textY))) next.textY = Number(line.textY) + deltaY;
-      if (Array.isArray(line?.textLines)) {
-        next.textLines = line.textLines.map((textLine) => ({
-          ...textLine,
-          ...(Number.isFinite(Number(textLine?.y)) ? { y: Number(textLine.y) + deltaY } : {})
-        }));
+      const nextPlacement = resolvePreviewedDirectionalLineLabelGeometry(
+        {
+          ...line,
+          x1: next.x1,
+          y1: next.y1,
+          x2: next.x2,
+          y2: next.y2
+        },
+        {
+          x: Number(segment?.centerlineAnchorX ?? line?.centerlineAnchorX),
+          y: Number(segment?.centerlineAnchorY ?? line?.centerlineAnchorY)
+        },
+        Number(line?.centerlineOffsetPx),
+        {
+          x1: next.x1,
+          y1: next.y1,
+          x2: next.x2,
+          y2: next.y2
+        }
+      );
+      if (nextPlacement) {
+        const startBoxX = Number(line?.boxX);
+        const startBoxY = Number(line?.boxY);
+        const deltaX = Number.isFinite(startBoxX) ? nextPlacement.boxX - startBoxX : 0;
+        const deltaY = Number.isFinite(startBoxY) ? nextPlacement.boxY - startBoxY : 0;
+        next.centerlineAnchorX = Number(segment?.centerlineAnchorX ?? line?.centerlineAnchorX);
+        next.centerlineAnchorY = Number(segment?.centerlineAnchorY ?? line?.centerlineAnchorY);
+        next.centerlineOffsetPx = nextPlacement.offsetPx;
+        next.anchorScreenX = nextPlacement.anchorX;
+        next.anchorScreenY = nextPlacement.anchorY;
+        next.boxX = nextPlacement.boxX;
+        next.boxY = nextPlacement.boxY;
+        if (Number.isFinite(Number(line?.textX))) next.textX = Number(line.textX) + deltaX;
+        if (Number.isFinite(Number(line?.textY))) next.textY = Number(line.textY) + deltaY;
+        if (Array.isArray(line?.textLines)) {
+          next.textLines = line.textLines.map((textLine) => ({
+            ...textLine,
+            x: Number(textLine?.x) + deltaX,
+            ...(Number.isFinite(Number(textLine?.y)) ? { y: Number(textLine.y) + deltaY } : {})
+          }));
+        }
+        return next;
       }
       return next;
     }
@@ -170,34 +231,56 @@ export function applyPreviewToDirectionalLineLabel(line = {}, activePreviewId, p
 
   const minX = Number(bounds?.left);
   const maxX = Number(bounds?.right);
-  const nextCenterXRaw = startBoxX + (boxWidth / 2) + offset.x;
-  const nextCenterX = Number.isFinite(minX) && Number.isFinite(maxX)
-    ? Math.max(Math.min(nextCenterXRaw, Math.max(minX, maxX) - (boxWidth / 2)), Math.min(minX, maxX) + (boxWidth / 2))
-    : nextCenterXRaw;
-  const nextBoxX = nextCenterX - (boxWidth / 2);
-
-  const currentCenterY = startBoxY + (boxHeight / 2);
-  const nextCenterY = typeof options.resolveLabelCenterYFromSegment === 'function'
-    ? Number(options.resolveLabelCenterYFromSegment({
+  let deltaX;
+  let deltaY;
+  let next;
+  if (line?.activeMode === 'md') {
+    const deltaAlongLine = resolveDirectionalLineProjectedDelta({
       x1: line?.x1,
       y1: line?.y1,
       x2: line?.x2,
       y2: line?.y2
-    }, {
+    }, offset);
+    const startOffsetPx = Number(line?.centerlineOffsetPx);
+    const nextOffsetPx = Number.isFinite(startOffsetPx) && Number.isFinite(deltaAlongLine)
+      ? startOffsetPx + deltaAlongLine
+      : startOffsetPx;
+    const nextPlacement = resolvePreviewedDirectionalLineLabelGeometry(
+      line,
+      {
+        x: Number(line?.centerlineAnchorX),
+        y: Number(line?.centerlineAnchorY)
+      },
+      nextOffsetPx
+    );
+    if (!nextPlacement) return line;
+
+    deltaX = nextPlacement.boxX - startBoxX;
+    deltaY = nextPlacement.boxY - startBoxY;
+    next = {
+      ...line,
+      centerlineOffsetPx: nextPlacement.offsetPx,
+      anchorScreenX: nextPlacement.anchorX,
+      anchorScreenY: nextPlacement.anchorY,
+      boxX: nextPlacement.boxX,
+      boxY: nextPlacement.boxY
+    };
+  } else {
+    const nextCenterXRaw = startBoxX + (boxWidth / 2) + offset.x;
+    const nextCenterX = Number.isFinite(minX) && Number.isFinite(maxX)
+      ? Math.max(Math.min(nextCenterXRaw, Math.max(minX, maxX) - (boxWidth / 2)), Math.min(minX, maxX) + (boxWidth / 2))
+      : nextCenterXRaw;
+    const nextBoxX = nextCenterX - (boxWidth / 2);
+    const currentCenterY = startBoxY + (boxHeight / 2);
+    const resolvedCenterY = currentCenterY;
+    deltaX = nextBoxX - startBoxX;
+    deltaY = resolvedCenterY - currentCenterY;
+    next = {
       ...line,
       boxX: nextBoxX,
-      boxY: startBoxY
-    }))
-    : currentCenterY;
-  const resolvedCenterY = Number.isFinite(nextCenterY) ? nextCenterY : currentCenterY;
-  const deltaX = nextBoxX - startBoxX;
-  const deltaY = resolvedCenterY - currentCenterY;
-
-  const next = {
-    ...line,
-    boxX: nextBoxX,
-    boxY: startBoxY + deltaY
-  };
+      boxY: startBoxY + deltaY
+    };
+  }
 
   if (Number.isFinite(Number(line?.textX))) next.textX = Number(line.textX) + deltaX;
   if (Number.isFinite(Number(line?.textY))) next.textY = Number(line.textY) + deltaY;

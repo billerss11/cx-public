@@ -150,7 +150,7 @@ export const LINE_NUMERIC_FIELDS = new Set([
     'fontSize',
     'labelXPos',
     'manualLabelDepth',
-    'directionalLabelXPos',
+    'directionalCenterlineOffsetPx',
     'directionalManualLabelDepth'
 ]);
 export const BOX_NUMERIC_FIELDS = new Set([
@@ -159,7 +159,7 @@ export const BOX_NUMERIC_FIELDS = new Set([
     'fontSize',
     'labelXPos',
     'manualLabelDepth',
-    'directionalLabelXPos',
+    'directionalCenterlineOffsetPx',
     'directionalManualLabelDepth',
     'directionalManualLabelTvd',
     'bandWidth',

@@ -37,6 +37,11 @@ import {
   resolveDirectionalVisualInsetPadding
 } from '@/utils/directionalSizing.js';
 import {
+  resolveDirectionalLineLabelPlacement,
+  resolveDirectionalLineOffsetFromPoints,
+  resolveDirectionalLinePointFromOffset
+} from '@/utils/directionalLineLabelGeometry.js';
+import {
   DIRECTIONAL_EPSILON,
   toFiniteNumber,
   isFinitePoint,
@@ -46,6 +51,7 @@ import {
   normalizeXExaggeration
 } from './directionalProjection.js';
 import { resolveDirectionalReferenceHorizonDepthMeta } from '@/utils/referenceHorizons.js';
+import { resolveDirectionalIntervalDepthMeta } from '@/utils/referenceIntervals.js';
 
 const ANNOTATION_SIDE_PADDING_PX = 12;
 const ANNOTATION_WELL_GAP_PX = 8;
@@ -462,16 +468,13 @@ function applyDirectionalHorizonLinePreview(items = [], bounds) {
         const segment = resolveLineSegmentInPlot(frame.center, frame.normal, safeBounds);
         if (!segment) return null;
         return {
+          centerlineAnchorX: frame.center[0],
+          centerlineAnchorY: frame.center[1],
           x1: segment.startX,
           y1: segment.startY,
           x2: segment.endX,
           y2: segment.endY
         };
-      },
-      resolveLabelCenterYFromSegment: (segment, line) => {
-        const labelCenterX = Number(line?.boxX) + (Number(line?.boxWidth) / 2);
-        const fallbackY = Number(line?.boxY) + (Number(line?.boxHeight) / 2);
-        return resolveLineSegmentYAtX(segment, labelCenterX, fallbackY);
       }
     };
 
@@ -483,8 +486,7 @@ function applyDirectionalHorizonLinePreview(items = [], bounds) {
         props.dragPreviewOffset,
         {
           previewId: `${item?.id}:label`,
-          bounds: item?.lineBounds ?? safeBounds,
-          resolveLabelCenterYFromSegment: previewOptions.resolveLabelCenterYFromSegment
+          bounds: item?.lineBounds ?? safeBounds
         }
       );
     }
@@ -511,12 +513,20 @@ function emitDragStartPayload(entityType, item, event, options = {}) {
     centerX: Number.isFinite(Number(options.centerX)) ? Number(options.centerX) : item.boxX + (item.boxWidth / 2),
     centerY: Number.isFinite(Number(options.centerY)) ? Number(options.centerY) : item.boxY + (item.boxHeight / 2),
     xField: options.xField ?? item.xField,
+    offsetField: typeof options.offsetField === 'string' ? options.offsetField : null,
+    startOffsetPx: Number.isFinite(Number(options.startOffsetPx)) ? Number(options.startOffsetPx) : null,
     yField: options.yField ?? item.yField,
     tvdField: options.tvdField ?? item.tvdField ?? null,
     clearYField: options.clearYField ?? null,
+    clearLegacyField: typeof options.clearLegacyField === 'string' ? options.clearLegacyField : null,
+    anchorX: Number.isFinite(Number(options.anchorX)) ? Number(options.anchorX) : null,
     boxX: Number.isFinite(Number(options.boxX)) ? Number(options.boxX) : null,
     boxWidth: Number.isFinite(Number(options.boxWidth)) ? Number(options.boxWidth) : null,
     textAnchor: typeof options.textAnchor === 'string' ? options.textAnchor : null,
+    x1: Number.isFinite(Number(options.x1)) ? Number(options.x1) : null,
+    y1: Number.isFinite(Number(options.y1)) ? Number(options.y1) : null,
+    x2: Number.isFinite(Number(options.x2)) ? Number(options.x2) : null,
+    y2: Number.isFinite(Number(options.y2)) ? Number(options.y2) : null,
     entries: options.entries ?? null,
     bounds: bounds
       ? {
@@ -2206,8 +2216,10 @@ const annotationBandOverlays = computed(() => {
 
   return boxes.map((box, boxIndex) => {
     if (box?.show === false) return null;
-    const topDepth = toFiniteNumber(box?.topDepth, null);
-    const bottomDepth = toFiniteNumber(box?.bottomDepth, null);
+    const intervalDepthMeta = resolveDirectionalIntervalDepthMeta(box, props.trajectoryPoints);
+    const activeMode = intervalDepthMeta.mode;
+    const topDepth = toFiniteNumber(intervalDepthMeta.topMd, null);
+    const bottomDepth = toFiniteNumber(intervalDepthMeta.bottomMd, null);
     if (!Number.isFinite(topDepth) || !Number.isFinite(bottomDepth) || bottomDepth <= topDepth) return null;
 
     const verticalBounds = resolveAnnotationBandVerticalBounds(
@@ -2222,41 +2234,95 @@ const annotationBandOverlays = computed(() => {
     const manualXRatio = resolveDirectionalLabelXRatio(box?.directionalLabelXPos ?? box?.labelXPos);
     const manualLabelDepth = toFiniteNumber(box?.directionalManualLabelDepth, null);
     const manualLabelTvd = toFiniteNumber(box?.directionalManualLabelTvd, null);
-    const sideSign = Number.isFinite(manualXRatio) && manualXRatio >= 0 ? 1 : -1;
+    const defaultSideSign = Number.isFinite(manualXRatio) && manualXRatio >= 0 ? 1 : -1;
+    const midpointFrame = resolveScreenFrameAtMD(verticalBounds.midMD, frameContext.value);
+    if (!midpointFrame?.center) return null;
+    const centerlineX = Number(midpointFrame.center[0]);
+    if (!Number.isFinite(centerlineX)) return null;
 
-    const wallPoint = project.value(verticalBounds.midMD, sideSign * wallOffset);
-    if (!isFinitePoint(wallPoint)) return null;
+    function resolveSideBandMetrics(sideSign) {
+      const wallPoint = project.value(verticalBounds.midMD, sideSign * wallOffset);
+      if (!isFinitePoint(wallPoint)) return null;
 
-    const clampedWallX = clamp(
-      wallPoint[0],
-      bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
-      bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
-    );
-    const bandStartXRaw = sideSign > 0
-      ? clampedWallX + boxStandoffPx
-      : clampedWallX - boxStandoffPx;
-    const bandStartX = clamp(
-      bandStartXRaw,
-      bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
-      bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
-    );
-    const availableBandWidth = sideSign > 0
-      ? (bounds.right - ANNOTATION_SIDE_PADDING_PX - bandStartX)
-      : (bandStartX - (bounds.left + ANNOTATION_SIDE_PADDING_PX));
-    if (!Number.isFinite(availableBandWidth) || availableBandWidth <= ANNOTATION_MIN_WIDTH_PX) return null;
+      const clampedWallX = clamp(
+        wallPoint[0],
+        bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
+        bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
+      );
+      const bandStartXRaw = sideSign > 0
+        ? clampedWallX + boxStandoffPx
+        : clampedWallX - boxStandoffPx;
+      const bandStartX = clamp(
+        bandStartXRaw,
+        bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
+        bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
+      );
+      const availableBandWidth = sideSign > 0
+        ? (bounds.right - ANNOTATION_SIDE_PADDING_PX - bandStartX)
+        : (bandStartX - (bounds.left + ANNOTATION_SIDE_PADDING_PX));
+      if (!Number.isFinite(availableBandWidth) || availableBandWidth <= ANNOTATION_MIN_WIDTH_PX) return null;
 
-    const bandWidthScale = resolveAnnotationBandWidthScale(box?.bandWidth, 1.0);
-    const bandWidth = clamp(
-      availableBandWidth * bandWidthScale,
-      ANNOTATION_MIN_WIDTH_PX,
-      availableBandWidth
-    );
-    const bandXRaw = sideSign > 0 ? bandStartX : bandStartX - bandWidth;
-    const bandX = clamp(
-      bandXRaw,
-      bounds.left + ANNOTATION_SIDE_PADDING_PX,
-      bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
-    );
+      const bandWidthScale = resolveAnnotationBandWidthScale(box?.bandWidth, 1.0);
+      const bandWidth = clamp(
+        availableBandWidth * bandWidthScale,
+        ANNOTATION_MIN_WIDTH_PX,
+        availableBandWidth
+      );
+      const autoBandXRaw = sideSign > 0 ? bandStartX : bandStartX - bandWidth;
+      const autoBandX = clamp(
+        autoBandXRaw,
+        bounds.left + ANNOTATION_SIDE_PADDING_PX,
+        bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
+      );
+
+      return {
+        sideSign,
+        availableBandWidth,
+        bandWidth,
+        minBandX: bounds.left + ANNOTATION_SIDE_PADDING_PX,
+        maxBandX: bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth,
+        baseBandX: autoBandX,
+        autoBandCenterX: autoBandX + (bandWidth / 2)
+      };
+    }
+
+    const leftSideMetrics = resolveSideBandMetrics(-1);
+    const rightSideMetrics = resolveSideBandMetrics(1);
+    function resolveAutoSideMetrics() {
+      if (!leftSideMetrics && !rightSideMetrics) return null;
+      if (!leftSideMetrics) return rightSideMetrics;
+      if (!rightSideMetrics) return leftSideMetrics;
+      return rightSideMetrics.availableBandWidth >= leftSideMetrics.availableBandWidth
+        ? rightSideMetrics
+        : leftSideMetrics;
+    }
+
+    const defaultSideMetrics = defaultSideSign > 0
+      ? (rightSideMetrics ?? leftSideMetrics)
+      : (leftSideMetrics ?? rightSideMetrics);
+    if (!defaultSideMetrics) return null;
+
+    const legacyManualCenterX = Number.isFinite(manualXRatio)
+      ? clamp(
+        resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds),
+        defaultSideMetrics.minBandX + (defaultSideMetrics.bandWidth / 2),
+        defaultSideMetrics.maxBandX + (defaultSideMetrics.bandWidth / 2)
+      )
+      : defaultSideMetrics.autoBandCenterX;
+    const legacyCenterlineOffsetPx = legacyManualCenterX - centerlineX;
+    const storedCenterlineOffsetPx = toFiniteNumber(box?.directionalCenterlineOffsetPx, null);
+    const autoSideMetrics = resolveAutoSideMetrics();
+    const centerlineOffsetPx = Number.isFinite(storedCenterlineOffsetPx)
+      ? storedCenterlineOffsetPx
+      : (Number.isFinite(manualXRatio)
+        ? legacyCenterlineOffsetPx
+        : (autoSideMetrics ? autoSideMetrics.autoBandCenterX - centerlineX : legacyCenterlineOffsetPx));
+    const sideSign = centerlineOffsetPx >= 0 ? 1 : -1;
+    const sideMetrics = sideSign > 0
+      ? (rightSideMetrics ?? leftSideMetrics)
+      : (leftSideMetrics ?? rightSideMetrics);
+    if (!sideMetrics) return null;
+
     const lines = resolveAnnotationLines(box);
     const fontSizeRaw = toFiniteNumber(box?.fontSize, null);
     const baseFontSize = clamp(Number.isFinite(fontSizeRaw) ? fontSizeRaw : 12, 9, 20);
@@ -2281,24 +2347,28 @@ const annotationBandOverlays = computed(() => {
     const textColor = box?.fontColor || fillColor;
     const boxOpacity = clamp(toFiniteNumber(box?.opacity, 0.35), 0.05, 1.0);
 
-    const hasDirectManualPosition = Number.isFinite(manualXRatio)
-      && (Number.isFinite(manualLabelDepth) || Number.isFinite(manualLabelTvd));
-    let resolvedBandX = bandX;
+    const desiredBandCenterX = centerlineX + centerlineOffsetPx;
+    const minBandCenterX = sideMetrics.minBandX + (sideMetrics.bandWidth / 2);
+    const maxBandCenterX = sideMetrics.maxBandX + (sideMetrics.bandWidth / 2);
+    const baseBandCenterX = sideMetrics.baseBandX + (sideMetrics.bandWidth / 2);
+    const resolvedBandCenterX = sideSign > 0
+      ? clamp(desiredBandCenterX, baseBandCenterX, maxBandCenterX)
+      : clamp(desiredBandCenterX, minBandCenterX, baseBandCenterX);
+
+    const hasManualVerticalPosition = activeMode === 'md'
+      ? Number.isFinite(manualLabelDepth)
+      : Number.isFinite(manualLabelTvd);
+    let resolvedBandX = resolvedBandCenterX - (sideMetrics.bandWidth / 2);
     let resolvedBandY = bandY;
-    let textAnchor;
-    let textX;
-    if (hasDirectManualPosition) {
-      resolvedBandX = clamp(
-        resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds) - (bandWidth / 2),
-        bounds.left + ANNOTATION_SIDE_PADDING_PX,
-        bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
-      );
-      const manualFrame = Number.isFinite(manualLabelDepth)
+    const textAnchor = 'middle';
+    const textX = resolvedBandX + (sideMetrics.bandWidth / 2);
+    if (hasManualVerticalPosition) {
+      const manualFrame = activeMode === 'md' && Number.isFinite(manualLabelDepth)
         ? resolveScreenFrameAtMD(clamp(manualLabelDepth, 0, totalMd), frameContext.value)
         : null;
       resolvedBandY = clamp(
         resolveDirectionalManualLabelScreenY(
-          manualLabelTvd,
+          activeMode === 'tvd' ? manualLabelTvd : null,
           props.yScale,
           bounds,
           manualFrame?.center?.[1] ?? bandCenterY
@@ -2306,18 +2376,6 @@ const annotationBandOverlays = computed(() => {
         bounds.top,
         bounds.bottom - bandHeight
       );
-      textAnchor = 'middle';
-      textX = resolvedBandX + (bandWidth / 2);
-    } else {
-      const manualXPixel = Number.isFinite(manualXRatio)
-        ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds)
-        : null;
-      textAnchor = Number.isFinite(manualXRatio)
-        ? getHorizontalAnchor(manualXRatio, 1, sideSign > 0 ? 'start' : 'end')
-        : (sideSign > 0 ? 'start' : 'end');
-      textX = Number.isFinite(manualXPixel)
-        ? clamp(manualXPixel, resolvedBandX + 10, resolvedBandX + bandWidth - 10)
-        : (sideSign > 0 ? resolvedBandX + 10 : resolvedBandX + bandWidth - 10);
     }
     const textBlockHeight = (lines.length - 1) * lineHeight;
     const startY = clamp(
@@ -2339,22 +2397,29 @@ const annotationBandOverlays = computed(() => {
       rowId: String(box?.rowId ?? '').trim() || null,
       topDepth,
       bottomDepth,
-      manualLabelDepth,
-      xField: 'directionalLabelXPos',
-      yField: 'directionalManualLabelDepth',
-      tvdField: 'directionalManualLabelTvd',
+      manualLabelDepth: activeMode === 'md' ? manualLabelDepth : manualLabelTvd,
+      activeMode,
+      resolveDepthMode: activeMode === 'md' ? 'projected-y' : 'tvd-y',
+      depthRangeMin: activeMode === 'md' ? 0 : Math.min(props.minYData, props.maxYData),
+      depthRangeMax: activeMode === 'md' ? props.totalMd : Math.max(props.minYData, props.maxYData),
+      topField: activeMode === 'md' ? 'directionalTopDepthMd' : 'directionalTopDepthTvd',
+      bottomField: activeMode === 'md' ? 'directionalBottomDepthMd' : 'directionalBottomDepthTvd',
+      xField: 'directionalCenterlineOffsetPx',
+      yField: activeMode === 'md' ? 'directionalManualLabelDepth' : 'directionalManualLabelTvd',
+      tvdField: activeMode === 'md' ? 'directionalManualLabelTvd' : null,
       boxX: resolvedBandX,
       boxY: resolvedBandY,
-      boxWidth: bandWidth,
+      boxWidth: sideMetrics.bandWidth,
       boxHeight: bandHeight,
       fillColor,
       textColor,
       boxOpacity,
       textAnchor,
-      side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
+      centerlineOffsetPx,
+      side: sideSign > 0 ? 'right' : 'left',
       fontSize,
       textLines,
-      isPositionPinned: hasDirectManualPosition || Number.isFinite(manualXRatio)
+      isPositionPinned: hasManualVerticalPosition || Number.isFinite(centerlineOffsetPx)
     };
   }).filter(Boolean);
 });
@@ -2401,49 +2466,95 @@ const horizontalLineOverlays = computed(() => {
     const depthText = `${depthMeta.primaryLabel} ${formatDepthValue(primaryDepth)} ${unitsLabel}`;
     const displayText = line?.label ? `${line.label} ${depthText}` : depthText;
     const manualXRatio = resolveDirectionalLabelXRatio(line?.directionalLabelXPos ?? line?.labelXPos);
-    const manualLabelDepth = toFiniteNumber(line?.directionalManualLabelDepth, null);
-    const displayMd = activeMode === 'md' && Number.isFinite(manualLabelDepth)
-      ? clamp(manualLabelDepth, 0, totalMd)
-      : md;
-    const displayFrame = activeMode === 'md' && Number.isFinite(manualLabelDepth)
-      ? resolveScreenFrameAtMD(displayMd, frameContext.value)
-      : frame;
-    const labelXPixelRaw = Number.isFinite(manualXRatio)
+    const manualLabelDepth = activeMode === 'md'
+      ? null
+      : toFiniteNumber(line?.directionalManualLabelDepth, null);
+    const legacyLabelXPixelRaw = Number.isFinite(manualXRatio)
       ? resolveDirectionalLabelXPixelFromRatio(manualXRatio, lineBounds)
       : (lineBounds.right - 12);
-    const labelXPixel = clamp(labelXPixelRaw, lineBounds.left + 10, lineBounds.right - 10);
-    const textAnchor = getHorizontalAnchor(
-      Number.isFinite(manualXRatio) ? manualXRatio : 1,
-      1,
-      'end'
-    );
+    const legacyLabelXPixel = clamp(legacyLabelXPixelRaw, lineBounds.left + 10, lineBounds.right - 10);
 
     const wrappedLines = wrapTextToLines(displayText, 220, fontSize);
     const lineHeight = fontSize + 6;
     const labelHeight = (wrappedLines.length * lineHeight) + 12;
     const estimatedWidth = resolveLabelWidth(wrappedLines, fontSize);
-
-    let boxX;
-    if (textAnchor === 'end') boxX = labelXPixel - estimatedWidth + 5;
-    else if (textAnchor === 'middle') boxX = labelXPixel - (estimatedWidth / 2);
-    else boxX = labelXPixel - 5;
-    boxX = clamp(boxX, lineBounds.left + 5, lineBounds.right - estimatedWidth - 5);
-    const displayLineSegment = activeMode === 'md' && displayFrame?.center && displayFrame?.normal
-      ? resolveLineSegmentInPlot(displayFrame.center, displayFrame.normal, lineBounds)
+    const placementSegment = activeMode === 'md'
+      ? {
+        x1: Number(lineSegment.startX),
+        y1: Number(lineSegment.startY),
+        x2: Number(lineSegment.endX),
+        y2: Number(lineSegment.endY)
+      }
       : null;
-    const labelCenterX = boxX + (estimatedWidth / 2);
-    const labelYPixel = activeMode === 'md'
-      ? clamp(
-        resolveLineSegmentYAtX(displayLineSegment ?? lineSegment, labelCenterX, displayFrame?.center?.[1] ?? lineY),
-        bounds.top + 10,
-        bounds.bottom - 10
+    const centerlineAnchorX = Number(frame.center[0]);
+    const centerlineAnchorY = Number(frame.center[1]);
+    const legacyLabelAnchorY = activeMode === 'md'
+      ? resolveLineSegmentYAtX(lineSegment, legacyLabelXPixel, centerlineAnchorY)
+      : null;
+    const legacyCenterlineOffsetPx = activeMode === 'md'
+      ? resolveDirectionalLineOffsetFromPoints(
+        { x: centerlineAnchorX, y: centerlineAnchorY },
+        { x: legacyLabelXPixel, y: legacyLabelAnchorY },
+        placementSegment
       )
+      : null;
+    const centerlineOffsetPx = activeMode === 'md'
+      ? (
+        toFiniteNumber(line?.directionalCenterlineOffsetPx, null) ??
+        legacyCenterlineOffsetPx ??
+        0
+      )
+      : null;
+    const textAnchor = activeMode === 'md'
+      ? 'middle'
+      : getHorizontalAnchor(
+        Number.isFinite(manualXRatio) ? manualXRatio : 1,
+        1,
+        'end'
+      );
+    const labelAnchorPoint = activeMode === 'md'
+      ? resolveDirectionalLinePointFromOffset(
+        { x: centerlineAnchorX, y: centerlineAnchorY },
+        placementSegment,
+        centerlineOffsetPx
+      )
+      : null;
+    const labelAnchorX = activeMode === 'md'
+      ? Number(labelAnchorPoint?.x)
+      : legacyLabelXPixel;
+    const labelAnchorY = activeMode === 'md'
+      ? Number(labelAnchorPoint?.y)
       : clamp(
         Number.isFinite(manualLabelDepth) ? props.yScale(manualLabelDepth) : lineY,
         bounds.top + 10,
         bounds.bottom - 10
       );
-    const boxY = clamp(labelYPixel - (labelHeight / 2), bounds.top + 5, bounds.bottom - labelHeight - 5);
+    const mdLabelPlacement = activeMode === 'md'
+      ? resolveDirectionalLineLabelPlacement({
+        segment: placementSegment,
+        anchorX: labelAnchorX,
+        anchorY: labelAnchorY,
+        boxWidth: estimatedWidth,
+        boxHeight: labelHeight,
+        textAnchor,
+        normalOffsetPx: 0
+      })
+      : null;
+    const boxX = activeMode === 'md'
+      ? Number(mdLabelPlacement?.boxX)
+      : clamp(
+        textAnchor === 'end'
+          ? legacyLabelXPixel - estimatedWidth + 5
+          : (textAnchor === 'middle' ? legacyLabelXPixel - (estimatedWidth / 2) : legacyLabelXPixel - 5),
+        lineBounds.left + 5,
+        lineBounds.right - estimatedWidth - 5
+      );
+    const boxY = activeMode === 'md'
+      ? Number(mdLabelPlacement?.boxY)
+      : clamp(labelAnchorY - (labelHeight / 2), bounds.top + 5, bounds.bottom - labelHeight - 5);
+    if ((activeMode === 'md' && (!Number.isFinite(boxX) || !Number.isFinite(boxY))) || !Number.isFinite(labelAnchorY)) {
+      return null;
+    }
 
     const textX = textAnchor === 'end'
       ? boxX + estimatedWidth - 6
@@ -2464,7 +2575,7 @@ const horizontalLineOverlays = computed(() => {
       depthValue: toFiniteNumber(line?.depth, null),
       manualLabelDepth,
       anchorX: frame.center[0],
-      xField: 'directionalLabelXPos',
+      xField: activeMode === 'md' ? null : 'directionalLabelXPos',
       yField: 'directionalManualLabelDepth',
       resolveDepthMode: activeMode === 'md' ? 'projected-y' : 'tvd-y',
       activeMode,
@@ -2480,7 +2591,15 @@ const horizontalLineOverlays = computed(() => {
       fontColor,
       fontSize,
       textAnchor,
-      side: textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center'),
+      side: activeMode === 'md'
+        ? 'center'
+        : (textAnchor === 'start' ? 'right' : (textAnchor === 'end' ? 'left' : 'center')),
+      centerlineAnchorX,
+      centerlineAnchorY,
+      centerlineOffsetPx,
+      anchorScreenX: labelAnchorX,
+      anchorScreenY: labelAnchorY,
+      normalOffsetPx: activeMode === 'md' ? 0 : null,
       boxX,
       boxY,
       boxWidth: estimatedWidth,
@@ -2894,11 +3013,12 @@ const directionalOverlayState = computed(() => {
       @click="handleBoxSelect(annotation)"
       @pointerdown.stop.prevent="emitDragStartPayload('box', annotation, $event, {
         dragKind: 'depth-shift',
+        resolveDepthMode: annotation.resolveDepthMode,
         entries: [
-          { field: 'topDepth', value: annotation.topDepth, min: 0, max: props.totalMd },
-          { field: 'bottomDepth', value: annotation.bottomDepth, min: 0, max: props.totalMd },
+          { field: annotation.topField, value: annotation.topDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax },
+          { field: annotation.bottomField, value: annotation.bottomDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax },
           ...(Number.isFinite(annotation.manualLabelDepth)
-            ? [{ field: annotation.yField, value: annotation.manualLabelDepth, min: 0, max: props.totalMd }]
+            ? [{ field: annotation.yField, value: annotation.manualLabelDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax }]
             : [])
         ]
       })"
@@ -3270,11 +3390,19 @@ const directionalOverlayState = computed(() => {
         @pointerdown.stop.prevent="emitDragStartPayload('line', line, $event, {
           previewId: `${line.id}:label`,
           dragKind: 'line-label-slide',
-          xField: line.xField,
+          xField: line.activeMode === 'md' ? null : line.xField,
+          offsetField: line.activeMode === 'md' ? 'directionalCenterlineOffsetPx' : null,
+          startOffsetPx: line.activeMode === 'md' ? line.centerlineOffsetPx : null,
           clearYField: line.yField,
-          boxX: line.boxX,
-          boxWidth: line.boxWidth,
-          textAnchor: line.textAnchor,
+          clearLegacyField: line.activeMode === 'md' ? 'directionalLabelXPos' : null,
+          anchorX: line.activeMode === 'md' ? null : line.anchorScreenX,
+          boxX: line.activeMode === 'md' ? null : line.boxX,
+          boxWidth: line.activeMode === 'md' ? null : line.boxWidth,
+          textAnchor: line.activeMode === 'md' ? null : line.textAnchor,
+          x1: line.activeMode === 'md' ? line.x1 : null,
+          y1: line.activeMode === 'md' ? line.y1 : null,
+          x2: line.activeMode === 'md' ? line.x2 : null,
+          y2: line.activeMode === 'md' ? line.y2 : null,
           centerX: line.boxX + (line.boxWidth / 2),
           centerY: line.boxY + (line.boxHeight / 2),
           bounds: line.lineBounds

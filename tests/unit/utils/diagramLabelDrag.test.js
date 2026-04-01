@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveDirectionalCenterlineOffsetPatch,
   resolveDirectionalDepthShiftPatch,
   resolveDirectionalLineLabelSlidePatch,
   resolveDirectionalLabelDragPatch,
@@ -80,6 +81,24 @@ describe('diagramLabelDrag patch mapping', () => {
 
     expect(patch?.directionalLabelXPos).toBeCloseTo(0.35, 6);
     expect(patch?.directionalManualLabelDepth).toBeNull();
+  });
+
+  it('maps directional md horizon label slide to a centerline-relative tangent offset', () => {
+    const patch = resolveDirectionalCenterlineOffsetPatch({
+      previewOffset: { x: 20, y: 10 },
+      startOffsetPx: 30,
+      offsetField: 'directionalCenterlineOffsetPx',
+      clearYField: 'directionalManualLabelDepth',
+      clearLegacyField: 'directionalLabelXPos',
+      x1: 0,
+      y1: 200,
+      x2: 100,
+      y2: 240
+    });
+
+    expect(patch?.directionalCenterlineOffsetPx).toBeCloseTo(52.283, 3);
+    expect(patch?.directionalManualLabelDepth).toBeNull();
+    expect(patch?.directionalLabelXPos).toBeNull();
   });
 
   it('shifts whole vertical entities by depth delta instead of relabeling them independently', () => {

@@ -86,17 +86,22 @@ describe('useImporter label position columns', () => {
         'Line Style',
         'Label X',
         'Label Depth',
-        'Directional Label X',
+        'Directional Centerline Offset',
         'Directional Label Depth',
         'Show'
       ],
-      [2500, 'MD', 2500, 2400, 'Landing', 'steelblue', 'steelblue', 11, 'Solid', 0.6, 2550, 0.25, 2525, true]
+      [2500, 'MD', 2500, 2400, 'Landing', 'steelblue', 'steelblue', 11, 'Solid', 0.6, 2550, 32, 2525, true]
     ]);
 
     appendSheet(workbook, 'Callouts', [
       [
         'Top',
         'Bottom',
+        'Directional Depth Mode',
+        'Directional Top MD',
+        'Directional Top TVD',
+        'Directional Bottom MD',
+        'Directional Bottom TVD',
         'Label',
         'Detail',
         'Color',
@@ -104,7 +109,7 @@ describe('useImporter label position columns', () => {
         'Font Size',
         'Label X',
         'Label Depth',
-        'Directional Label X',
+        'Directional Centerline Offset',
         'Directional Label Depth',
         'Directional Label TVD',
         'Band Width',
@@ -112,7 +117,7 @@ describe('useImporter label position columns', () => {
         'Show Details',
         'Show'
       ],
-      [1000, 1800, 'Zone', 'Notes', 'lightsteelblue', 'steelblue', 12, -0.4, 1450, -0.2, 1500, 1400, 1.0, 0.35, true, true]
+      [1000, 1800, 'tvd', 1100, 1000, 1900, 1800, 'Zone', 'Notes', 'lightsteelblue', 'steelblue', 12, -0.4, 1450, -80, 1500, 1400, 1.0, 0.35, true, true]
     ]);
 
     const fileBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
@@ -140,14 +145,19 @@ describe('useImporter label position columns', () => {
       directionalDepthTvd: 2400,
       labelXPos: 0.6,
       manualLabelDepth: 2550,
-      directionalLabelXPos: 0.25,
+      directionalCenterlineOffsetPx: 32,
       directionalManualLabelDepth: 2525
     });
 
     expect(parsed.annotationBoxes[0]).toMatchObject({
+      directionalDepthMode: 'tvd',
+      directionalTopDepthMd: 1100,
+      directionalTopDepthTvd: 1000,
+      directionalBottomDepthMd: 1900,
+      directionalBottomDepthTvd: 1800,
       labelXPos: -0.4,
       manualLabelDepth: 1450,
-      directionalLabelXPos: -0.2,
+      directionalCenterlineOffsetPx: -80,
       directionalManualLabelDepth: 1500,
       directionalManualLabelTvd: 1400
     });

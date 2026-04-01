@@ -148,7 +148,7 @@ describe('visualInspectorSchema equipment extension merge', () => {
     expect(lineFields).toEqual(expect.arrayContaining([
       'labelXPos',
       'manualLabelDepth',
-      'directionalLabelXPos',
+      'directionalCenterlineOffsetPx',
       'directionalManualLabelDepth'
     ]));
 
@@ -182,7 +182,7 @@ describe('visualInspectorSchema equipment extension merge', () => {
     expect(boxFields).toEqual(expect.arrayContaining([
       'labelXPos',
       'manualLabelDepth',
-      'directionalLabelXPos',
+      'directionalCenterlineOffsetPx',
       'directionalManualLabelDepth',
       'directionalManualLabelTvd'
     ]));

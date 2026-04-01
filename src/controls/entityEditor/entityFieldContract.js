@@ -127,6 +127,10 @@ const FIELD_LABEL_OVERRIDES = Object.freeze({
   directionalDepthMd: 'Directional Depth MD',
   directionalDepthTvd: 'Directional Depth TVD',
   directionalDepthMode: 'Directional Depth Mode',
+  directionalTopDepthMd: 'Directional Top Depth MD',
+  directionalTopDepthTvd: 'Directional Top Depth TVD',
+  directionalBottomDepthMd: 'Directional Bottom Depth MD',
+  directionalBottomDepthTvd: 'Directional Bottom Depth TVD',
   manualOD: 'Manual OD',
   manualWidth: 'Manual Width',
   md: 'MD (Depth)',
@@ -483,6 +487,13 @@ const DOMAIN_FIELD_CONTRACTS = Object.freeze({
   boxes: Object.freeze([
     createDepthFieldContract('topDepth'),
     createDepthFieldContract('bottomDepth'),
+    createFieldContract('directionalDepthMode', ENTITY_EDITOR_CONTROL_TYPES.select, {
+      options: () => ['tvd', 'md']
+    }),
+    createDepthFieldContract('directionalTopDepthMd'),
+    createDepthFieldContract('directionalTopDepthTvd'),
+    createDepthFieldContract('directionalBottomDepthMd'),
+    createDepthFieldContract('directionalBottomDepthTvd'),
     createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
     createFieldContract('detail', ENTITY_EDITOR_CONTROL_TYPES.text),
     createFieldContract('bandWidth', ENTITY_EDITOR_CONTROL_TYPES.number),

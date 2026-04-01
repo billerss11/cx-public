@@ -23,6 +23,7 @@ import {
 import { resolveEquipmentHostConfig } from '@/topology/equipmentDefinitions/index.js';
 import { resolveTrajectoryPointsFromRows } from '@/app/trajectoryMathCore.mjs';
 import { syncDirectionalReferenceHorizons } from '@/utils/referenceHorizons.js';
+import { syncDirectionalIntervals, syncDirectionalIntervalRow } from '@/utils/referenceIntervals.js';
 
 export const PROJECT_DATA_KEYS = new Set([
     'casingData',
@@ -428,6 +429,12 @@ function syncHorizontalLineRows(rows, trajectoryRows = [], casingRows = [], opti
     return syncDirectionalReferenceHorizons(rows, trajectoryPoints, options);
 }
 
+function syncAnnotationBoxRows(rows, trajectoryRows = [], casingRows = [], options = {}) {
+    if (!Array.isArray(rows)) return rows;
+    const trajectoryPoints = buildReferenceHorizonTrajectoryPoints(trajectoryRows, casingRows);
+    return syncDirectionalIntervals(rows, trajectoryPoints, options);
+}
+
 function normalizeBoundaryReason(reason = {}) {
     const type = String(reason?.type ?? '').trim() || 'depth';
     const action = String(reason?.action ?? '').trim() || 'transition';
@@ -489,6 +496,12 @@ export const useProjectDataStore = defineStore('projectData', () => {
                 key === 'trajectory' ? rows : state.trajectory,
                 casingRows
             );
+        } else if (key === 'annotationBoxes') {
+            normalizedRows = syncAnnotationBoxRows(
+                normalizedRows,
+                key === 'trajectory' ? rows : state.trajectory,
+                casingRows
+            );
         }
         state[key] = normalizedRows;
 
@@ -513,6 +526,12 @@ export const useProjectDataStore = defineStore('projectData', () => {
                 normalizedRows,
                 { resyncFromMd: true }
             );
+            state.annotationBoxes = syncAnnotationBoxRows(
+                state.annotationBoxes,
+                state.trajectory,
+                normalizedRows,
+                { resyncFromMd: true }
+            );
         } else if (key === 'tubingData') {
             state.markers = normalizeArrayProjectRows(
                 'markers',
@@ -529,6 +548,12 @@ export const useProjectDataStore = defineStore('projectData', () => {
         } else if (key === 'trajectory') {
             state.horizontalLines = syncHorizontalLineRows(
                 state.horizontalLines,
+                normalizedRows,
+                Array.isArray(state.casingData) ? state.casingData : [],
+                { resyncFromMd: true }
+            );
+            state.annotationBoxes = syncAnnotationBoxRows(
+                state.annotationBoxes,
                 normalizedRows,
                 Array.isArray(state.casingData) ? state.casingData : [],
                 { resyncFromMd: true }
@@ -658,6 +683,18 @@ export const useProjectDataStore = defineStore('projectData', () => {
                 state.casingData,
                 { sourceFieldByRowId }
             );
+        } else if (key === 'annotationBoxes' && targetRowId) {
+            const trajectoryPoints = buildReferenceHorizonTrajectoryPoints(state.trajectory, state.casingData);
+            const patchedRow = Object.entries(patch).reduce((currentRow, [field, value]) => {
+                const nextField = String(field ?? '').trim();
+                return syncDirectionalIntervalRow(currentRow, trajectoryPoints, {
+                    sourceField: nextField,
+                    sourceValue: value
+                });
+            }, nextRows[index]);
+            nextRows = nextRows.map((row, rowIndex) => (
+                rowIndex === index ? patchedRow : row
+            ));
         }
         return setArrayProjectData(key, nextRows);
     }

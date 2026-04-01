@@ -60,6 +60,7 @@ import { useDiagramLabelDrag } from '@/composables/useDiagramLabelDrag.js';
 import { useEntityEditorActions } from '@/composables/useEntityEditorActions.js';
 import {
   resolveDirectionalDepthShiftPatch,
+  resolveDirectionalCenterlineOffsetPatch,
   resolveDirectionalLabelDragPatch,
   resolveDirectionalLineLabelSlidePatch
 } from '@/utils/diagramLabelDrag.js';
@@ -896,6 +897,19 @@ function buildDirectionalLabelPatch(payload, previewOffset = {}) {
     });
   }
   if (payload.dragKind === 'line-label-slide') {
+    if (payload.offsetField) {
+      return resolveDirectionalCenterlineOffsetPatch({
+        previewOffset,
+        startOffsetPx: payload.startOffsetPx,
+        offsetField: payload.offsetField,
+        clearYField: payload.clearYField,
+        clearLegacyField: payload.clearLegacyField,
+        x1: payload.x1,
+        y1: payload.y1,
+        x2: payload.x2,
+        y2: payload.y2
+      });
+    }
     return resolveDirectionalLineLabelSlidePatch({
       pointer: {
         x: Number(payload.centerX) + Number(previewOffset?.x ?? 0)
@@ -903,6 +917,7 @@ function buildDirectionalLabelPatch(payload, previewOffset = {}) {
       bounds: payload.bounds,
       xField: payload.xField,
       clearYField: payload.clearYField,
+      anchorX: Number(payload.anchorX) + Number(previewOffset?.x ?? 0),
       boxX: Number(payload.boxX) + Number(previewOffset?.x ?? 0),
       boxWidth: Number(payload.boxWidth),
       textAnchor: payload.textAnchor

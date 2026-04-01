@@ -65,6 +65,14 @@ function createWrapper(directionalDepthMode = 'tvd', options = {}) {
   });
 }
 
+function resolvePointToLineDistance({ x1, y1, x2, y2, x, y }) {
+  const dx = Number(x2) - Number(x1);
+  const dy = Number(y2) - Number(y1);
+  const length = Math.hypot(dx, dy);
+  if (!Number.isFinite(length) || length <= 1e-6) return null;
+  return Math.abs((dy * Number(x)) - (dx * Number(y)) + (Number(x2) * Number(y1)) - (Number(y2) * Number(x1))) / length;
+}
+
 describe('DirectionalOverlayLayer reference horizon mode', () => {
   it('switches directional horizon rendering source between md and tvd modes', () => {
     const mdWrapper = createWrapper('md');
@@ -149,27 +157,35 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
     expect(actualAngle).toBeCloseTo(expectedReadableAngle, 3);
   });
 
-  it('keeps the md label centered on the angled horizon line at the label position', () => {
+  it('keeps the md label centered directly on the angled horizon line', () => {
     const wrapper = createWrapper('md');
 
     const line = wrapper.get('.directional-overlay-layer__line-path');
     const labelBox = wrapper.get('.directional-overlay-layer__line-label-bg');
-    const labelText = wrapper.get('.directional-overlay-layer__line-label-text');
 
     const x1 = Number(line.attributes('x1'));
     const y1 = Number(line.attributes('y1'));
     const x2 = Number(line.attributes('x2'));
     const y2 = Number(line.attributes('y2'));
     const boxX = Number(labelBox.attributes('x'));
+    const boxY = Number(labelBox.attributes('y'));
     const boxWidth = Number(labelBox.attributes('width'));
-    const textY = Number(labelText.attributes('y'));
+    const boxHeight = Number(labelBox.attributes('height'));
     const boxCenterX = boxX + (boxWidth / 2);
-    const expectedLineYAtLabel = y1 + (((boxCenterX - x1) / (x2 - x1)) * (y2 - y1));
+    const boxCenterY = boxY + (boxHeight / 2);
+    const distance = resolvePointToLineDistance({
+      x1,
+      y1,
+      x2,
+      y2,
+      x: boxCenterX,
+      y: boxCenterY
+    });
 
-    expect(textY).toBeCloseTo(expectedLineYAtLabel, 3);
+    expect(distance).toBeCloseTo(0, 3);
   });
 
-  it('keeps md horizon labels attached to their own line center even when nearby horizons overlap', () => {
+  it('keeps md horizon labels attached to their own centered line anchor even when nearby horizons overlap', () => {
     const wrapper = createWrapper('md', {
       horizontalLines: [
         {
@@ -203,22 +219,70 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
 
     const linePaths = wrapper.findAll('.directional-overlay-layer__line-path');
     const labelBoxes = wrapper.findAll('.directional-overlay-layer__line-label-bg');
-    const labelTexts = wrapper.findAll('.directional-overlay-layer__line-label-text');
 
-    labelTexts.forEach((labelText, index) => {
+    labelBoxes.forEach((labelBox, index) => {
       const line = linePaths[index];
-      const labelBox = labelBoxes[index];
       const x1 = Number(line.attributes('x1'));
       const y1 = Number(line.attributes('y1'));
       const x2 = Number(line.attributes('x2'));
       const y2 = Number(line.attributes('y2'));
       const boxX = Number(labelBox.attributes('x'));
+      const boxY = Number(labelBox.attributes('y'));
       const boxWidth = Number(labelBox.attributes('width'));
-      const textY = Number(labelText.attributes('y'));
+      const boxHeight = Number(labelBox.attributes('height'));
       const boxCenterX = boxX + (boxWidth / 2);
-      const expectedLineYAtLabel = y1 + (((boxCenterX - x1) / (x2 - x1)) * (y2 - y1));
+      const boxCenterY = boxY + (boxHeight / 2);
+      const distance = resolvePointToLineDistance({
+        x1,
+        y1,
+        x2,
+        y2,
+        x: boxCenterX,
+        y: boxCenterY
+      });
 
-      expect(textY).toBeCloseTo(expectedLineYAtLabel, 3);
+      expect(distance).toBeCloseTo(0, 3);
+    });
+  });
+
+  it('keeps md horizon text centered instead of mirroring when crossing the well centerline', () => {
+    const wrapper = createWrapper('md', {
+      horizontalLines: [
+        {
+          rowId: 'line-1',
+          depth: 1000,
+          directionalDepthMd: 1480,
+          directionalDepthTvd: 690,
+          directionalDepthMode: 'md',
+          directionalCenterlineOffsetPx: -40,
+          label: 'Left',
+          color: 'steelblue',
+          fontColor: 'steelblue',
+          fontSize: 11,
+          lineStyle: 'Solid',
+          show: true
+        },
+        {
+          rowId: 'line-2',
+          depth: 1000,
+          directionalDepthMd: 1520,
+          directionalDepthTvd: 710,
+          directionalDepthMode: 'md',
+          directionalCenterlineOffsetPx: 40,
+          label: 'Right',
+          color: 'seagreen',
+          fontColor: 'seagreen',
+          fontSize: 11,
+          lineStyle: 'Solid',
+          show: true
+        }
+      ]
+    });
+
+    const labelTexts = wrapper.findAll('.directional-overlay-layer__line-label-text');
+
+    labelTexts.forEach((labelText) => {
+      expect(labelText.attributes('text-anchor')).toBe('middle');
     });
   });
 
@@ -253,11 +317,14 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
     expect(payload).toMatchObject({
       entityType: 'line',
       dragKind: 'line-label-slide',
-      xField: 'directionalLabelXPos',
+      offsetField: 'directionalCenterlineOffsetPx',
+      startOffsetPx: expect.any(Number),
       clearYField: 'directionalManualLabelDepth',
-      boxX: expect.any(Number),
-      boxWidth: expect.any(Number),
-      textAnchor: expect.stringMatching(/^(start|middle|end)$/)
+      clearLegacyField: 'directionalLabelXPos',
+      x1: expect.any(Number),
+      y1: expect.any(Number),
+      x2: expect.any(Number),
+      y2: expect.any(Number)
     });
   });
 

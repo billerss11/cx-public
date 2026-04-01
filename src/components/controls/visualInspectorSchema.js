@@ -65,6 +65,12 @@ function createLabelXField(field, labelKey = 'table.casing.label_x') {
   });
 }
 
+function createCenterlineOffsetField(field, labelKey = 'table.directional.centerline_offset') {
+  return createField(field, VISUAL_INSPECTOR_CONTROL_TYPES.number, labelKey, {
+    step: 1
+  });
+}
+
 function createDepthPositionField(field, labelKey, slider) {
   return createField(field, VISUAL_INSPECTOR_CONTROL_TYPES.number, labelKey, {
     step: 0.1,
@@ -201,7 +207,7 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
         }),
         createLabelXField('labelXPos', 'table.lines.label_x'),
         createDepthPositionField('manualLabelDepth', 'table.lines.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
-        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createCenterlineOffsetField('directionalCenterlineOffsetPx'),
         createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('show', VISUAL_INSPECTOR_CONTROL_TYPES.toggle, 'table.lines.show', { defaultValue: true })
     ]),
@@ -271,7 +277,7 @@ const VISUAL_INSPECTOR_SCHEMA = Object.freeze({
         }),
         createLabelXField('labelXPos', 'table.boxes.label_x'),
         createDepthPositionField('manualLabelDepth', 'table.boxes.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
-        createLabelXField('directionalLabelXPos', 'table.directional.label_x'),
+        createCenterlineOffsetField('directionalCenterlineOffsetPx'),
         createDepthPositionField('directionalManualLabelDepth', 'table.directional.label_depth', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createDepthPositionField('directionalManualLabelTvd', 'table.directional.label_tvd', ({ context }) => resolveGlobalDepthSliderRange(context, 0.1)),
         createField('opacity', VISUAL_INSPECTOR_CONTROL_TYPES.number, 'table.boxes.opacity', {

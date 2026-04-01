@@ -529,6 +529,62 @@ describe('entityFieldSchema', () => {
     expect(visualFields).not.toContain('directionalDepthTvd');
   });
 
+  it('exposes directional md/tvd range fields for interval callout data editing without leaking them into visual-only controls', () => {
+    const dataTabDefinitions = resolveEntityEditorFieldDefinitions({
+      entityType: 'box',
+      mode: 'advanced',
+      rowData: {
+        rowId: 'box-1',
+        topDepth: 500,
+        bottomDepth: 800,
+        directionalDepthMode: 'tvd',
+        directionalTopDepthMd: 550,
+        directionalTopDepthTvd: 500,
+        directionalBottomDepthMd: 860,
+        directionalBottomDepthTvd: 800,
+        label: 'Zone',
+        detail: 'notes',
+        show: true
+      }
+    });
+
+    const fieldNames = dataTabDefinitions.map((definition) => definition.field);
+    expect(fieldNames).toEqual(expect.arrayContaining([
+      'topDepth',
+      'bottomDepth',
+      'directionalDepthMode',
+      'directionalTopDepthMd',
+      'directionalTopDepthTvd',
+      'directionalBottomDepthMd',
+      'directionalBottomDepthTvd',
+      'label',
+      'detail',
+      'rowId'
+    ]));
+
+    const visualFields = getVisualInspectorFields('box', {
+      rowData: {
+        topDepth: 500,
+        bottomDepth: 800,
+        directionalDepthMode: 'tvd',
+        directionalTopDepthMd: 550,
+        directionalTopDepthTvd: 500,
+        directionalBottomDepthMd: 860,
+        directionalBottomDepthTvd: 800,
+        label: 'Zone',
+        detail: 'notes',
+        show: true
+      },
+      depthRange: { min: 0, max: 10000 }
+    }).map((definition) => definition.field);
+
+    expect(visualFields).not.toContain('directionalDepthMode');
+    expect(visualFields).not.toContain('directionalTopDepthMd');
+    expect(visualFields).not.toContain('directionalTopDepthTvd');
+    expect(visualFields).not.toContain('directionalBottomDepthMd');
+    expect(visualFields).not.toContain('directionalBottomDepthTvd');
+  });
+
   it('keeps advanced data fields separate from visual inspector fields', () => {
     const context = {
       casingRows: [

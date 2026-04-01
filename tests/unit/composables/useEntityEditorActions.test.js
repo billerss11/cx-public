@@ -69,7 +69,7 @@ describe('useEntityEditorActions', () => {
         label: 'Landing',
         labelXPos: 0.2,
         manualLabelDepth: null,
-        directionalLabelXPos: null,
+        directionalCenterlineOffsetPx: null,
         directionalManualLabelDepth: null,
         show: true
       }
@@ -82,7 +82,7 @@ describe('useEntityEditorActions', () => {
       patch: {
         labelXPos: 0.45,
         manualLabelDepth: 1125,
-        directionalLabelXPos: 0.3,
+        directionalCenterlineOffsetPx: 32,
         directionalManualLabelDepth: 1100
       }
     });
@@ -92,7 +92,7 @@ describe('useEntityEditorActions', () => {
       rowId: 'line-1',
       labelXPos: 0.45,
       manualLabelDepth: 1125,
-      directionalLabelXPos: 0.3,
+      directionalCenterlineOffsetPx: 32,
       directionalManualLabelDepth: 1100
     });
   });
