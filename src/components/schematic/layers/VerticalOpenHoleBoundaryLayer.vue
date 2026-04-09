@@ -4,7 +4,6 @@ import { isOpenHoleRow } from '@/app/domain.js';
 import { resolveOpenHoleWaveConfig } from '@/utils/openHoleWave.js';
 import { generateWavyPath } from '@/utils/wavyPath.js';
 
-const FORMATION_THICKNESS = 15;
 const BOUNDARY_HIT_TARGET_STROKE_WIDTH = 24;
 const EPSILON = 1e-6;
 
@@ -58,13 +57,6 @@ function serializePipeEntity(rowIndex) {
   const normalizedRowIndex = Number(rowIndex);
   if (!Number.isInteger(normalizedRowIndex) || normalizedRowIndex < 0) return null;
   return `casing:${normalizedRowIndex}`;
-}
-
-function buildFormationPath(boundaryX, yTop, yBottom, wavyPath, side) {
-  if (!wavyPath || !String(wavyPath).trim()) return null;
-  const pathRemainder = String(wavyPath).slice(1);
-  const sideOffset = side === 'left' ? -FORMATION_THICKNESS : FORMATION_THICKNESS;
-  return `M ${boundaryX},${yTop} ${pathRemainder} L ${boundaryX},${yBottom} L ${boundaryX + sideOffset},${yBottom} L ${boundaryX + sideOffset},${yTop} Z`;
 }
 
 const boundarySegments = computed(() => {
@@ -122,21 +114,7 @@ const boundarySegments = computed(() => {
         }
       );
 
-      const leftFormationPath = buildFormationPath(
-        leftBoundaryX,
-        yTop,
-        yBottom,
-        leftWavyPath,
-        'left'
-      );
-      const rightFormationPath = buildFormationPath(
-        rightBoundaryX,
-        yTop,
-        yBottom,
-        rightWavyPath,
-        'right'
-      );
-      if (!leftFormationPath || !rightFormationPath || !leftWavyPath || !rightWavyPath) return;
+      if (!leftWavyPath || !rightWavyPath) return;
 
       const pipeEntity = { pipeType: 'casing', rowIndex };
       const pipeKey = serializePipeEntity(rowIndex);
@@ -147,8 +125,6 @@ const boundarySegments = computed(() => {
         pipeKey,
         isSelectable: Boolean(pipeKey),
         rowIndex,
-        leftFormationPath,
-        rightFormationPath,
         leftWavyPath,
         rightWavyPath
       });
@@ -161,28 +137,11 @@ const boundarySegments = computed(() => {
 
 <template>
   <g class="vertical-open-hole-boundary-layer">
-    <defs>
-      <pattern id="vertical-open-hole-formation-dots" patternUnits="userSpaceOnUse" width="8" height="8">
-        <g>
-          <circle cx="2" cy="2" r="1.2" fill="var(--color-brown-light)" />
-          <circle cx="6" cy="6" r="1.2" fill="var(--color-brown-light)" />
-        </g>
-      </pattern>
-    </defs>
-
     <g
       v-for="segment in boundarySegments"
       :key="segment.id"
       class="vertical-open-hole-boundary-layer__segment"
     >
-      <path
-        class="vertical-open-hole-boundary-layer__formation-fill"
-        :d="segment.leftFormationPath"
-      />
-      <path
-        class="vertical-open-hole-boundary-layer__formation-fill"
-        :d="segment.rightFormationPath"
-      />
       <path
         class="vertical-open-hole-boundary-layer__wall"
         :d="segment.leftWavyPath"
@@ -216,13 +175,6 @@ const boundarySegments = computed(() => {
 </template>
 
 <style scoped>
-.vertical-open-hole-boundary-layer__formation-fill {
-  fill: url(#vertical-open-hole-formation-dots);
-  stroke: none;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
 .vertical-open-hole-boundary-layer__wall {
   stroke: var(--color-brown-accent);
   stroke-width: 2;

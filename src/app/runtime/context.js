@@ -24,9 +24,6 @@ const runtimeState = {
     get horizontalLines() {
         return projectDataStore.horizontalLines ?? [];
     },
-    get annotationBoxes() {
-        return projectDataStore.annotationBoxes ?? [];
-    },
     get userAnnotations() {
         return projectDataStore.userAnnotations ?? [];
     },

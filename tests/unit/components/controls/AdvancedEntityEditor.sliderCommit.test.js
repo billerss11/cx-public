@@ -124,7 +124,6 @@ function mountEditor() {
               tubingData: [],
               drillStringData: [],
               equipmentData: [],
-              annotationBoxes: [],
               userAnnotations: [],
               cementPlugs: [],
               annulusFluids: [],

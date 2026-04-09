@@ -5,9 +5,7 @@ const PROJECT_DATA_KEYS = Object.freeze([
     'casingData',
     'tubingData',
     'drillStringData',
-    'horizontalLines',
-    'annotationBoxes',
-    'userAnnotations',
+    'horizontalLines',    'userAnnotations',
     'cementPlugs',
     'annulusFluids',
     'markers',
@@ -114,9 +112,7 @@ export function migrateProjectPayloadToV2(payload = {}) {
             casingData: withDefaultPipeComponentType(toArray(data.casingData)),
             tubingData: withDefaultPipeComponentType(toArray(data.tubingData)),
             drillStringData: withDefaultPipeComponentType(toArray(data.drillStringData)),
-            horizontalLines: toArray(data.horizontalLines),
-            annotationBoxes: toArray(data.annotationBoxes),
-            userAnnotations: toArray(data.userAnnotations),
+            horizontalLines: toArray(data.horizontalLines),            userAnnotations: toArray(data.userAnnotations),
             cementPlugs: toArray(data.cementPlugs),
             annulusFluids: toArray(data.annulusFluids),
             markers: toArray(data.markers),
@@ -138,3 +134,4 @@ export function migrateProjectPayloadToV2(payload = {}) {
 export function ensureProjectSchemaV2(payload = {}) {
     return migrateProjectPayloadToV2(payload).project;
 }
+

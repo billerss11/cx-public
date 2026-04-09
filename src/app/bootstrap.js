@@ -57,7 +57,6 @@ export function bootstrapApplication(viewConfigStore, interactionStore) {
     initializeCementColorSelect();
     viewConfigStore.setViewMode(viewConfigStore.config.viewMode);
     viewConfigStore.setXExaggeration(viewConfigStore.config.xExaggeration);
-    viewConfigStore.setIntervalCalloutStandoffPx(viewConfigStore.config.intervalCalloutStandoffPx);
     viewConfigStore.setShowDepthCursor(viewConfigStore.config.showDepthCursor === true);
     viewConfigStore.setDepthCursorDirectionalMode(viewConfigStore.config.depthCursorDirectionalMode);
     viewConfigStore.setMagnifierZoomLevel(viewConfigStore.config.magnifierZoomLevel);

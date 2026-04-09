@@ -70,4 +70,60 @@ describe('DirectionalBandLayer render policy', () => {
     expect(fills).toContain('#00aacc');
     expect(fills).not.toContain('var(--color-cross-annulus-fill)');
   });
+
+  it('renders open-hole boundary walls without formation dot fills', () => {
+    const wrapper = mount(DirectionalBandLayer, {
+      props: {
+        intervals: [
+          {
+            top: 0,
+            bottom: 200,
+            stack: [
+              {
+                material: 'mud',
+                role: 'annulus',
+                innerRadius: 4,
+                outerRadius: 6,
+                isOpenHoleBoundary: true,
+                source: { type: 'pipe', pipeType: 'casing', index: 0, sourceIndex: 0 }
+              }
+            ]
+          }
+        ],
+        trajectoryPoints: [
+          { md: 0, x: 0, tvd: 0 },
+          { md: 200, x: 0, tvd: 200 }
+        ],
+        casingData: [
+          {
+            label: '9 5/8" Casing',
+            od: 9.625,
+            weight: 47,
+            top: 0,
+            bottom: 200,
+            manualHoleSize: 12.25
+          }
+        ],
+        xScale: createIdentityScale(),
+        yScale: createIdentityScale(),
+        visualSizing: {
+          physicalRadii: [4, 6],
+          visualRadii: [12, 18],
+          boundaryRadiiByKey: {
+            '4.000000': 12,
+            '6.000000': 18
+          },
+          pipeGeometryByKey: {}
+        },
+        diameterScale: 1,
+        xExaggeration: 1,
+        xOrigin: 0,
+        sampleStepMd: 25
+      }
+    });
+
+    expect(wrapper.find('#directional-formation-dots').exists()).toBe(false);
+    expect(wrapper.findAll('.directional-band-layer__formation-fill')).toHaveLength(0);
+    expect(wrapper.findAll('.directional-band-layer__wall').length).toBeGreaterThan(0);
+  });
 });

@@ -22,7 +22,6 @@ const CASING_HIT_TARGET_MIN_STROKE_PX = 14;
 const FLUID_HIT_TARGET_MIN_STROKE_PX = 10;
 const HIT_TARGET_MAX_STROKE_PX = 28;
 const LAYER_SPAN_MERGE_EPSILON = 1e-4;
-const OPEN_HOLE_FORMATION_THICKNESS_PX = 15;
 
 const props = defineProps({
   intervals: {
@@ -487,15 +486,8 @@ const projectedBands = computed(() => {
     .x((d) => d[0])
     .y((d) => d[1])
     .curve(d3.curveBasis);
-  const openHoleFormationBuilder = d3.area()
-    .x0((sample) => sample.formation[0])
-    .y0((sample) => sample.formation[1])
-    .x1((sample) => sample.boundary[0])
-    .y1((sample) => sample.boundary[1])
-    .curve(d3.curveBasis);
 
   const bands = [];
-  const formationFills = [];
   const walls = [];
   const hitTargets = [];
   const layerEntries = [];
@@ -562,47 +554,6 @@ const projectedBands = computed(() => {
     const openHoleWaveConfig = isOpenHoleBoundary
       ? resolveOpenHoleWaveConfigByLayerSource(layer, props.casingData)
       : null;
-    const openHoleFormationThicknessPx = Number(props.visualSizing?.formationThicknessPx) > 0
-      ? Number(props.visualSizing.formationThicknessPx)
-      : OPEN_HOLE_FORMATION_THICKNESS_PX;
-    if (isOpenHoleBoundary) {
-      const leftOpenHoleGeometry = buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
-        seed: hashStringToSeed(`open-hole:${entry.id}:left`),
-        formationThicknessPx: openHoleFormationThicknessPx
-      });
-      const rightOpenHoleGeometry = buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
-        seed: hashStringToSeed(`open-hole:${entry.id}:right`),
-        formationThicknessPx: openHoleFormationThicknessPx
-      });
-      const leftFormationPath = leftOpenHoleGeometry
-        ? openHoleFormationBuilder(
-          leftOpenHoleGeometry.boundaryPoints.map((boundary, index) => ({
-            boundary,
-            formation: leftOpenHoleGeometry.formationPoints[index]
-          }))
-        )
-        : null;
-      const rightFormationPath = rightOpenHoleGeometry
-        ? openHoleFormationBuilder(
-          rightOpenHoleGeometry.boundaryPoints.map((boundary, index) => ({
-            boundary,
-            formation: rightOpenHoleGeometry.formationPoints[index]
-          }))
-        )
-        : null;
-      if (leftFormationPath) {
-        formationFills.push({
-          id: `formation-${entry.id}-left`,
-          d: leftFormationPath
-        });
-      }
-      if (rightFormationPath) {
-        formationFills.push({
-          id: `formation-${entry.id}-right`,
-          d: rightFormationPath
-        });
-      }
-    }
 
     if (style.fill !== 'none' && style.opacity > 0) {
       const spansCenter = Math.abs(innerScaled) <= DIRECTIONAL_EPSILON;
@@ -696,14 +647,12 @@ const projectedBands = computed(() => {
       const rightOuter = rightBandSamples.map((sample) => sample.outer).filter((point) => isFinitePoint(point));
       const leftOpenHoleGeometry = isOpenHoleBoundary
         ? buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
-          seed: hashStringToSeed(`open-hole:${entry.id}:left`),
-          formationThicknessPx: openHoleFormationThicknessPx
+          seed: hashStringToSeed(`open-hole:${entry.id}:left`)
         })
         : null;
       const rightOpenHoleGeometry = isOpenHoleBoundary
         ? buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
-          seed: hashStringToSeed(`open-hole:${entry.id}:right`),
-          formationThicknessPx: openHoleFormationThicknessPx
+          seed: hashStringToSeed(`open-hole:${entry.id}:right`)
         })
         : null;
       const leftPath = isOpenHoleBoundary
@@ -763,14 +712,12 @@ const projectedBands = computed(() => {
     const rightOuter = rightBandSamples.map((sample) => sample.outer);
     const leftOpenHoleGeometry = isOpenHoleBoundary
       ? buildDirectionalOpenHoleSideGeometry(leftBandSamples, openHoleWaveConfig, {
-        seed: hashStringToSeed(`open-hole:${entry.id}:left`),
-        formationThicknessPx: openHoleFormationThicknessPx
+        seed: hashStringToSeed(`open-hole:${entry.id}:left`)
       })
       : null;
     const rightOpenHoleGeometry = isOpenHoleBoundary
       ? buildDirectionalOpenHoleSideGeometry(rightBandSamples, openHoleWaveConfig, {
-        seed: hashStringToSeed(`open-hole:${entry.id}:right`),
-        formationThicknessPx: openHoleFormationThicknessPx
+        seed: hashStringToSeed(`open-hole:${entry.id}:right`)
       })
       : null;
     const leftOuterPath = isOpenHoleBoundary
@@ -839,7 +786,6 @@ const projectedBands = computed(() => {
 
   return {
     bands,
-    formationFills,
     walls,
     hitTargets: prioritizedHitTargets,
     hatchPatterns: Array.from(styleContext.hatchPatternMap.values())
@@ -858,22 +804,7 @@ const hatchPatterns = computed(() => {
 
 <template>
   <g class="directional-band-layer">
-    <defs>
-      <pattern id="directional-formation-dots" patternUnits="userSpaceOnUse" width="8" height="8">
-        <g>
-          <circle cx="2" cy="2" r="1.2" fill="var(--color-brown-light)" />
-          <circle cx="6" cy="6" r="1.2" fill="var(--color-brown-light)" />
-        </g>
-      </pattern>
-    </defs>
     <PatternDefs :patterns="hatchPatterns" />
-
-    <path
-      v-for="formationFill in projectedBands.formationFills"
-      :key="formationFill.id"
-      class="directional-band-layer__formation-fill"
-      :d="formationFill.d"
-    />
 
     <path
       v-for="band in projectedBands.bands"
@@ -926,13 +857,6 @@ const hatchPatterns = computed(() => {
 
 <style scoped>
 .directional-band-layer__wall {
-  pointer-events: none;
-}
-
-.directional-band-layer__formation-fill {
-  fill: url(#directional-formation-dots);
-  stroke: none;
-  opacity: 0.6;
   pointer-events: none;
 }
 

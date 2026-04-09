@@ -2,7 +2,6 @@ const SCHEMATIC_INTERACTIVE_TARGETS = [
   '[data-pipe-key]',
   '[data-casing-index]',
   '[data-line-index]',
-  '[data-box-index]',
   '[data-marker-index]',
   '[data-plug-index]',
   '[data-fluid-index]',
@@ -12,7 +11,6 @@ const SCHEMATIC_INTERACTIVE_TARGETS = [
 
 const NON_PIPE_ENTITY_TYPES = new Set([
   'line',
-  'box',
   'marker',
   'plug',
   'fluid',
@@ -45,7 +43,6 @@ const INTERACTION_ATTRIBUTE_MAP = Object.freeze([
   { attr: 'data-pipe-key', type: 'pipe' },
   { attr: 'data-casing-index', type: 'casing' },
   { attr: 'data-line-index', type: 'line' },
-  { attr: 'data-box-index', type: 'box' },
   { attr: 'data-marker-index', type: 'marker' },
   { attr: 'data-plug-index', type: 'plug' },
   { attr: 'data-fluid-index', type: 'fluid' },

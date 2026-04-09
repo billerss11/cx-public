@@ -15,7 +15,6 @@ import FluidsTablePane from './panes/FluidsTablePane.vue';
 import MarkersTablePane from './panes/MarkersTablePane.vue';
 import TopologyBreakoutsTablePane from './panes/TopologyBreakoutsTablePane.vue';
 import SurfaceEquipmentTablePane from './panes/SurfaceEquipmentTablePane.vue';
-import BoxesTablePane from './panes/BoxesTablePane.vue';
 import TrajectoryTablePane from './panes/TrajectoryTablePane.vue';
 import IntervalsTablePane from './panes/IntervalsTablePane.vue';
 import { activeTableTabKey, setActiveTableTabKey } from './panes/tablePaneState.js';
@@ -134,9 +133,6 @@ onBeforeUnmount(() => {
           <Tab value="topologyBreakouts">
             <span id="topology-breakouts-tab" data-i18n="ui.tabs.topology_breakouts">Crossflow Paths</span>
           </Tab>
-          <Tab value="boxes">
-            <span id="boxes-tab" data-i18n="ui.tabs.boxes">Boxes</span>
-          </Tab>
           <Tab v-if="isDirectionalView" value="trajectory">
             <span id="trajectory-tab" data-i18n="ui.tabs.trajectory">Well Trajectory</span>
           </Tab>
@@ -174,9 +170,6 @@ onBeforeUnmount(() => {
           </TabPanel>
           <TabPanel value="topologyBreakouts">
             <TopologyBreakoutsTablePane />
-          </TabPanel>
-          <TabPanel value="boxes">
-            <BoxesTablePane />
           </TabPanel>
           <TabPanel v-if="isDirectionalView" value="trajectory">
             <TrajectoryTablePane />

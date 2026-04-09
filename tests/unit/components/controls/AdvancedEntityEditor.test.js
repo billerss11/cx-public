@@ -107,7 +107,6 @@ describe('AdvancedEntityEditor', () => {
                 tubingData: [],
                 drillStringData: [],
                 equipmentData: [],
-                annotationBoxes: [],
                 userAnnotations: [],
                 cementPlugs: [],
                 annulusFluids: [],

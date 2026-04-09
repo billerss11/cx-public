@@ -31,7 +31,6 @@ function createStateSnapshot() {
     annulusFluids: [],
     cementPlugs: [],
     horizontalLines: [],
-    annotationBoxes: [],
     config: {}
   };
 }

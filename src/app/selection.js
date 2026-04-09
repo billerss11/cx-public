@@ -50,9 +50,6 @@ const state = {
     get horizontalLines() {
         return projectDataStore.horizontalLines ?? [];
     },
-    get annotationBoxes() {
-        return projectDataStore.annotationBoxes ?? [];
-    },
     get cementPlugs() {
         return projectDataStore.cementPlugs ?? [];
     },
@@ -77,10 +74,6 @@ const NON_PIPE_CONFIG = Object.freeze({
     line: {
         dataAttr: 'data-line-index',
         getTotal: () => state.horizontalLines.length
-    },
-    box: {
-        dataAttr: 'data-box-index',
-        getTotal: () => state.annotationBoxes.length
     },
     marker: {
         dataAttr: 'data-marker-index',
@@ -503,10 +496,6 @@ export function clearDrillStringSelection(options = {}) {
 
 export function clearLineSelection(options = {}) {
     clearSelection('line', options);
-}
-
-export function clearBoxSelection(options = {}) {
-    clearSelection('box', options);
 }
 
 export function clearMarkerSelection(options = {}) {

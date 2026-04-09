@@ -248,7 +248,6 @@ export const useProjectStore = defineStore('project', () => {
             'xExaggeration',
             normalizeXExaggeration(viewConfigStore.config.xExaggeration, DEFAULT_X_EXAGGERATION)
         );
-        viewConfigStore.setIntervalCalloutStandoffPx(viewConfigStore.config.intervalCalloutStandoffPx);
         viewConfigStore.setConfigValue('lockAspectRatio', viewConfigStore.config.lockAspectRatio !== false);
         viewConfigStore.setShowDepthCursor(viewConfigStore.config.showDepthCursor === true);
         viewConfigStore.setOperationPhase(viewConfigStore.config.operationPhase);

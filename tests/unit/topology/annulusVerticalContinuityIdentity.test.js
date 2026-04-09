@@ -43,7 +43,6 @@ function createBoundaryState() {
     drillStringData: [],
     equipmentData: [],
     horizontalLines: [],
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

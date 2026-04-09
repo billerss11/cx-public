@@ -22,7 +22,6 @@ const projectStoreMock = {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],

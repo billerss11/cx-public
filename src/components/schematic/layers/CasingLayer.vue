@@ -13,7 +13,6 @@ import { applyPreviewToArrowedBoxLabel } from '@/utils/diagramLabelPreview.js';
 
 const DEFAULT_DEPTH_LABEL_FONT_SIZE = 9;
 const DEFAULT_DEPTH_LABEL_OFFSET = 35;
-const FORMATION_THICKNESS = 15;
 
 const props = defineProps({
   casingData: {
@@ -452,14 +451,6 @@ const casingSegments = computed(() => {
 
 <template>
   <g class="casing-layer">
-    <defs>
-      <pattern id="formation-dots" patternUnits="userSpaceOnUse" width="8" height="8">
-        <g>
-          <circle cx="2" cy="2" r="1.2" fill="var(--color-brown-light)" />
-          <circle cx="6" cy="6" r="1.2" fill="var(--color-brown-light)" />
-        </g>
-      </pattern>
-    </defs>
     <g
       v-for="segment in casingSegments"
       :key="segment.id"
@@ -494,14 +485,6 @@ const casingSegments = computed(() => {
 
       <!-- Open Hole Formation -->
       <g v-if="segment.isOpenHole">
-        <path
-          class="casing-layer__formation-fill"
-          :d="`M ${segment.outerLeft},${segment.yTop} ${segment.leftWavyPath.substring(1)} L ${segment.outerLeft},${segment.yBottom} L ${segment.outerLeft - FORMATION_THICKNESS},${segment.yBottom} L ${segment.outerLeft - FORMATION_THICKNESS},${segment.yTop} Z`"
-        />
-        <path
-          class="casing-layer__formation-fill"
-          :d="`M ${segment.outerRight},${segment.yTop} ${segment.rightWavyPath.substring(1)} L ${segment.outerRight},${segment.yBottom} L ${segment.outerRight + FORMATION_THICKNESS},${segment.yBottom} L ${segment.outerRight + FORMATION_THICKNESS},${segment.yTop} Z`"
-        />
         <path
           class="casing-layer__open-hole-wall"
           :d="segment.leftWavyPath"
@@ -611,12 +594,6 @@ const casingSegments = computed(() => {
   stroke: var(--color-brown-accent);
   stroke-width: 2;
   fill: none;
-}
-
-.casing-layer__formation-fill {
-  fill: url(#formation-dots);
-  stroke: none;
-  opacity: 0.6;
 }
 
 .casing-layer__shoe {

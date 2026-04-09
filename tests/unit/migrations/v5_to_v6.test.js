@@ -31,7 +31,6 @@ describe('v5_to_v6 surface removal migration', () => {
             drillStringData: [],
             equipmentData: [],
             horizontalLines: [],
-            annotationBoxes: [],
             userAnnotations: [],
             cementPlugs: [],
             annulusFluids: [],

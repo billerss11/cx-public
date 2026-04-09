@@ -47,10 +47,6 @@ const props = defineProps({
   unitsLabel: {
     type: String,
     default: 'ft'
-  },
-  titleText: {
-    type: String,
-    default: ''
   }
 });
 
@@ -80,17 +76,6 @@ const datumLabelX = computed(() => {
 
 <template>
   <g class="axis-layer">
-    <text
-      v-if="titleText"
-      class="axis-layer__title"
-      :x="width / 2"
-      :y="28"
-      text-anchor="middle"
-      dominant-baseline="middle"
-    >
-      {{ titleText }}
-    </text>
-
     <line
       class="axis-layer__y-axis"
       :x1="axisX"
@@ -163,13 +148,6 @@ const datumLabelX = computed(() => {
 .axis-layer__tick-label {
   fill: var(--color-ink-mid);
   font-size: 11px;
-  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
-}
-
-.axis-layer__title {
-  fill: var(--color-ink-strong);
-  font-size: 18px;
-  font-weight: 700;
   font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
 }
 

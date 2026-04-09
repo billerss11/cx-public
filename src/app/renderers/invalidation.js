@@ -32,9 +32,7 @@ const STYLING_CONFIG_KEYS = new Set([
     'units'
 ]);
 
-const ANNOTATION_CONFIG_KEYS = new Set([
-    'intervalCalloutStandoffPx'
-]);
+const ANNOTATION_CONFIG_KEYS = new Set([]);
 
 const DATA_GEOMETRY_SECTIONS = new Set([
     'casingData',
@@ -52,7 +50,6 @@ const DATA_STYLE_SECTIONS = new Set([
 ]);
 
 const DATA_ANNOTATION_SECTIONS = new Set([
-    'annotationBoxes',
     'userAnnotations'
 ]);
 

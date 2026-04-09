@@ -35,7 +35,6 @@ import {
   normalizeMagnifierZoomLevel
 } from '@/constants/index.js';
 import {
-  buildBoxTooltipModel,
   buildEquipmentTooltipModel,
   buildFluidTooltipModel,
   buildLineTooltipModel,
@@ -50,7 +49,6 @@ import {
   removeUserAnnotationById
 } from '@/utils/userAnnotations.js';
 import AxisLayer from './layers/AxisLayer.vue';
-import AnnotationLayer from './layers/AnnotationLayer.vue';
 import BaseFillLayer from './layers/BaseFillLayer.vue';
 import CementLayer from './layers/CementLayer.vue';
 import FluidLayer from './layers/FluidLayer.vue';
@@ -190,9 +188,6 @@ const renderPipeRows = computed(() => ([
 const horizontalLineRows = computed(() => (
   Array.isArray(props.projectData?.horizontalLines) ? props.projectData.horizontalLines : []
 ));
-const annotationBoxRows = computed(() => (
-  Array.isArray(props.projectData?.annotationBoxes) ? props.projectData.annotationBoxes : []
-));
 const userAnnotationRows = computed(() => (
   Array.isArray(props.projectData?.userAnnotations) ? props.projectData.userAnnotations : []
 ));
@@ -222,7 +217,6 @@ const schematicStateSnapshot = computed(() => ({
   drillStringData: drillStringRows.value,
   equipmentData: Array.isArray(props.projectData?.equipmentData) ? props.projectData.equipmentData : [],
   horizontalLines: horizontalLineRows.value,
-  annotationBoxes: annotationBoxRows.value,
   userAnnotations: userAnnotationRows.value,
   cementPlugs: plugRows.value,
   annulusFluids: fluidRows.value,
@@ -366,9 +360,14 @@ const canvasWidthMultiplierValue = computed(() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 });
 const legacyBaseWidth = 1000;
+const VERTICAL_PLOT_TITLE_BAND_HEIGHT = 64;
+const VERTICAL_PLOT_TITLE_Y = 4;
 const svgWidthValue = computed(() => Math.round(legacyBaseWidth * canvasWidthMultiplierValue.value));
+const plotTitleBandHeight = computed(() => (
+  plotTitle.value ? VERTICAL_PLOT_TITLE_BAND_HEIGHT : 0
+));
 const schematicMargin = computed(() => ({
-  top: 60,
+  top: 60 + plotTitleBandHeight.value,
   right: 150,
   bottom: 80,
   left: 120
@@ -404,6 +403,8 @@ const displayScaleValue = computed(() => {
 });
 const displayWidthValue = computed(() => Math.round(width.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(height.value * displayScaleValue.value));
+const plotTitleX = computed(() => width.value / 2);
+const plotTitleY = computed(() => VERTICAL_PLOT_TITLE_Y);
 
 const isDepthCursorEnabled = computed(() => props.config?.showDepthCursor === true);
 const plotLeftX = computed(() => xScale.value(-xHalf.value));
@@ -790,16 +791,6 @@ const lineHandlers = usePlotEntityHandlers({
   canInteract: interactionGuard,
   consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
-const boxHandlers = usePlotEntityHandlers({
-  type: 'box',
-  rows: annotationBoxRows,
-  unitsLabel,
-  buildTooltipModel: buildBoxTooltipModel,
-  showTooltip: showTooltipIfEnabled,
-  hideTooltip,
-  canInteract: interactionGuard,
-  consumeSelectClick: consumeSelectionClickAfterLabelDrag
-});
 const markerHandlers = usePlotEntityHandlers({
   type: 'marker',
   rows: markerRows,
@@ -844,9 +835,6 @@ const fluidHandlers = usePlotEntityHandlers({
 const handleSelectLine = lineHandlers.handleSelect;
 const handleHoverLine = lineHandlers.handleHover;
 const handleLeaveLine = lineHandlers.handleLeave;
-const handleSelectBox = boxHandlers.handleSelect;
-const handleHoverBox = boxHandlers.handleHover;
-const handleLeaveBox = boxHandlers.handleLeave;
 const handleSelectMarker = markerHandlers.handleSelect;
 const handleHoverMarker = markerHandlers.handleHover;
 const handleLeaveMarker = markerHandlers.handleLeave;
@@ -998,7 +986,6 @@ function handleCanvasMouseLeave() {
   resetCameraPanState();
   handleLeavePipe();
   handleLeaveLine();
-  handleLeaveBox();
   handleLeaveMarker();
   handleLeaveEquipment();
   handleLeavePlug();
@@ -1186,7 +1173,7 @@ onBeforeUnmount(() => {
       </defs>
 
       <g ref="sceneRootRef" :id="magnifierSceneId" :transform="sceneRootTransform">
-        <AxisLayer
+      <AxisLayer
         :x-scale="xScale"
         :y-scale="yScale"
         :min-depth="minDepth"
@@ -1198,23 +1185,6 @@ onBeforeUnmount(() => {
         :diameter-scale="diameterScaleValue"
         :datum-depth="datumDepth"
         :units-label="unitsLabel"
-        :title-text="plotTitle"
-      />
-      <AnnotationLayer
-        :boxes="annotationBoxRows"
-        :config="config || {}"
-        :smart-labels-enabled="config?.smartLabelsEnabled !== false"
-        :vertical-label-scale="config?.verticalLabelScale ?? 1"
-        :x-scale="xScale"
-        :y-scale="yScale"
-        :x-half="xHalf"
-        :width="width"
-        :drag-preview-id="labelDrag.activePreviewId.value"
-        :drag-preview-offset="labelDrag.previewOffset.value"
-        @select-box="handleSelectBox"
-        @hover-box="handleHoverBox"
-        @leave-box="handleLeaveBox"
-        @start-label-drag="handleStartLabelDrag"
       />
 
       <BaseFillLayer
@@ -1477,6 +1447,17 @@ onBeforeUnmount(() => {
       />
       </g>
 
+      <text
+        v-if="plotTitle"
+        class="schematic-canvas__plot-title"
+        :x="plotTitleX"
+        :y="plotTitleY"
+        text-anchor="middle"
+        dominant-baseline="middle"
+      >
+        {{ plotTitle }}
+      </text>
+
       <g
         v-if="isMagnifierEnabled"
         ref="magnifierOverlayGroupRef"
@@ -1560,6 +1541,14 @@ onBeforeUnmount(() => {
 .schematic-canvas__svg :deep(tspan) {
   user-select: none;
   -webkit-user-select: none;
+}
+
+.schematic-canvas__plot-title {
+  fill: var(--color-ink-strong);
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  pointer-events: none;
 }
 
 .depth-cursor-layer {

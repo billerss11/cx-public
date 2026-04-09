@@ -7,7 +7,7 @@ function appendSheet(workbook, name, rows) {
 }
 
 describe('useImporter label position columns', () => {
-  it('parses extended label position columns for casing, horizons, and callouts', () => {
+  it('parses extended label position columns for casing and horizons while ignoring removed callouts sheets', () => {
     const workbook = XLSX.utils.book_new();
 
     appendSheet(workbook, 'Casing', [
@@ -93,33 +93,6 @@ describe('useImporter label position columns', () => {
       [2500, 'MD', 2500, 2400, 'Landing', 'steelblue', 'steelblue', 11, 'Solid', 0.6, 2550, 32, 2525, true]
     ]);
 
-    appendSheet(workbook, 'Callouts', [
-      [
-        'Top',
-        'Bottom',
-        'Directional Depth Mode',
-        'Directional Top MD',
-        'Directional Top TVD',
-        'Directional Bottom MD',
-        'Directional Bottom TVD',
-        'Label',
-        'Detail',
-        'Color',
-        'Font Color',
-        'Font Size',
-        'Label X',
-        'Label Depth',
-        'Directional Centerline Offset',
-        'Directional Label Depth',
-        'Directional Label TVD',
-        'Band Width',
-        'Opacity',
-        'Show Details',
-        'Show'
-      ],
-      [1000, 1800, 'tvd', 1100, 1000, 1900, 1800, 'Zone', 'Notes', 'lightsteelblue', 'steelblue', 12, -0.4, 1450, -80, 1500, 1400, 1.0, 0.35, true, true]
-    ]);
-
     const fileBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
     const parsed = parseStrictExcelProject(fileBuffer);
 
@@ -147,19 +120,6 @@ describe('useImporter label position columns', () => {
       manualLabelDepth: 2550,
       directionalCenterlineOffsetPx: 32,
       directionalManualLabelDepth: 2525
-    });
-
-    expect(parsed.annotationBoxes[0]).toMatchObject({
-      directionalDepthMode: 'tvd',
-      directionalTopDepthMd: 1100,
-      directionalTopDepthTvd: 1000,
-      directionalBottomDepthMd: 1900,
-      directionalBottomDepthTvd: 1800,
-      labelXPos: -0.4,
-      manualLabelDepth: 1450,
-      directionalCenterlineOffsetPx: -80,
-      directionalManualLabelDepth: 1500,
-      directionalManualLabelTvd: 1400
     });
   });
 });

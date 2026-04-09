@@ -46,7 +46,8 @@ describe('VerticalOpenHoleBoundaryLayer', () => {
       }
     });
 
-    expect(wrapper.findAll('.vertical-open-hole-boundary-layer__formation-fill')).toHaveLength(2);
+    expect(wrapper.findAll('.vertical-open-hole-boundary-layer__formation-fill')).toHaveLength(0);
+    expect(wrapper.find('#vertical-open-hole-formation-dots').exists()).toBe(false);
     expect(wrapper.findAll('.vertical-open-hole-boundary-layer__wall')).toHaveLength(2);
 
     const firstHitTarget = wrapper.find('.vertical-open-hole-boundary-layer__hit-target');
@@ -112,7 +113,6 @@ describe('VerticalOpenHoleBoundaryLayer', () => {
       drillStringData: Array.isArray(baseData.drillStringData) ? baseData.drillStringData : [],
       equipmentData: Array.isArray(baseData.equipmentData) ? baseData.equipmentData : [],
       horizontalLines: Array.isArray(baseData.horizontalLines) ? baseData.horizontalLines : [],
-      annotationBoxes: Array.isArray(baseData.annotationBoxes) ? baseData.annotationBoxes : [],
       cementPlugs: Array.isArray(baseData.cementPlugs) ? baseData.cementPlugs : [],
       annulusFluids: Array.isArray(baseData.annulusFluids) ? baseData.annulusFluids : [],
       markers: Array.isArray(baseData.markers) ? baseData.markers : [],

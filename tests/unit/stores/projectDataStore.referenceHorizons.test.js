@@ -77,4 +77,31 @@ describe('projectDataStore reference horizon directional sync', () => {
     expect(store.horizontalLines[0].directionalDepthTvd).not.toBe(500);
     expect(store.horizontalLines[0].directionalDepthMode).toBe('tvd');
   });
+
+  it('preserves md mode when the generic depth field is edited from slider-driven editor flows', () => {
+    const store = createStore();
+
+    store.setTrajectory([
+      { rowId: 'traj-1', md: 0, inc: 0, azi: 0 },
+      { rowId: 'traj-2', md: 2000, inc: 60, azi: 90 }
+    ]);
+    store.setHorizontalLines([
+      {
+        rowId: 'line-1',
+        depth: 1200,
+        directionalDepthMd: 1200,
+        directionalDepthTvd: 600,
+        directionalDepthMode: 'md',
+        label: 'Landing',
+        show: true
+      }
+    ]);
+
+    store.updateProjectRow('horizontalLines', 0, { depth: 1500 });
+
+    expect(store.horizontalLines[0].directionalDepthMode).toBe('md');
+    expect(store.horizontalLines[0].directionalDepthMd).toBe(1500);
+    expect(store.horizontalLines[0].depth).toBe(1500);
+    expect(store.horizontalLines[0].directionalDepthTvd).not.toBe(600);
+  });
 });

@@ -4,7 +4,6 @@ const ROW_ID_PREFIX_BY_KEY = Object.freeze({
     drillStringData: 'drill-string',
     equipmentData: 'equipment',
     horizontalLines: 'line',
-    annotationBoxes: 'annotation-box',
     userAnnotations: 'annotation',
     cementPlugs: 'plug',
     annulusFluids: 'fluid',

@@ -7,7 +7,6 @@ import {
 } from '@/utils/userAnnotations.js';
 import {
     PHYSICS_CONSTANTS,
-    LAYOUT_CONSTANTS,
     DEFAULT_MAGNIFIER_ZOOM_LEVEL,
     DEFAULT_VERTICAL_SECTION_MODE,
     DEFAULT_VERTICAL_SECTION_AZIMUTH,
@@ -33,9 +32,6 @@ const CANVAS_WIDTH_DEFAULT_EPSILON = 1e-6;
 const MIN_X_EXAGGERATION = 0.1;
 const MAX_X_EXAGGERATION = 1.0;
 export const DEFAULT_X_EXAGGERATION = 1.0;
-const MIN_INTERVAL_CALLOUT_STANDOFF_PX = LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_MIN_PX;
-const MAX_INTERVAL_CALLOUT_STANDOFF_PX = LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_MAX_PX;
-const DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX = LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_DEFAULT_PX;
 const DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED = 'normal-locked';
 const DIRECTIONAL_CASING_ARROW_MODE_DIRECT_TO_ANCHOR = 'direct-to-anchor';
 const DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN = 'contain';
@@ -85,7 +81,6 @@ export function createDefaultViewConfig() {
         verticalLabelScale: 1.0,
         directionalLabelScale: DEFAULT_DIRECTIONAL_LABEL_SCALE,
         directionalViewportFitMode: DIRECTIONAL_VIEWPORT_FIT_MODE_CONTAIN,
-        intervalCalloutStandoffPx: DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX,
         directionalCasingArrowMode: DIRECTIONAL_CASING_ARROW_MODE_NORMAL_LOCKED,
         verticalSectionMode: DEFAULT_VERTICAL_SECTION_MODE,
         verticalSectionAzimuth: DEFAULT_VERTICAL_SECTION_AZIMUTH,
@@ -239,13 +234,6 @@ function clampXExaggeration(value) {
     return Math.max(MIN_X_EXAGGERATION, Math.min(MAX_X_EXAGGERATION, value));
 }
 
-function clampIntervalCalloutStandoffPx(value) {
-    return Math.max(
-        MIN_INTERVAL_CALLOUT_STANDOFF_PX,
-        Math.min(MAX_INTERVAL_CALLOUT_STANDOFF_PX, value)
-    );
-}
-
 export function normalizeXExaggeration(value, fallback = DEFAULT_X_EXAGGERATION) {
     const parsed = parseOptionalNumber(value);
     const fallbackNumber = Number.isFinite(Number(fallback))
@@ -256,21 +244,6 @@ export function normalizeXExaggeration(value, fallback = DEFAULT_X_EXAGGERATION)
         return safeFallback;
     }
     return clampXExaggeration(parsed);
-}
-
-export function normalizeIntervalCalloutStandoffPx(
-    value,
-    fallback = DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX
-) {
-    const parsed = parseOptionalNumber(value);
-    const fallbackNumber = Number.isFinite(Number(fallback))
-        ? Number(fallback)
-        : DEFAULT_INTERVAL_CALLOUT_STANDOFF_PX;
-    const safeFallback = clampIntervalCalloutStandoffPx(Math.round(fallbackNumber));
-    if (!Number.isFinite(parsed)) {
-        return safeFallback;
-    }
-    return clampIntervalCalloutStandoffPx(Math.round(parsed));
 }
 
 function normalizeCanvasWidthMultiplier(value, fallback = DEFAULT_CANVAS_WIDTH_MULTIPLIER) {
@@ -926,15 +899,6 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         return normalized;
     }
 
-    function setIntervalCalloutStandoffPx(value) {
-        const normalized = normalizeIntervalCalloutStandoffPx(
-            value,
-            config.intervalCalloutStandoffPx
-        );
-        setConfigValue('intervalCalloutStandoffPx', normalized);
-        return normalized;
-    }
-
     function setDirectionalCasingArrowMode(value) {
         const normalized = normalizeDirectionalCasingArrowMode(value);
         setConfigValue('directionalCasingArrowMode', normalized);
@@ -1090,7 +1054,6 @@ export const useViewConfigStore = defineStore('viewConfig', () => {
         setXExaggeration,
         setDirectionalLabelScale,
         setDirectionalViewportFitMode,
-        setIntervalCalloutStandoffPx,
         setDirectionalCasingArrowMode,
         syncVerticalSectionControlsFromConfig
     };

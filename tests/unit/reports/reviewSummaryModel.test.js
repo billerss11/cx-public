@@ -20,7 +20,6 @@ vi.mock('@/app/i18n.js', () => ({
       'ui.review_summary.metric.equipment_count': 'Equipment rows',
       'ui.review_summary.metric.markers': 'Markers',
       'ui.review_summary.metric.horizons': 'Horizons',
-      'ui.review_summary.metric.interval_callouts': 'Interval callouts',
       'ui.review_summary.metric.cement_plugs': 'Cement plugs',
       'ui.review_summary.metric.annulus_fluids': 'Annulus fluids',
       'ui.review_summary.metric.trajectory_points': 'Trajectory points',
@@ -153,11 +152,11 @@ describe('reviewSummaryModel', () => {
     expect(model.enteredDataCounts.items).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'markers', value: 1 }),
       expect.objectContaining({ key: 'horizons', value: 1 }),
-      expect.objectContaining({ key: 'intervalCallouts', value: 1 }),
       expect.objectContaining({ key: 'cementPlugs', value: 1 }),
       expect.objectContaining({ key: 'annulusFluids', value: 1 }),
       expect.objectContaining({ key: 'trajectoryPoints', value: 2 })
     ]));
+    expect(model.enteredDataCounts.items.map((item) => item.key)).not.toContain('intervalCallouts');
 
     expect(model.derivedSummary.status).toBe('loading');
     expect(model.warningDigest.status).toBe('loading');

@@ -32,6 +32,10 @@ const props = defineProps({
     type: Number,
     required: true
   },
+  plotBottomY: {
+    type: Number,
+    default: null
+  },
   datumDepth: {
     type: Number,
     default: 0
@@ -39,10 +43,6 @@ const props = defineProps({
   unitsLabel: {
     type: String,
     default: 'ft'
-  },
-  titleText: {
-    type: String,
-    default: ''
   },
   xExaggeration: {
     type: Number,
@@ -72,9 +72,12 @@ const geometryRightX = computed(() => (
   props.xScale(props.maxXData) + Math.max(0, Number(props.rightVisualInsetPx) || 0)
 ));
 const yAxisX = computed(() => geometryLeftX.value - 36);
-const xAxisY = computed(() => props.yScale(props.maxYData) + 4);
-
-const titleX = computed(() => (geometryLeftX.value + geometryRightX.value) / 2);
+const plotFrameBottomY = computed(() => {
+  const explicit = Number(props.plotBottomY);
+  if (Number.isFinite(explicit)) return explicit;
+  return props.yScale(props.maxYData) + 4;
+});
+const xAxisY = computed(() => plotFrameBottomY.value);
 
 const datumLabelX = computed(() => (
   clamp(
@@ -100,23 +103,12 @@ function formatOffsetTick(value) {
 
 <template>
   <g class="directional-axis-layer">
-    <text
-      v-if="titleText"
-      class="directional-axis-layer__title"
-      :x="titleX"
-      :y="28"
-      text-anchor="middle"
-      dominant-baseline="middle"
-    >
-      {{ titleText }}
-    </text>
-
     <line
       class="directional-axis-layer__y-axis"
       :x1="yAxisX"
       :y1="yScale(minYData)"
       :x2="yAxisX"
-      :y2="yScale(maxYData)"
+      :y2="plotFrameBottomY"
     />
 
     <g v-for="tick in yTicks" :key="`y-${tick}`">
@@ -211,13 +203,6 @@ function formatOffsetTick(value) {
 .directional-axis-layer__tick-label {
   fill: var(--color-ink-mid);
   font-size: 11px;
-  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
-}
-
-.directional-axis-layer__title {
-  fill: var(--color-ink-strong);
-  font-size: 18px;
-  font-weight: 700;
   font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
 }
 

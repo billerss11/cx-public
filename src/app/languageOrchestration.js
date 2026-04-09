@@ -53,10 +53,6 @@ function applySampleTranslations() {
     runtimeState.horizontalLines.forEach((row) => updateTextField(row, 'label', 'label'));
     runtimeState.cementPlugs.forEach((row) => updateTextField(row, 'label', 'label'));
     runtimeState.markers.forEach((row) => updateTextField(row, 'label', 'label'));
-    runtimeState.annotationBoxes.forEach((row) => {
-        updateTextField(row, 'label', 'label');
-        updateTextField(row, 'detail', 'detail');
-    });
 }
 
 function initializeCementColorSelect() {

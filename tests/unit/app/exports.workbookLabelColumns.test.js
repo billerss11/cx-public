@@ -54,31 +54,6 @@ const projectDataStoreMock = {
       show: true
     }
   ],
-  annotationBoxes: [
-    {
-      topDepth: 1000,
-      bottomDepth: 1800,
-      directionalDepthMode: 'tvd',
-      directionalTopDepthMd: 1100,
-      directionalTopDepthTvd: 1000,
-      directionalBottomDepthMd: 1900,
-      directionalBottomDepthTvd: 1800,
-      label: 'Zone',
-      detail: 'Notes',
-      color: 'lightsteelblue',
-      fontColor: 'steelblue',
-      fontSize: 12,
-      labelXPos: -0.4,
-      manualLabelDepth: 1450,
-      directionalCenterlineOffsetPx: -80,
-      directionalManualLabelDepth: 1500,
-      directionalManualLabelTvd: 1400,
-      bandWidth: 1.0,
-      opacity: 0.35,
-      showDetails: true,
-      show: true
-    }
-  ],
   userAnnotations: [],
   cementPlugs: [],
   annulusFluids: [],
@@ -177,7 +152,6 @@ describe('exports workbook label position columns', () => {
 
     const casingSheet = findSheet('Casing');
     const linesSheet = findSheet('Horizons');
-    const calloutsSheet = findSheet('Callouts');
 
     expect(casingSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Directional Label X',
@@ -200,17 +174,7 @@ describe('exports workbook label position columns', () => {
       'Directional Centerline Offset',
       'Directional Label Depth'
     ]));
-    expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
-      'Directional Depth Mode',
-      'Directional Top MD',
-      'Directional Top TVD',
-      'Directional Bottom MD',
-      'Directional Bottom TVD',
-      'Label Depth',
-      'Directional Centerline Offset',
-      'Directional Label Depth',
-      'Directional Label TVD'
-    ]));
+    expect(findSheet('Callouts')).toBeUndefined();
   });
 
   it('includes the new label position columns in the Excel template', async () => {
@@ -220,7 +184,6 @@ describe('exports workbook label position columns', () => {
 
     const casingSheet = findSheet('Casing');
     const linesSheet = findSheet('Horizons');
-    const calloutsSheet = findSheet('Callouts');
 
     expect(casingSheet?.rows[0]).toEqual(expect.arrayContaining([
       'Directional Label X',
@@ -243,16 +206,6 @@ describe('exports workbook label position columns', () => {
       'Directional Centerline Offset',
       'Directional Label Depth'
     ]));
-    expect(calloutsSheet?.rows[0]).toEqual(expect.arrayContaining([
-      'Directional Depth Mode',
-      'Directional Top MD',
-      'Directional Top TVD',
-      'Directional Bottom MD',
-      'Directional Bottom TVD',
-      'Label Depth',
-      'Directional Centerline Offset',
-      'Directional Label Depth',
-      'Directional Label TVD'
-    ]));
+    expect(findSheet('Callouts')).toBeUndefined();
   });
 });

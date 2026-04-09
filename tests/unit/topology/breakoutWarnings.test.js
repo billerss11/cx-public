@@ -77,4 +77,3 @@ describe('breakoutWarnings helpers', () => {
     expect(warningIndex.fieldMapByRowId.has('missing-row')).toBe(false);
   });
 });
-

@@ -5,7 +5,7 @@ const DIRECTIONAL_MIN_SVG_WIDTH = 600;
 const DIRECTIONAL_MAX_SVG_WIDTH = 12000;
 const DIRECTIONAL_BASE_SVG_WIDTH = 1000;
 const DIRECTIONAL_MARGIN = Object.freeze({
-  top: 60,
+  top: 18,
   right: 120,
   bottom: 80,
   left: 120
@@ -403,7 +403,7 @@ export function resolveDirectionalVisualInsetPadding(options = {}) {
   );
   const vertical = Math.max(
     0,
-    Math.round((visualMaxRadiusPx * 0.7) + VISUAL_SIZING_DEFAULTS.verticalPaddingPx)
+    Math.round(visualMaxRadiusPx + VISUAL_SIZING_DEFAULTS.verticalPaddingPx)
   );
   return Object.freeze({
     left: horizontal + VISUAL_SIZING_DEFAULTS.leftAxisGutterPx,

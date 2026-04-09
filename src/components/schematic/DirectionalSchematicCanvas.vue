@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3';
 import { clamp, formatDepthValue, parseOptionalNumber } from '@/utils/general.js';
 import {
-  buildBoxTooltipModel,
   buildEquipmentTooltipModel,
   buildFluidTooltipModel,
   buildLineTooltipModel,
@@ -210,9 +209,6 @@ const fluidRows = computed(() => (
 const markerRows = computed(() => (
   Array.isArray(props.projectData?.markers) ? props.projectData.markers : []
 ));
-const annotationBoxRows = computed(() => (
-  Array.isArray(props.projectData?.annotationBoxes) ? props.projectData.annotationBoxes : []
-));
 const userAnnotationRows = computed(() => (
   Array.isArray(props.projectData?.userAnnotations) ? props.projectData.userAnnotations : []
 ));
@@ -257,8 +253,13 @@ function buildTrajectoryRowsSignature(rows = []) {
 
 const unitsLabel = computed(() => String(props.config?.units || 'ft'));
 const plotTitle = computed(() => String(props.config?.plotTitle ?? '').trim());
+const DIRECTIONAL_PLOT_TITLE_BAND_HEIGHT = 14;
+const DIRECTIONAL_PLOT_TITLE_Y = 96;
+const plotTitleBandHeight = computed(() => (
+  plotTitle.value ? DIRECTIONAL_PLOT_TITLE_BAND_HEIGHT : 0
+));
 const margin = computed(() => ({
-  top: baseMargin.top,
+  top: baseMargin.top + plotTitleBandHeight.value,
   right: baseMargin.right,
   bottom: baseMargin.bottom,
   left: baseMargin.left
@@ -308,7 +309,6 @@ const directionalStateSnapshot = computed(() => ({
   drillStringData: drillStringRows.value,
   equipmentData: Array.isArray(props.projectData?.equipmentData) ? props.projectData.equipmentData : [],
   horizontalLines: horizontalLineRows.value,
-  annotationBoxes: annotationBoxRows.value,
   userAnnotations: userAnnotationRows.value,
   cementPlugs: plugRows.value,
   annulusFluids: fluidRows.value,
@@ -593,6 +593,7 @@ watch(dataAspectRatioValue, (nextAspect) => {
 }, { immediate: true });
 
 const plotWidthValue = computed(() => Math.max(10, svgWidthValue.value - margin.value.left - margin.value.right));
+const plotFrameBottomY = computed(() => margin.value.top + plotHeightValue.value);
 const displayScaleValue = computed(() => {
   const nextContainerWidth = Number(containerWidth.value);
   const nextContainerHeight = Number(containerHeight.value);
@@ -612,6 +613,8 @@ const displayScaleValue = computed(() => {
 });
 const displayWidthValue = computed(() => Math.round(svgWidthValue.value * displayScaleValue.value));
 const displayHeightValue = computed(() => Math.round(figHeightValue.value * displayScaleValue.value));
+const plotTitleX = computed(() => svgWidthValue.value / 2);
+const plotTitleY = computed(() => DIRECTIONAL_PLOT_TITLE_Y);
 const plotInsetRangeValue = computed(() => (
   resolveDirectionalPlotInsetRange(
     svgWidthValue.value,
@@ -1332,15 +1335,6 @@ const lineHandlers = usePlotEntityHandlers({
   hideTooltip,
   consumeSelectClick: consumeSelectionClickAfterLabelDrag
 });
-const boxHandlers = usePlotEntityHandlers({
-  type: 'box',
-  rows: annotationBoxRows,
-  unitsLabel,
-  buildTooltipModel: buildBoxTooltipModel,
-  showTooltip,
-  hideTooltip,
-  consumeSelectClick: consumeSelectionClickAfterLabelDrag
-});
 const markerHandlers = usePlotEntityHandlers({
   type: 'marker',
   rows: markerRows,
@@ -1382,9 +1376,6 @@ const equipmentHandlers = usePlotEntityHandlers({
 const handleSelectLine = lineHandlers.handleSelect;
 const handleHoverLine = lineHandlers.handleHover;
 const handleLeaveLine = lineHandlers.handleLeave;
-const handleSelectBox = boxHandlers.handleSelect;
-const handleHoverBox = boxHandlers.handleHover;
-const handleLeaveBox = boxHandlers.handleLeave;
 const handleSelectMarker = markerHandlers.handleSelect;
 const handleHoverMarker = markerHandlers.handleHover;
 const handleLeaveMarker = markerHandlers.handleLeave;
@@ -1426,7 +1417,6 @@ function handleCanvasMouseLeave() {
   resetCameraPanState();
   handleLeavePipe();
   handleLeaveLine();
-  handleLeaveBox();
   handleLeaveMarker();
   handleLeaveEquipment();
   handleLeaveSurfaceAssembly();
@@ -1610,9 +1600,9 @@ defineExpose({
         :min-y-data="minYData"
         :max-y-data="maxYData"
         :svg-height="figHeightValue"
+        :plot-bottom-y="plotFrameBottomY"
         :datum-depth="datumDepth"
         :units-label="unitsLabel"
-        :title-text="plotTitle"
         :x-exaggeration="xExaggerationValue"
         :x-origin="xOriginValue"
         :left-visual-inset-px="visualInsetPaddingValue.left"
@@ -1697,7 +1687,6 @@ defineExpose({
         :horizontal-lines="horizontalLineRows"
         :annulus-fluids="fluidRows"
         :cement-plugs="plugRows"
-        :annotation-boxes="annotationBoxRows"
         :config="props.config || {}"
         :x-scale="xScale"
         :y-scale="yScale"
@@ -1725,9 +1714,6 @@ defineExpose({
         @select-equipment="handleSelectEquipment"
         @hover-equipment="handleHoverEquipment"
         @leave-equipment="handleLeaveEquipment"
-        @select-box="handleSelectBox"
-        @hover-box="handleHoverBox"
-        @leave-box="handleLeaveBox"
         @start-label-drag="handleStartLabelDrag"
       />
 
@@ -1792,6 +1778,17 @@ defineExpose({
         />
       </g>
       </g>
+
+      <text
+        v-if="plotTitle"
+        class="schematic-canvas__plot-title"
+        :x="plotTitleX"
+        :y="plotTitleY"
+        text-anchor="middle"
+        dominant-baseline="middle"
+      >
+        {{ plotTitle }}
+      </text>
 
 
       <g
@@ -1868,6 +1865,14 @@ defineExpose({
 .schematic-canvas__svg :deep(tspan) {
   user-select: none;
   -webkit-user-select: none;
+}
+
+.schematic-canvas__plot-title {
+  fill: var(--color-ink-strong);
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  pointer-events: none;
 }
 
 .depth-cursor-layer {

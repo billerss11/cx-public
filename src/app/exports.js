@@ -5,7 +5,7 @@ import { useProjectStore } from '@/stores/projectStore.js';
 import { composeRuntimeViewConfigForWell } from '@/stores/viewConfigOwnership.js';
 import { usePlotElementsStore } from '@/stores/plotElementsStore.js';
 import { pinia } from '@/stores/pinia.js';
-import { DEFAULT_LINE_COLOR, DEFAULT_BOX_COLOR, DEFAULT_BOX_FONT_COLOR, MARKER_DEFAULT_COLORS } from '@/constants/index.js';
+import { DEFAULT_LINE_COLOR, MARKER_DEFAULT_COLORS } from '@/constants/index.js';
 import { clamp, cloneSnapshot, generateCasingId } from '@/utils/general.js';
 import { t, translateEnum } from './i18n.js';
 import { normalizeMarkerType, normalizeMarkerSide } from './domain.js';
@@ -26,7 +26,6 @@ export const EXCEL_EXPORT_SCOPE_ALL_WELLS = 'all-wells';
 const EXPORT_TABLE_STATE_KEY_MAP = Object.freeze({
     casing: 'casingData',
     line: 'horizontalLines',
-    box: 'annotationBoxes',
     plug: 'cementPlugs',
     marker: 'markers',
     fluid: 'annulusFluids'
@@ -40,7 +39,6 @@ function getExportSnapshot() {
         tubingData: projectDataStore.tubingData,
         drillStringData: projectDataStore.drillStringData,
         horizontalLines: projectDataStore.horizontalLines,
-        annotationBoxes: projectDataStore.annotationBoxes,
         userAnnotations: projectDataStore.userAnnotations,
         cementPlugs: projectDataStore.cementPlugs,
         annulusFluids: projectDataStore.annulusFluids,
@@ -129,7 +127,6 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
 
     const casingRows = getTableDataForExport('casing', exportSnapshot, tableOptions);
     const lineRows = getTableDataForExport('line', exportSnapshot, tableOptions);
-    const boxRows = getTableDataForExport('box', exportSnapshot, tableOptions);
     const markerRows = getTableDataForExport('marker', exportSnapshot, tableOptions);
 
     const casingFields = [
@@ -163,7 +160,6 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
         'showBottom'
     ];
     const lineFields = ['depth', 'directionalDepthMode', 'directionalDepthMd', 'directionalDepthTvd', 'label', 'color', 'fontColor', 'fontSize', 'labelXPos', 'manualLabelDepth', 'directionalCenterlineOffsetPx', 'directionalLabelXPos', 'directionalManualLabelDepth', 'lineStyle', 'show'];
-    const boxFields = ['topDepth', 'bottomDepth', 'directionalDepthMode', 'directionalTopDepthMd', 'directionalTopDepthTvd', 'directionalBottomDepthMd', 'directionalBottomDepthTvd', 'label', 'color', 'fontColor', 'fontSize', 'labelXPos', 'manualLabelDepth', 'directionalCenterlineOffsetPx', 'directionalLabelXPos', 'directionalManualLabelDepth', 'directionalManualLabelTvd', 'bandWidth', 'opacity', 'detail', 'showDetails', 'show'];
     const markerFields = ['top', 'type', 'attachToRow', 'side', 'color', 'scale', 'label', 'show'];
 
     const casingSheetData = [
@@ -254,36 +250,6 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
             ])
     ];
 
-    const boxesSheetData = [
-        ['Top', 'Bottom', 'Directional Depth Mode', 'Directional Top MD', 'Directional Top TVD', 'Directional Bottom MD', 'Directional Bottom TVD', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Centerline Offset', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show'],
-        ...boxRows
-            .filter(row => rowHasAnyValue(row, boxFields))
-            .map(row => [
-                toNumberOrBlank(row.topDepth),
-                toNumberOrBlank(row.bottomDepth),
-                toStringOrBlank(row.directionalDepthMode),
-                toNumberOrBlank(row.directionalTopDepthMd),
-                toNumberOrBlank(row.directionalTopDepthTvd),
-                toNumberOrBlank(row.directionalBottomDepthMd),
-                toNumberOrBlank(row.directionalBottomDepthTvd),
-                toStringOrBlank(row.label),
-                toStringOrBlank(row.detail),
-                toStringOrBlank(row.color || DEFAULT_BOX_COLOR),
-                toStringOrBlank(row.fontColor || row.color || DEFAULT_BOX_FONT_COLOR),
-                toNumberOrBlank(row.fontSize),
-                toNumberOrBlank(row.labelXPos),
-                toNumberOrBlank(row.manualLabelDepth),
-                toNumberOrBlank(row.directionalCenterlineOffsetPx),
-                toNumberOrBlank(row.directionalLabelXPos),
-                toNumberOrBlank(row.directionalManualLabelDepth),
-                toNumberOrBlank(row.directionalManualLabelTvd),
-                toNumberOrBlank(row.bandWidth),
-                toNumberOrBlank(row.opacity),
-                Boolean(row.showDetails),
-                Boolean(row.show)
-            ])
-    ];
-
     const casingIdToLabel = new Map(
         casingRows.map((row, index) => [generateCasingId(row, index), toStringOrBlank(row.label)])
     );
@@ -317,7 +283,6 @@ function buildWorkbookSheetData(exportSnapshot = {}, options = {}) {
     return {
         casingSheetData,
         linesSheetData,
-        boxesSheetData,
         markersSheetData,
         trajectorySheetData
     };
@@ -333,7 +298,6 @@ function appendWorkbookSheets(wb, exportSnapshot = {}, options = {}) {
     const entries = [
         { baseName: 'Casing', data: sheetData.casingSheetData },
         { baseName: 'Horizons', data: sheetData.linesSheetData },
-        { baseName: 'Callouts', data: sheetData.boxesSheetData },
         { baseName: 'Markers', data: sheetData.markersSheetData },
         { baseName: 'Trajectory', data: sheetData.trajectorySheetData }
     ];
@@ -351,7 +315,6 @@ function buildExportSnapshotFromWell(well, projectConfig = {}) {
         tubingData: well?.data?.tubingData || [],
         drillStringData: well?.data?.drillStringData || [],
         horizontalLines: well?.data?.horizontalLines || [],
-        annotationBoxes: well?.data?.annotationBoxes || [],
         userAnnotations: well?.data?.userAnnotations || [],
         cementPlugs: well?.data?.cementPlugs || [],
         annulusFluids: well?.data?.annulusFluids || [],
@@ -448,12 +411,6 @@ export function downloadExcelTemplate() {
         [5000, 'tvd', 5000, '', t('sample.line.top'), 'seagreen', 'seagreen', 11, translateEnum('lineStyle', 'Dash-dot'), 0.9, 5050, '', 0.2, 5025, true]
     ]);
 
-    const boxesSheet = XLSX.utils.aoa_to_sheet([
-        ['Top', 'Bottom', 'Directional Depth Mode', 'Directional Top MD', 'Directional Top TVD', 'Directional Bottom MD', 'Directional Bottom TVD', 'Label', 'Detail', 'Color', 'Font Color', 'Font Size', 'Label X', 'Label Depth', 'Directional Centerline Offset', 'Directional Label X', 'Directional Label Depth', 'Directional Label TVD', 'Band Width', 'Opacity', 'Show Details', 'Show'],
-        [1000, 3000, 'md', 1000, '', 3000, '', t('sample.box.reservoir'), t('sample.box.detail'), 'lightsteelblue', 'steelblue', 12, -0.5, '', '', '', '', '', 1.0, 0.35, true, true],
-        [6000, 8000, 'md', 6000, '', 8000, '', t('sample.box.producer'), t('sample.box.detail2'), 'lightgray', 'seagreen', 12, -0.5, 7050, 80, '', 7100, '', 1.0, 0.4, true, true]
-    ]);
-
     const markersSheet = XLSX.utils.aoa_to_sheet([
         ['Type', 'Depth', 'Host Casing Label', 'Label', 'Side', 'Color', 'Scale', 'Show'],
         [translateEnum('markerType', 'Perforation'), 12000, t('sample.casing.production'), t('sample.marker.perf'), translateEnum('markerSide', 'Both sides'), 'black', 1.0, true],
@@ -471,7 +428,6 @@ export function downloadExcelTemplate() {
 
     XLSX.utils.book_append_sheet(wb, casingSheet, 'Casing');
     XLSX.utils.book_append_sheet(wb, linesSheet, 'Horizons');
-    XLSX.utils.book_append_sheet(wb, boxesSheet, 'Callouts');
     XLSX.utils.book_append_sheet(wb, markersSheet, 'Markers');
     XLSX.utils.book_append_sheet(wb, trajectorySheet, 'Trajectory');
 

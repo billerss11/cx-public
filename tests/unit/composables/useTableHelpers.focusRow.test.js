@@ -36,4 +36,3 @@ describe('focusHandsontableRow', () => {
     expect(instance.render).not.toHaveBeenCalled();
   });
 });
-

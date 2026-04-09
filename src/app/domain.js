@@ -1,5 +1,4 @@
 import { normalizeEnumInput } from './i18n.js';
-import { parseOptionalNumber } from '@/utils/general.js';
 
 function normalizeEnum(type, value, fallback) {
     const normalized = normalizeEnumInput(type, value);
@@ -38,9 +37,9 @@ export function normalizeHatchStyle(value) {
 export function isOpenHoleRow(row) {
     if (!row) return false;
 
-    const weight = parseOptionalNumber(row.weight);
-    if (!Number.isFinite(weight) || weight <= 0) return true;
-
     const grade = String(row.grade ?? '').toUpperCase();
-    return grade.includes('OH') || grade.includes('OPENHOLE');
+    if (grade.includes('OH') || grade.includes('OPENHOLE')) return true;
+
+    const label = String(row.label ?? '').trim().toUpperCase();
+    return label.includes('OPEN HOLE') || label.includes('OPENHOLE');
 }

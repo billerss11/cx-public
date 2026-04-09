@@ -120,7 +120,6 @@ export function buildActiveWellReportSnapshot(projectPayload = {}, options = {})
       drillStringData: normalizeRows(wellData?.drillStringData),
       equipmentData: normalizeRows(wellData?.equipmentData),
       horizontalLines: normalizeRows(wellData?.horizontalLines),
-      annotationBoxes: normalizeRows(wellData?.annotationBoxes),
       userAnnotations: normalizeRows(wellData?.userAnnotations),
       cementPlugs: normalizeRows(wellData?.cementPlugs),
       annulusFluids: normalizeRows(wellData?.annulusFluids),

@@ -55,8 +55,6 @@ const ENTITY_TYPE_TO_DOMAIN_KEY = Object.freeze({
   fluids: 'fluids',
   marker: 'markers',
   markers: 'markers',
-  box: 'boxes',
-  boxes: 'boxes',
   topologySource: 'topologySources',
   topologysource: 'topologySources',
   topologySources: 'topologySources',
@@ -483,21 +481,6 @@ const DOMAIN_FIELD_CONTRACTS = Object.freeze({
       tableAccess: ENTITY_FIELD_ACCESS.hidden,
       showWhen: ({ rowData }) => normalizeToken(rowData?.volumeKey).length > 0
     })
-  ]),
-  boxes: Object.freeze([
-    createDepthFieldContract('topDepth'),
-    createDepthFieldContract('bottomDepth'),
-    createFieldContract('directionalDepthMode', ENTITY_EDITOR_CONTROL_TYPES.select, {
-      options: () => ['tvd', 'md']
-    }),
-    createDepthFieldContract('directionalTopDepthMd'),
-    createDepthFieldContract('directionalTopDepthTvd'),
-    createDepthFieldContract('directionalBottomDepthMd'),
-    createDepthFieldContract('directionalBottomDepthTvd'),
-    createFieldContract('label', ENTITY_EDITOR_CONTROL_TYPES.text),
-    createFieldContract('detail', ENTITY_EDITOR_CONTROL_TYPES.text),
-    createFieldContract('bandWidth', ENTITY_EDITOR_CONTROL_TYPES.number),
-    READ_ONLY_ROW_ID_FIELD
   ]),
   trajectory: Object.freeze([
     createFieldContract('md', ENTITY_EDITOR_CONTROL_TYPES.number),

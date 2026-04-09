@@ -125,24 +125,24 @@ describe('useTableController casing hole-size assistance', () => {
     const cellProps = controllerApi.hotSettings.value.cells(0, manualHoleSizeColumnIndex, 'manualHoleSize');
 
     expect(cellProps.type).toBe('autocomplete');
-    expect(cellProps.source).toEqual(['7 7/8', '8 1/2', '8 3/4']);
+    expect(cellProps.source).toEqual(['12 1/4', '10 5/8']);
   });
 
   it('normalizes fraction text to numeric storage for manual hole size values', async () => {
     const { hotInstance, projectDataStore } = await mountHarness([createCasingRow()]);
 
-    controllerApi.hotSettings.value.afterChange([[0, 'manualHoleSize', null, '8 1/2']], 'edit');
+    controllerApi.hotSettings.value.afterChange([[0, 'manualHoleSize', null, '12 1/4']], 'edit');
     await nextTick();
 
-    expect(hotInstance.getDataAtRowProp(0, 'manualHoleSize')).toBe(8.5);
-    expect(projectDataStore.casingData[0].manualHoleSize).toBe(8.5);
+    expect(hotInstance.getDataAtRowProp(0, 'manualHoleSize')).toBe(12.25);
+    expect(projectDataStore.casingData[0].manualHoleSize).toBe(12.25);
   });
 
   it('applies warning classes for unmatched casing, custom hole sizes, and incompatible catalog hole sizes', async () => {
     const rows = [
       createCasingRow({ od: 9.62, manualHoleSize: 8.5 }),
       createCasingRow({ od: 9.625, manualHoleSize: 8.4 }),
-      createCasingRow({ od: 9.625, manualHoleSize: 12.25 })
+      createCasingRow({ od: 9.625, manualHoleSize: 8.75 })
     ];
     const { manualHoleSizeColumnIndex } = await mountHarness(rows);
 

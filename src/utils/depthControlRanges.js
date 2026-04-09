@@ -99,11 +99,6 @@ export function collectWellDepthRange(source = {}) {
       addDepthValue(maxCandidates, row?.top);
       addDepthValue(maxCandidates, row?.bottom);
     });
-  resolveRows(source, ['annotationBoxes', 'boxRows'])
-    .forEach((row) => {
-      addDepthValue(maxCandidates, row?.topDepth);
-      addDepthValue(maxCandidates, row?.bottomDepth);
-    });
   resolveRows(source, ['trajectory', 'trajectoryRows'])
     .forEach((row) => addDepthValue(maxCandidates, row?.md));
 

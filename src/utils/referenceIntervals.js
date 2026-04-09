@@ -168,17 +168,28 @@ export function syncDirectionalIntervals(rows = [], trajectoryPoints = [], optio
   const sourceValueByRowId = options?.sourceValueByRowId instanceof Map
     ? options.sourceValueByRowId
     : null;
+  const sourcePatchByRowId = options?.sourcePatchByRowId instanceof Map
+    ? options.sourcePatchByRowId
+    : null;
 
   let changed = false;
   const nextRows = rows.map((row) => {
     const rowId = String(row?.rowId ?? '').trim();
-    const nextRow = syncDirectionalIntervalRow(row, trajectoryPoints, {
-      sourceField: rowId && sourceFieldByRowId ? sourceFieldByRowId.get(rowId) : null,
-      resyncFromMd: options?.resyncFromMd === true,
-      ...(rowId && sourceValueByRowId && sourceValueByRowId.has(rowId)
-        ? { sourceValue: sourceValueByRowId.get(rowId) }
-        : {})
-    });
+    const sourcePatch = rowId && sourcePatchByRowId ? sourcePatchByRowId.get(rowId) : null;
+    const nextRow = sourcePatch && typeof sourcePatch === 'object' && !Array.isArray(sourcePatch)
+      ? Object.entries(sourcePatch).reduce((currentRow, [field, value]) => (
+        syncDirectionalIntervalRow(currentRow, trajectoryPoints, {
+          sourceField: field,
+          sourceValue: value
+        })
+      ), row)
+      : syncDirectionalIntervalRow(row, trajectoryPoints, {
+        sourceField: rowId && sourceFieldByRowId ? sourceFieldByRowId.get(rowId) : null,
+        resyncFromMd: options?.resyncFromMd === true,
+        ...(rowId && sourceValueByRowId && sourceValueByRowId.has(rowId)
+          ? { sourceValue: sourceValueByRowId.get(rowId) }
+          : {})
+      });
     if (nextRow !== row || JSON.stringify(nextRow) !== JSON.stringify(row)) {
       changed = true;
     }

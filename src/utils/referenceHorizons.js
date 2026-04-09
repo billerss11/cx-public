@@ -60,9 +60,14 @@ export function syncDirectionalReferenceHorizonRow(row = {}, trajectoryPoints = 
   let directionalDepthMode = resolveDirectionalReferenceHorizonMode(nextRow.directionalDepthMode);
 
   if (sourceField === 'depth' && Number.isFinite(legacyDepth)) {
-    directionalDepthMd = legacyDepth;
-    directionalDepthTvd = deriveTvdFromMd(directionalDepthMd, trajectoryPoints);
-    directionalDepthMode = 'tvd';
+    if (directionalDepthMode === 'md') {
+      directionalDepthMd = legacyDepth;
+      directionalDepthTvd = deriveTvdFromMd(directionalDepthMd, trajectoryPoints);
+    } else {
+      directionalDepthTvd = legacyDepth;
+      directionalDepthMd = deriveMdFromTvd(directionalDepthTvd, trajectoryPoints);
+      directionalDepthMode = 'tvd';
+    }
   } else if (sourceField === 'directionalDepthMd' && Number.isFinite(directionalDepthMd)) {
     directionalDepthTvd = deriveTvdFromMd(directionalDepthMd, trajectoryPoints);
     directionalDepthMode = 'md';
@@ -82,17 +87,17 @@ export function syncDirectionalReferenceHorizonRow(row = {}, trajectoryPoints = 
     directionalDepthMd = deriveMdFromTvd(directionalDepthTvd, trajectoryPoints);
   }
 
-  if (Number.isFinite(directionalDepthMd)) {
-    nextRow.depth = directionalDepthMd;
-    nextRow.directionalDepthMd = directionalDepthMd;
-  } else {
-    nextRow.directionalDepthMd = null;
-  }
+  nextRow.directionalDepthMd = Number.isFinite(directionalDepthMd)
+    ? directionalDepthMd
+    : null;
 
   nextRow.directionalDepthTvd = Number.isFinite(directionalDepthTvd)
     ? directionalDepthTvd
     : null;
   nextRow.directionalDepthMode = directionalDepthMode;
+  nextRow.depth = directionalDepthMode === 'md'
+    ? nextRow.directionalDepthMd
+    : nextRow.directionalDepthTvd;
 
   return nextRow;
 }

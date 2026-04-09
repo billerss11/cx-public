@@ -53,7 +53,6 @@ function mountEquipmentEditor(equipmentRow) {
               drillStringData: [],
               equipmentData: [equipmentRow],
               horizontalLines: [],
-              annotationBoxes: [],
               userAnnotations: [],
               cementPlugs: [],
               annulusFluids: [],

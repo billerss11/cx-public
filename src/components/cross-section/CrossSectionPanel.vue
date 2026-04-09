@@ -35,7 +35,6 @@ const physicsContext = computed(() => {
     drillStringData: projectDataStore.drillStringData,
     equipmentData: projectDataStore.equipmentData,
     horizontalLines: projectDataStore.horizontalLines,
-    annotationBoxes: projectDataStore.annotationBoxes,
     cementPlugs: projectDataStore.cementPlugs,
     annulusFluids: projectDataStore.annulusFluids,
     markers: projectDataStore.markers,

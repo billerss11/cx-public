@@ -28,7 +28,6 @@ const defaultPhysicsState = Object.freeze({
     drillStringData: Object.freeze([]),
     equipmentData: Object.freeze([]),
     horizontalLines: Object.freeze([]),
-    annotationBoxes: Object.freeze([]),
     cementPlugs: Object.freeze([]),
     annulusFluids: Object.freeze([]),
     markers: Object.freeze([]),
@@ -1488,6 +1487,15 @@ function buildAnnulusSlots(activeSteel, outerEnvironmentRadius) {
 
         const annulusInner = pipe.outerRadius;
         let annulusOuter = nextPipe ? nextPipe.innerRadius : outerEnvironmentRadius;
+        const manualHoleSize = parseOptionalNumber(pipe.manualHoleSize);
+        const manualHoleOuter = Number.isFinite(manualHoleSize) && manualHoleSize > pipe.od + EPSILON
+            ? manualHoleSize / 2
+            : null;
+        if (Number.isFinite(manualHoleOuter) && manualHoleOuter > annulusInner + EPSILON) {
+            annulusOuter = nextPipe
+                ? Math.min(annulusOuter, manualHoleOuter)
+                : Math.max(annulusOuter, manualHoleOuter);
+        }
         const fallbackOuter = parseOptionalNumber(pipe.fallbackAnnulusOuterRadius);
         if ((!nextPipe || annulusOuter <= annulusInner + EPSILON) &&
             Number.isFinite(fallbackOuter) &&
@@ -1705,11 +1713,11 @@ function generateGeometrySkeleton(depthContext) {
         if (!annulusSlot) continue;
 
         const manualHoleSize = parseOptionalNumber(pipe.manualHoleSize);
-        const touchesFormation = annulusSlot.isFormation && (
-            maxActiveOpenHoleRadius > annulusSlot.innerRadius + EPSILON ||
-            (Number.isFinite(manualHoleSize) && manualHoleSize > pipe.od + EPSILON)
-        );
-        const interactionSourcePipe = touchesFormation && outermostOpenHole
+        const hasManualHoleBoundary = Number.isFinite(manualHoleSize) && manualHoleSize > pipe.od + EPSILON;
+        const hasExplicitFormationBoundary = annulusSlot.isFormation &&
+            maxActiveOpenHoleRadius > annulusSlot.innerRadius + EPSILON;
+        const isOpenHoleBoundary = hasManualHoleBoundary || hasExplicitFormationBoundary;
+        const interactionSourcePipe = hasExplicitFormationBoundary && outermostOpenHole
             ? outermostOpenHole
             : pipe;
 
@@ -1727,7 +1735,7 @@ function generateGeometrySkeleton(depthContext) {
             slotIndex: annulusSlot.index,
             innerPipe: annulusSlot.innerPipe,
             isFormation: annulusSlot.isFormation,
-            isOpenHoleBoundary: touchesFormation
+            isOpenHoleBoundary
         });
     }
 

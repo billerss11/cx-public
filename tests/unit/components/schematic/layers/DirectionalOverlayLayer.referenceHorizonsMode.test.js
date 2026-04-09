@@ -44,7 +44,6 @@ function createWrapper(directionalDepthMode = 'tvd', options = {}) {
       horizontalLines,
       annulusFluids: [],
       cementPlugs: [],
-      annotationBoxes: [],
       config: {
         smartLabelsEnabled: options.smartLabelsEnabled ?? true,
         directionalLabelScale: 1
@@ -362,7 +361,6 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
         horizontalLines: [],
         annulusFluids: [],
         cementPlugs: [],
-        annotationBoxes: [],
         config: {
           smartLabelsEnabled: true,
           directionalLabelScale: 1
@@ -422,7 +420,6 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
         horizontalLines: [],
         annulusFluids: [],
         cementPlugs: [],
-        annotationBoxes: [],
         config: {
           smartLabelsEnabled: true,
           directionalLabelScale: 1
@@ -484,7 +481,6 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
         horizontalLines: [],
         annulusFluids: [],
         cementPlugs: [],
-        annotationBoxes: [],
         config: {
           smartLabelsEnabled: true,
           directionalLabelScale: 1
@@ -544,7 +540,6 @@ describe('DirectionalOverlayLayer reference horizon mode', () => {
         horizontalLines: [],
         annulusFluids: [],
         cementPlugs: [],
-        annotationBoxes: [],
         config: {
           smartLabelsEnabled: true,
           directionalLabelScale: 1

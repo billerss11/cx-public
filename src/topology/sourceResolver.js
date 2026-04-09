@@ -63,7 +63,6 @@ export function normalizeStateSnapshot(stateSnapshot = {}) {
         drillStringData: toSafeArray(source.drillStringData),
         equipmentData: toSafeArray(source.equipmentData),
         horizontalLines: toSafeArray(source.horizontalLines),
-        annotationBoxes: toSafeArray(source.annotationBoxes),
         userAnnotations: toSafeArray(source.userAnnotations),
         cementPlugs: toSafeArray(source.cementPlugs),
         annulusFluids: toSafeArray(source.annulusFluids),

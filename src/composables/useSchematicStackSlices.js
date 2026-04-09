@@ -6,7 +6,6 @@ const DATA_KEYS = Object.freeze([
     'tubingData',
     'drillStringData',
     'horizontalLines',
-    'annotationBoxes',
     'cementPlugs',
     'annulusFluids',
     'markers',

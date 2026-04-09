@@ -10,7 +10,6 @@ function createWellData() {
     drillStringData: [],
     equipmentData: [],
     horizontalLines: [],
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import SelectButton from 'primevue/selectbutton';
 import { useViewConfigStore } from '@/stores/viewConfigStore.js';
-import { LAYOUT_CONSTANTS } from '@/constants/index.js';
 import { requestSchematicRender } from '@/composables/useSchematicRenderer.js';
 
 const viewConfigStore = useViewConfigStore();
@@ -109,7 +108,6 @@ const canvasWidthModel = createBufferedNumberModel(() => config.canvasWidthMulti
 const xExaggerationModel = createBufferedNumberModel(() => config.xExaggeration);
 const verticalLabelScaleModel = createBufferedNumberModel(() => config.verticalLabelScale);
 const directionalLabelScaleModel = createBufferedNumberModel(() => config.directionalLabelScale);
-const intervalCalloutStandoffModel = createBufferedNumberModel(() => config.intervalCalloutStandoffPx);
 const directionalViewportFitModeOptions = Object.freeze([
   {
     value: 'contain',
@@ -253,20 +251,6 @@ function handleVerticalLabelScaleSliderCommit(eventOrValue) {
   }, { immediate: true });
 }
 
-function handleIntervalCalloutStandoffSliderChange(eventOrValue) {
-  commitBufferedCustomSlider('intervalCalloutStandoffPx', intervalCalloutStandoffModel, eventOrValue, (nextValue) => {
-    viewConfigStore.setIntervalCalloutStandoffPx(nextValue);
-    requestSchematicRender();
-  });
-}
-
-function handleIntervalCalloutStandoffSliderCommit(eventOrValue) {
-  commitBufferedCustomSlider('intervalCalloutStandoffPx', intervalCalloutStandoffModel, eventOrValue, (nextValue) => {
-    viewConfigStore.setIntervalCalloutStandoffPx(nextValue);
-    requestSchematicRender({ immediate: true });
-  }, { immediate: true });
-}
-
 function handleCrossoverEpsilonSliderChange(eventOrValue) {
   commitBufferedConfigSlider('crossoverEpsilon', crossoverEpsilonModel, eventOrValue);
 }
@@ -362,23 +346,6 @@ onBeforeUnmount(() => {
             class="w-100"
             @change="handleCanvasWidthSliderChange"
             @slideend="handleCanvasWidthSliderCommit"
-          />
-        </div>
-
-        <div class="mb-2">
-          <label class="form-label">
-            <span data-i18n="ui.interval_callout_standoff">Interval Callout Standoff:</span><span>{{ intervalCalloutStandoffModel }}</span><span data-i18n="unit.px">px</span>
-          </label>
-          <small class="input-hint" data-i18n="ui.interval_callout_standoff_hint">Global distance between interval callout boxes and the wellbore anchor in both vertical and directional views.</small>
-          <Slider
-            v-model="intervalCalloutStandoffModel"
-            data-vue-owned="true"
-            :min="LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_MIN_PX"
-            :max="LAYOUT_CONSTANTS.INTERVAL_CALLOUT_GLOBAL_STANDOFF_MAX_PX"
-            :step="1"
-            class="w-100"
-            @change="handleIntervalCalloutStandoffSliderChange"
-            @slideend="handleIntervalCalloutStandoffSliderCommit"
           />
         </div>
 

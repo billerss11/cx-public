@@ -14,7 +14,7 @@ function createDomainState() {
 }
 
 describe('equipmentSchema', () => {
-  it('builds attach-aware equipment schema with canonical defaults', () => {
+  it('builds attach-aware equipment schema with canonical defaults while hiding drag-position columns', () => {
     const schema = buildEquipmentTableSchema(createDomainState(), {
       t: (key) => key,
       tf: (_key, fallback) => fallback,
@@ -24,14 +24,19 @@ describe('equipmentSchema', () => {
     const columns = schema.columns();
     expect(columns.some((column) => column?.data === 'attachToDisplay')).toBe(true);
     expect(columns.some((column) => column?.data === 'type')).toBe(true);
-    expect(columns.some((column) => column?.data === 'labelXPos')).toBe(true);
-    expect(columns.some((column) => column?.data === 'manualLabelDepth')).toBe(true);
+    expect(columns.some((column) => column?.data === 'labelXPos')).toBe(false);
+    expect(columns.some((column) => column?.data === 'manualLabelDepth')).toBe(false);
     expect(columns.some((column) => column?.data === 'labelFontSize')).toBe(true);
 
     const defaultRow = schema.buildDefaultRow();
     expect(defaultRow.type).toBeTruthy();
     expect(defaultRow.attachToHostType).toBe('tubing');
     expect(defaultRow.attachToId).toBe('tbg-1');
+    expect(defaultRow).toHaveProperty('labelXPos', null);
+    expect(defaultRow).toHaveProperty('manualLabelDepth', null);
+    expect(defaultRow).toHaveProperty('directionalLabelXPos', null);
+    expect(defaultRow).toHaveProperty('directionalManualLabelDepth', null);
+    expect(defaultRow).toHaveProperty('directionalManualLabelTvd', null);
   });
 
   it('resolves attach display tokens in prepared rows', () => {

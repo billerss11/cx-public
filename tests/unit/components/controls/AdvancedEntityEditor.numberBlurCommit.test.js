@@ -118,7 +118,6 @@ function mountEditor() {
               drillStringData: [],
               equipmentData: [],
               horizontalLines: [],
-              annotationBoxes: [],
               userAnnotations: [],
               cementPlugs: [],
               annulusFluids: [],

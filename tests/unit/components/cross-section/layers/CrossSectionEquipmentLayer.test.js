@@ -53,4 +53,3 @@ describe('CrossSectionEquipmentLayer', () => {
     expect(wrapper.find('circle.cross-section-equipment-layer__shape').exists()).toBe(true);
   });
 });
-

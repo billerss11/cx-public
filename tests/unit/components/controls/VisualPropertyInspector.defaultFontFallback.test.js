@@ -96,7 +96,6 @@ function mountInspectorWithCasingRow(rowOverrides = {}) {
               drillStringData: [],
               equipmentData: [],
               horizontalLines: [],
-              annotationBoxes: [],
               userAnnotations: [],
               cementPlugs: [],
               annulusFluids: [],

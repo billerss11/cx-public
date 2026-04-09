@@ -107,7 +107,6 @@ function mountInspector() {
               drillStringData: [],
               equipmentData: [],
               horizontalLines: [],
-              annotationBoxes: [],
               userAnnotations: [],
               cementPlugs: [],
               annulusFluids: [],

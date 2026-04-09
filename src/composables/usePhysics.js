@@ -34,9 +34,6 @@ const defaultPhysicsState = {
     get horizontalLines() {
         return defaultProjectDataStore.horizontalLines ?? [];
     },
-    get annotationBoxes() {
-        return defaultProjectDataStore.annotationBoxes ?? [];
-    },
     get cementPlugs() {
         return defaultProjectDataStore.cementPlugs ?? [];
     },

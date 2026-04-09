@@ -257,46 +257,6 @@
             "rowId": "line-008783fa-3808-4b2a-ab44-00eaef184e89"
           }
         ],
-        "annotationBoxes": [
-          {
-            "topDepth": 12000,
-            "bottomDepth": 12300,
-            "label": "Reservoir interval",
-            "color": "lightsteelblue",
-            "fontColor": "steelblue",
-            "fontSize": 12,
-            "labelXPos": -0.5,
-            "bandWidth": 1,
-            "opacity": 0.35,
-            "detail": "Main sandstone, porosity 32%",
-            "showDetails": true,
-            "show": true,
-            "__i18n": {
-              "label": "sample.box.reservoir",
-              "detail": "sample.box.detail"
-            },
-            "rowId": "annotation-box-5666ae9b-0dcf-4b7b-8d54-781bb0954c99"
-          },
-          {
-            "topDepth": 6000,
-            "bottomDepth": 8000,
-            "label": "Pay zone",
-            "color": "lightgray",
-            "fontColor": "seagreen",
-            "fontSize": 12,
-            "labelXPos": -0.5,
-            "bandWidth": 1,
-            "opacity": 0.4,
-            "detail": "Monitor pressure drawdown",
-            "showDetails": true,
-            "show": true,
-            "__i18n": {
-              "label": "sample.box.producer",
-              "detail": "sample.box.detail2"
-            },
-            "rowId": "annotation-box-a9e7e8f7-d415-48f8-b382-2a53c5f87768"
-          }
-        ],
         "userAnnotations": [],
         "cementPlugs": [
           {
@@ -417,7 +377,6 @@
         "viewMode": "vertical",
         "annotationToolMode": "select",
         "xExaggeration": 1,
-        "intervalCalloutStandoffPx": 64,
         "directionalCasingArrowMode": "normal-locked",
         "verticalSectionMode": "auto",
         "verticalSectionAzimuth": 0,

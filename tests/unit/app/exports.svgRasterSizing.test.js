@@ -5,7 +5,6 @@ const projectDataStoreMock = {
   tubingData: [],
   drillStringData: [],
   horizontalLines: [],
-  annotationBoxes: [],
   userAnnotations: [],
   cementPlugs: [],
   annulusFluids: [],

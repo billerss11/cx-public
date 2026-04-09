@@ -47,7 +47,6 @@ describe('useHierarchyTreeModel', () => {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],

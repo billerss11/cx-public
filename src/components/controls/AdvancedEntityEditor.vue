@@ -95,7 +95,6 @@ const editorFieldContext = computed(() => ({
   drillStringRows: projectDataStore.drillStringData,
   equipmentRows: projectDataStore.equipmentData,
   horizontalLines: projectDataStore.horizontalLines,
-  annotationBoxes: projectDataStore.annotationBoxes,
   cementPlugs: projectDataStore.cementPlugs,
   annulusFluids: projectDataStore.annulusFluids,
   markers: projectDataStore.markers,

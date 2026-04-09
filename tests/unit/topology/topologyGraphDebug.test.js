@@ -377,4 +377,3 @@ describe('topologyGraphDebug', () => {
     expect(selectedBarrierGraph.edges['edge:radial:a1-b1'].tone).toBe('var(--color-analysis-graph-line-barrier)');
   });
 });
-

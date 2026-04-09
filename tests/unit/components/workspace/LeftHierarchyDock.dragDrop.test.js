@@ -14,7 +14,6 @@ function createWellData(lineRows = []) {
     drillStringData: [],
     equipmentData: [],
     horizontalLines: lineRows,
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

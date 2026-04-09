@@ -49,7 +49,6 @@ const annulusMeaningRows = computed(() => (
     drillStringData: projectDataStore.drillStringData,
     equipmentData: projectDataStore.equipmentData,
     horizontalLines: projectDataStore.horizontalLines,
-    annotationBoxes: projectDataStore.annotationBoxes,
     userAnnotations: projectDataStore.userAnnotations,
     cementPlugs: projectDataStore.cementPlugs,
     annulusFluids: projectDataStore.annulusFluids,

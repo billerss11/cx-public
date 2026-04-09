@@ -183,11 +183,6 @@ export const HIERARCHY_DOMAIN_META = Object.freeze({
     resolveRows: (wellData) => Array.isArray(wellData?.surfaceOutlets) ? wellData.surfaceOutlets : [],
     resolveItemLabel: (row, index) => resolveRowLabel(row, `Outlet #${index + 1}`)
   }),
-  boxes: createHierarchyDomainMetaEntry('boxes', {
-    commonFields: Object.freeze(['label', 'topDepth', 'bottomDepth', 'show']),
-    resolveRows: (wellData) => Array.isArray(wellData?.annotationBoxes) ? wellData.annotationBoxes : [],
-    resolveItemLabel: (row, index) => resolveRowLabel(row, resolveIntervalFallback(row, index))
-  }),
   trajectory: createHierarchyDomainMetaEntry('trajectory', {
     isVisible: ({ viewMode }) => isDirectionalView(viewMode),
     commonFields: Object.freeze(['md', 'inc', 'azi', 'comment']),
@@ -323,9 +318,6 @@ export function createHierarchyDefaultRow(domainKey) {
       kind: 'production',
       show: true
     };
-  }
-  if (domainKey === 'boxes') {
-    return { topDepth: 1000, bottomDepth: 2000, label: 'New Box', detail: '', showDetails: false, show: true };
   }
   if (domainKey === 'trajectory') {
     return { md: null, inc: null, azi: null, comment: '' };

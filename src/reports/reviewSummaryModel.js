@@ -121,7 +121,6 @@ function buildEnteredDataCountsSection(snapshot = {}) {
   return buildMetricSection('entered-data-counts', t('ui.review_summary.section.entered_data_counts'), [
     { key: 'markers', label: t('ui.review_summary.metric.markers'), value: normalizeArray(stateSnapshot?.markers).length },
     { key: 'horizons', label: t('ui.review_summary.metric.horizons'), value: normalizeArray(stateSnapshot?.horizontalLines).length },
-    { key: 'intervalCallouts', label: t('ui.review_summary.metric.interval_callouts'), value: normalizeArray(stateSnapshot?.annotationBoxes).length },
     { key: 'cementPlugs', label: t('ui.review_summary.metric.cement_plugs'), value: normalizeArray(stateSnapshot?.cementPlugs).length },
     { key: 'annulusFluids', label: t('ui.review_summary.metric.annulus_fluids'), value: normalizeArray(stateSnapshot?.annulusFluids).length },
     { key: 'trajectoryPoints', label: t('ui.review_summary.metric.trajectory_points'), value: normalizeArray(stateSnapshot?.trajectory).length }

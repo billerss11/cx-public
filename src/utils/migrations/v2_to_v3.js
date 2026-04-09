@@ -12,9 +12,7 @@ const PROJECT_DATA_KEYS = Object.freeze([
     'tubingData',
     'drillStringData',
     'equipmentData',
-    'horizontalLines',
-    'annotationBoxes',
-    'userAnnotations',
+    'horizontalLines',    'userAnnotations',
     'cementPlugs',
     'annulusFluids',
     'markers',
@@ -39,9 +37,7 @@ function normalizeDataRows(data = {}) {
         tubingData: withDefaultPipeComponentType(toArray(source.tubingData)),
         drillStringData: withDefaultPipeComponentType(toArray(source.drillStringData)),
         equipmentData: toArray(source.equipmentData),
-        horizontalLines: toArray(source.horizontalLines),
-        annotationBoxes: toArray(source.annotationBoxes),
-        userAnnotations: toArray(source.userAnnotations),
+        horizontalLines: toArray(source.horizontalLines),        userAnnotations: toArray(source.userAnnotations),
         cementPlugs: toArray(source.cementPlugs),
         annulusFluids: toArray(source.annulusFluids),
         markers: toArray(source.markers),
@@ -234,3 +230,4 @@ export function createEmptyWellData() {
 export function getProjectDataKeys() {
     return [...PROJECT_DATA_KEYS];
 }
+

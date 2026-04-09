@@ -173,7 +173,6 @@ const tubingData = computed(() => projectDataRefs.tubingData?.value ?? []);
 const drillStringData = computed(() => projectDataRefs.drillStringData?.value ?? []);
 const equipmentData = computed(() => projectDataRefs.equipmentData?.value ?? []);
 const horizontalLines = computed(() => projectDataRefs.horizontalLines?.value ?? []);
-const annotationBoxes = computed(() => projectDataRefs.annotationBoxes?.value ?? []);
 const userAnnotations = computed(() => projectDataRefs.userAnnotations?.value ?? []);
 const cementPlugs = computed(() => projectDataRefs.cementPlugs?.value ?? []);
 const annulusFluids = computed(() => projectDataRefs.annulusFluids?.value ?? []);
@@ -194,7 +193,6 @@ const declarativeProjectData = computed(() => ({
   drillStringData: drillStringData.value,
   equipmentData: equipmentData.value,
   horizontalLines: horizontalLines.value,
-  annotationBoxes: annotationBoxes.value,
   userAnnotations: userAnnotations.value,
   cementPlugs: cementPlugs.value,
   annulusFluids: annulusFluids.value,
@@ -230,7 +228,6 @@ const topologyStateSnapshot = computed(() => ({
   drillStringData: drillStringData.value,
   equipmentData: equipmentData.value,
   horizontalLines: horizontalLines.value,
-  annotationBoxes: annotationBoxes.value,
   userAnnotations: userAnnotations.value,
   cementPlugs: cementPlugs.value,
   annulusFluids: annulusFluids.value,

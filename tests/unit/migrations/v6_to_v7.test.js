@@ -32,7 +32,6 @@ describe('v6_to_v7 surface communication migration', () => {
             drillStringData: [],
             equipmentData: [],
             horizontalLines: [],
-            annotationBoxes: [],
             userAnnotations: [],
             cementPlugs: [],
             annulusFluids: [],

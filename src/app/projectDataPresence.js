@@ -4,7 +4,6 @@ export const PROJECT_DATA_CONTENT_ARRAY_KEYS = Object.freeze([
     'drillStringData',
     'equipmentData',
     'horizontalLines',
-    'annotationBoxes',
     'userAnnotations',
     'cementPlugs',
     'annulusFluids',

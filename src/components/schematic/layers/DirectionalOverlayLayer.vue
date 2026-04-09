@@ -10,7 +10,6 @@ import {
 } from '@/utils/general.js';
 import {
   resolveAnchoredHorizontalCallout,
-  resolveConfiguredIntervalCalloutStandoffPx,
   resolveVerticalLabelCollisions
 } from '@/utils/labelLayout.js';
 import {
@@ -51,12 +50,6 @@ import {
   normalizeXExaggeration
 } from './directionalProjection.js';
 import { resolveDirectionalReferenceHorizonDepthMeta } from '@/utils/referenceHorizons.js';
-import { resolveDirectionalIntervalDepthMeta } from '@/utils/referenceIntervals.js';
-
-const ANNOTATION_SIDE_PADDING_PX = 12;
-const ANNOTATION_WELL_GAP_PX = 8;
-const ANNOTATION_MIN_WIDTH_PX = 60;
-const ANNOTATION_MIN_HEIGHT_PX = 18;
 const CASING_ARROW_MODE_NORMAL_LOCKED = 'normal-locked';
 const CASING_ARROW_MODE_DIRECT_TO_ANCHOR = 'direct-to-anchor';
 
@@ -82,10 +75,6 @@ const props = defineProps({
     default: () => []
   },
   cementPlugs: {
-    type: Array,
-    default: () => []
-  },
-  annotationBoxes: {
     type: Array,
     default: () => []
   },
@@ -164,9 +153,6 @@ const emit = defineEmits([
   'select-fluid',
   'hover-fluid',
   'leave-fluid',
-  'select-box',
-  'hover-box',
-  'leave-box',
   'start-label-drag'
 ]);
 
@@ -290,24 +276,6 @@ function handleFluidSelect(item) {
   emit('select-fluid', fluidIndex);
 }
 
-function handleBoxHover(item, event) {
-  const boxIndex = Number(item?.boxIndex);
-  if (!Number.isInteger(boxIndex)) return;
-  emit('hover-box', boxIndex, event);
-}
-
-function handleBoxLeave(item) {
-  const boxIndex = Number(item?.boxIndex);
-  if (!Number.isInteger(boxIndex)) return;
-  emit('leave-box', boxIndex);
-}
-
-function handleBoxSelect(item) {
-  const boxIndex = Number(item?.boxIndex);
-  if (!Number.isInteger(boxIndex)) return;
-  emit('select-box', boxIndex);
-}
-
 function resolveLineSegmentInPlot(center, direction, bounds) {
   const cx = Number(center?.[0]);
   const cy = Number(center?.[1]);
@@ -402,6 +370,18 @@ function resolveLineSegmentYAtX(segment, x, fallback = null) {
   return y1 + (t * (y2 - y1));
 }
 
+function resolveFrameInclinationAngleDeg(frame) {
+  if (!frame?.normal) return 0;
+  const nx = Number(frame.normal.x);
+  const ny = Number(frame.normal.y);
+  if (!Number.isFinite(nx) || !Number.isFinite(ny)) return 0;
+  if (Math.abs(nx) < DIRECTIONAL_EPSILON && Math.abs(ny) < DIRECTIONAL_EPSILON) return 0;
+  let angle = Math.atan2(ny, nx) * (180 / Math.PI);
+  if (angle > 90) angle -= 180;
+  if (angle <= -90) angle += 180;
+  return angle;
+}
+
 function resolveDirectionalHorizonLabelAngleDegrees(line) {
   if (line?.activeMode !== 'md') return null;
   const x1 = Number(line?.x1);
@@ -433,11 +413,100 @@ function resolvePreviewTransform(id) {
   return `translate(${offsetX} ${offsetY})`;
 }
 
-function resolveDepthShiftPreviewTransform(id) {
-  if (String(id ?? '').trim() !== String(props.dragPreviewId ?? '').trim()) return null;
+function applyAnnotationBandDepthShiftPreview(items) {
+  const activePreviewId = String(props.dragPreviewId ?? '').trim();
+  if (!activePreviewId) return items;
+
   const offsetY = Number(props.dragPreviewOffset?.y);
-  if (!Number.isFinite(offsetY)) return null;
-  return `translate(0 ${offsetY})`;
+  if (!Number.isFinite(offsetY) || Math.abs(offsetY) < 0.5) return items;
+
+  const trajectory = Array.isArray(props.trajectoryPoints) ? props.trajectoryPoints : [];
+  const totalMd = Math.max(0, Number(props.totalMd));
+  const ctx = frameContext.value;
+
+  return items.map((annotation) => {
+    if (String(annotation?.id ?? '') !== activePreviewId) return annotation;
+
+    if (annotation.activeMode !== 'md') {
+      return {
+        ...annotation,
+        boxY: annotation.boxY + offsetY,
+        textLines: (annotation.textLines ?? []).map((line) => ({
+          ...line,
+          y: line.y + offsetY
+        }))
+      };
+    }
+
+    const bandCenterY = annotation.boxY + (annotation.boxHeight / 2);
+    const startTvd = Number(props.yScale.invert(bandCenterY));
+    const endTvd = Number(props.yScale.invert(bandCenterY + offsetY));
+    if (!Number.isFinite(startTvd) || !Number.isFinite(endTvd)) {
+      return {
+        ...annotation,
+        boxY: annotation.boxY + offsetY,
+        textLines: (annotation.textLines ?? []).map((line) => ({
+          ...line,
+          y: line.y + offsetY
+        }))
+      };
+    }
+
+    const startMD = resolveMDFromTVD(startTvd, trajectory);
+    const endMD = resolveMDFromTVD(endTvd, trajectory);
+    if (!Number.isFinite(startMD) || !Number.isFinite(endMD)) {
+      return {
+        ...annotation,
+        boxY: annotation.boxY + offsetY,
+        textLines: (annotation.textLines ?? []).map((line) => ({
+          ...line,
+          y: line.y + offsetY
+        }))
+      };
+    }
+
+    const deltaMD = endMD - startMD;
+    const newTopMD = clamp(annotation.topDepth + deltaMD, 0, totalMd);
+    const newBottomMD = clamp(annotation.bottomDepth + deltaMD, 0, totalMd);
+
+    const newTopFrame = resolveScreenFrameAtMD(newTopMD, ctx);
+    const newBottomFrame = resolveScreenFrameAtMD(newBottomMD, ctx);
+    const origTopFrame = resolveScreenFrameAtMD(clamp(annotation.topDepth, 0, totalMd), ctx);
+    const origBottomFrame = resolveScreenFrameAtMD(clamp(annotation.bottomDepth, 0, totalMd), ctx);
+
+    if (!newTopFrame || !newBottomFrame || !origTopFrame || !origBottomFrame) {
+      return {
+        ...annotation,
+        boxY: annotation.boxY + offsetY,
+        textLines: (annotation.textLines ?? []).map((line) => ({
+          ...line,
+          y: line.y + offsetY
+        }))
+      };
+    }
+
+    const origMidX = (origTopFrame.center[0] + origBottomFrame.center[0]) / 2;
+    const origMidY = (origTopFrame.center[1] + origBottomFrame.center[1]) / 2;
+    const newMidX = (newTopFrame.center[0] + newBottomFrame.center[0]) / 2;
+    const newMidY = (newTopFrame.center[1] + newBottomFrame.center[1]) / 2;
+    const correctedDeltaX = newMidX - origMidX;
+    const correctedDeltaY = newMidY - origMidY;
+
+    const newMidMD = (newTopMD + newBottomMD) / 2;
+    const newMidFrame = resolveScreenFrameAtMD(newMidMD, ctx);
+
+    return {
+      ...annotation,
+      boxX: annotation.boxX + correctedDeltaX,
+      boxY: annotation.boxY + correctedDeltaY,
+      inclinationAngleDeg: newMidFrame ? resolveFrameInclinationAngleDeg(newMidFrame) : annotation.inclinationAngleDeg,
+      textLines: (annotation.textLines ?? []).map((line) => ({
+        ...line,
+        x: line.x + correctedDeltaX,
+        y: line.y + correctedDeltaY
+      }))
+    };
+  });
 }
 
 function applyDirectionalArrowPreview(items = []) {
@@ -573,6 +642,8 @@ const plotBounds = computed(() => {
   };
 });
 
+const annotationClipId = `annotation-clip-${Math.random().toString(36).slice(2, 9)}`;
+
 const directionalLabelBounds = computed(() => {
   const bounds = plotBounds.value;
   if (!bounds) return null;
@@ -620,7 +691,6 @@ const directionalSmartLabelAutoScale = computed(() => {
   const equipmentRows = Array.isArray(context.equipment) ? context.equipment : [];
   const fluidRows = Array.isArray(props.annulusFluids) ? props.annulusFluids : [];
   const lineRows = Array.isArray(props.horizontalLines) ? props.horizontalLines : [];
-  const boxRows = Array.isArray(props.annotationBoxes) ? props.annotationBoxes : [];
   const depthCount = casingRows.reduce((count, row) => {
     const sourceRow = sourceCasingRowsByIndex.value.get(Number(row?.__index)) || {};
     const showTop = sourceRow.showTop !== false;
@@ -634,7 +704,6 @@ const directionalSmartLabelAutoScale = computed(() => {
     (equipmentRows.length * 24) +
     (fluidRows.length * 28) +
     (lineRows.length * 24) +
-    (boxRows.length * 28) +
     (depthCount * 20);
 
   return resolveSmartLabelAutoScale({
@@ -2132,297 +2201,7 @@ function resolveFluidLayerAtDepth(depth, fluidIndex, physicsContext) {
   )) || null;
 }
 
-function resolveAnnotationLines(box) {
-  const lines = [];
-  const label = String(box?.label ?? '').trim();
-  if (label) lines.push(label);
-
-  if (box?.showDetails && box?.detail) {
-    const detailLines = String(box.detail)
-      .split(/\\n|\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    lines.push(...detailLines);
-  }
-
-  if (lines.length === 0) lines.push('Annotation');
-  return lines;
-}
-
-function resolveAnnotationBandWidthScale(value, fallback = 1.0) {
-  const parsed = toFiniteNumber(value, null);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return Math.min(1.0, Math.max(0.1, fallback));
-  }
-  return Math.min(1.0, Math.max(0.1, parsed));
-}
-
-function resolveIntervalCalloutAnnotationStandoffPx(bounds) {
-  const configured = resolveConfiguredIntervalCalloutStandoffPx(props.config?.intervalCalloutStandoffPx);
-  if (Number.isFinite(configured)) return configured;
-
-  const width = Math.max(1, Number(bounds?.width) || 0);
-  const adaptiveFallback = Math.max(ANNOTATION_WELL_GAP_PX, width * 0.02);
-  return adaptiveFallback;
-}
-
-function resolveAnnotationBandVerticalBounds(topDepth, bottomDepth, totalMd, context, bounds) {
-  const topMD = clamp(topDepth, 0, totalMd);
-  const bottomMD = clamp(bottomDepth, 0, totalMd);
-  if (!Number.isFinite(topMD) || !Number.isFinite(bottomMD) || bottomMD <= topMD + DIRECTIONAL_EPSILON) {
-    return null;
-  }
-
-  const topFrame = resolveScreenFrameAtMD(topMD, context);
-  const bottomFrame = resolveScreenFrameAtMD(bottomMD, context);
-  if (!topFrame || !bottomFrame) return null;
-
-  let topY = Math.min(topFrame.center[1], bottomFrame.center[1]);
-  let bottomY = Math.max(topFrame.center[1], bottomFrame.center[1]);
-  if (!Number.isFinite(topY) || !Number.isFinite(bottomY)) return null;
-
-  if ((bottomY - topY) < ANNOTATION_MIN_HEIGHT_PX) {
-    const middleY = (topY + bottomY) / 2;
-    topY = middleY - (ANNOTATION_MIN_HEIGHT_PX / 2);
-    bottomY = middleY + (ANNOTATION_MIN_HEIGHT_PX / 2);
-  }
-
-  const minY = bounds.top + ANNOTATION_SIDE_PADDING_PX;
-  const maxY = bounds.bottom - ANNOTATION_SIDE_PADDING_PX;
-  topY = clamp(topY, minY, maxY - 1);
-  bottomY = clamp(bottomY, topY + 1, maxY);
-
-  return {
-    topMD,
-    bottomMD,
-    topY,
-    bottomY,
-    midMD: (topMD + bottomMD) / 2
-  };
-}
-
-const annotationBandOverlays = computed(() => {
-  const bounds = plotBounds.value;
-  const totalMd = Math.max(0, Number(props.totalMd));
-  const boxes = Array.isArray(props.annotationBoxes) ? props.annotationBoxes : [];
-  if (!bounds || totalMd <= DIRECTIONAL_EPSILON || boxes.length === 0) return [];
-  const boxStandoffPx = resolveIntervalCalloutAnnotationStandoffPx(bounds);
-
-  const wallOffset = Math.max(
-    resolveDirectionalMaxVisualRadiusPx(props.visualSizing, Number(props.maxProjectedRadius)) + 4,
-    2,
-    2
-  );
-
-  return boxes.map((box, boxIndex) => {
-    if (box?.show === false) return null;
-    const intervalDepthMeta = resolveDirectionalIntervalDepthMeta(box, props.trajectoryPoints);
-    const activeMode = intervalDepthMeta.mode;
-    const topDepth = toFiniteNumber(intervalDepthMeta.topMd, null);
-    const bottomDepth = toFiniteNumber(intervalDepthMeta.bottomMd, null);
-    if (!Number.isFinite(topDepth) || !Number.isFinite(bottomDepth) || bottomDepth <= topDepth) return null;
-
-    const verticalBounds = resolveAnnotationBandVerticalBounds(
-      topDepth,
-      bottomDepth,
-      totalMd,
-      frameContext.value,
-      bounds
-    );
-    if (!verticalBounds) return null;
-
-    const manualXRatio = resolveDirectionalLabelXRatio(box?.directionalLabelXPos ?? box?.labelXPos);
-    const manualLabelDepth = toFiniteNumber(box?.directionalManualLabelDepth, null);
-    const manualLabelTvd = toFiniteNumber(box?.directionalManualLabelTvd, null);
-    const defaultSideSign = Number.isFinite(manualXRatio) && manualXRatio >= 0 ? 1 : -1;
-    const midpointFrame = resolveScreenFrameAtMD(verticalBounds.midMD, frameContext.value);
-    if (!midpointFrame?.center) return null;
-    const centerlineX = Number(midpointFrame.center[0]);
-    if (!Number.isFinite(centerlineX)) return null;
-
-    function resolveSideBandMetrics(sideSign) {
-      const wallPoint = project.value(verticalBounds.midMD, sideSign * wallOffset);
-      if (!isFinitePoint(wallPoint)) return null;
-
-      const clampedWallX = clamp(
-        wallPoint[0],
-        bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
-        bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
-      );
-      const bandStartXRaw = sideSign > 0
-        ? clampedWallX + boxStandoffPx
-        : clampedWallX - boxStandoffPx;
-      const bandStartX = clamp(
-        bandStartXRaw,
-        bounds.left + ANNOTATION_SIDE_PADDING_PX + ANNOTATION_MIN_WIDTH_PX,
-        bounds.right - ANNOTATION_SIDE_PADDING_PX - ANNOTATION_MIN_WIDTH_PX
-      );
-      const availableBandWidth = sideSign > 0
-        ? (bounds.right - ANNOTATION_SIDE_PADDING_PX - bandStartX)
-        : (bandStartX - (bounds.left + ANNOTATION_SIDE_PADDING_PX));
-      if (!Number.isFinite(availableBandWidth) || availableBandWidth <= ANNOTATION_MIN_WIDTH_PX) return null;
-
-      const bandWidthScale = resolveAnnotationBandWidthScale(box?.bandWidth, 1.0);
-      const bandWidth = clamp(
-        availableBandWidth * bandWidthScale,
-        ANNOTATION_MIN_WIDTH_PX,
-        availableBandWidth
-      );
-      const autoBandXRaw = sideSign > 0 ? bandStartX : bandStartX - bandWidth;
-      const autoBandX = clamp(
-        autoBandXRaw,
-        bounds.left + ANNOTATION_SIDE_PADDING_PX,
-        bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth
-      );
-
-      return {
-        sideSign,
-        availableBandWidth,
-        bandWidth,
-        minBandX: bounds.left + ANNOTATION_SIDE_PADDING_PX,
-        maxBandX: bounds.right - ANNOTATION_SIDE_PADDING_PX - bandWidth,
-        baseBandX: autoBandX,
-        autoBandCenterX: autoBandX + (bandWidth / 2)
-      };
-    }
-
-    const leftSideMetrics = resolveSideBandMetrics(-1);
-    const rightSideMetrics = resolveSideBandMetrics(1);
-    function resolveAutoSideMetrics() {
-      if (!leftSideMetrics && !rightSideMetrics) return null;
-      if (!leftSideMetrics) return rightSideMetrics;
-      if (!rightSideMetrics) return leftSideMetrics;
-      return rightSideMetrics.availableBandWidth >= leftSideMetrics.availableBandWidth
-        ? rightSideMetrics
-        : leftSideMetrics;
-    }
-
-    const defaultSideMetrics = defaultSideSign > 0
-      ? (rightSideMetrics ?? leftSideMetrics)
-      : (leftSideMetrics ?? rightSideMetrics);
-    if (!defaultSideMetrics) return null;
-
-    const legacyManualCenterX = Number.isFinite(manualXRatio)
-      ? clamp(
-        resolveDirectionalLabelXPixelFromRatio(manualXRatio, bounds),
-        defaultSideMetrics.minBandX + (defaultSideMetrics.bandWidth / 2),
-        defaultSideMetrics.maxBandX + (defaultSideMetrics.bandWidth / 2)
-      )
-      : defaultSideMetrics.autoBandCenterX;
-    const legacyCenterlineOffsetPx = legacyManualCenterX - centerlineX;
-    const storedCenterlineOffsetPx = toFiniteNumber(box?.directionalCenterlineOffsetPx, null);
-    const autoSideMetrics = resolveAutoSideMetrics();
-    const centerlineOffsetPx = Number.isFinite(storedCenterlineOffsetPx)
-      ? storedCenterlineOffsetPx
-      : (Number.isFinite(manualXRatio)
-        ? legacyCenterlineOffsetPx
-        : (autoSideMetrics ? autoSideMetrics.autoBandCenterX - centerlineX : legacyCenterlineOffsetPx));
-    const sideSign = centerlineOffsetPx >= 0 ? 1 : -1;
-    const sideMetrics = sideSign > 0
-      ? (rightSideMetrics ?? leftSideMetrics)
-      : (leftSideMetrics ?? rightSideMetrics);
-    if (!sideMetrics) return null;
-
-    const lines = resolveAnnotationLines(box);
-    const fontSizeRaw = toFiniteNumber(box?.fontSize, null);
-    const baseFontSize = clamp(Number.isFinite(fontSizeRaw) ? fontSizeRaw : 12, 9, 20);
-    const fontSize = resolveDirectionalOverlayFontSize(baseFontSize, 12);
-    const lineHeight = fontSize + 5;
-    const minContentBandHeight = Math.max(
-      ANNOTATION_MIN_HEIGHT_PX,
-      (lines.length * lineHeight) + 6
-    );
-    const bandHeight = clamp(
-      Math.max(minContentBandHeight, verticalBounds.bottomY - verticalBounds.topY),
-      minContentBandHeight,
-      bounds.bottom - bounds.top
-    );
-    const bandCenterY = (verticalBounds.topY + verticalBounds.bottomY) / 2;
-    const bandY = clamp(
-      bandCenterY - (bandHeight / 2),
-      bounds.top,
-      bounds.bottom - bandHeight
-    );
-    const fillColor = box?.color || 'var(--color-default-box)';
-    const textColor = box?.fontColor || fillColor;
-    const boxOpacity = clamp(toFiniteNumber(box?.opacity, 0.35), 0.05, 1.0);
-
-    const desiredBandCenterX = centerlineX + centerlineOffsetPx;
-    const minBandCenterX = sideMetrics.minBandX + (sideMetrics.bandWidth / 2);
-    const maxBandCenterX = sideMetrics.maxBandX + (sideMetrics.bandWidth / 2);
-    const baseBandCenterX = sideMetrics.baseBandX + (sideMetrics.bandWidth / 2);
-    const resolvedBandCenterX = sideSign > 0
-      ? clamp(desiredBandCenterX, baseBandCenterX, maxBandCenterX)
-      : clamp(desiredBandCenterX, minBandCenterX, baseBandCenterX);
-
-    const hasManualVerticalPosition = activeMode === 'md'
-      ? Number.isFinite(manualLabelDepth)
-      : Number.isFinite(manualLabelTvd);
-    let resolvedBandX = resolvedBandCenterX - (sideMetrics.bandWidth / 2);
-    let resolvedBandY = bandY;
-    const textAnchor = 'middle';
-    const textX = resolvedBandX + (sideMetrics.bandWidth / 2);
-    if (hasManualVerticalPosition) {
-      const manualFrame = activeMode === 'md' && Number.isFinite(manualLabelDepth)
-        ? resolveScreenFrameAtMD(clamp(manualLabelDepth, 0, totalMd), frameContext.value)
-        : null;
-      resolvedBandY = clamp(
-        resolveDirectionalManualLabelScreenY(
-          activeMode === 'tvd' ? manualLabelTvd : null,
-          props.yScale,
-          bounds,
-          manualFrame?.center?.[1] ?? bandCenterY
-        ) - (bandHeight / 2),
-        bounds.top,
-        bounds.bottom - bandHeight
-      );
-    }
-    const textBlockHeight = (lines.length - 1) * lineHeight;
-    const startY = clamp(
-      (resolvedBandY + (bandHeight / 2)) - (textBlockHeight / 2),
-      resolvedBandY + fontSize + 2,
-      resolvedBandY + bandHeight - textBlockHeight - 3
-    );
-    const textLines = lines.map((lineText, idx) => ({
-      id: `annotation-${boxIndex}-text-${idx}`,
-      text: lineText,
-      x: textX,
-      y: clamp(startY + (idx * lineHeight), resolvedBandY + fontSize + 2, resolvedBandY + bandHeight - 3),
-      fontWeight: idx === 0 ? 'bold' : 'normal'
-    }));
-
-    return {
-      id: `annotation-${boxIndex}`,
-      boxIndex,
-      rowId: String(box?.rowId ?? '').trim() || null,
-      topDepth,
-      bottomDepth,
-      manualLabelDepth: activeMode === 'md' ? manualLabelDepth : manualLabelTvd,
-      activeMode,
-      resolveDepthMode: activeMode === 'md' ? 'projected-y' : 'tvd-y',
-      depthRangeMin: activeMode === 'md' ? 0 : Math.min(props.minYData, props.maxYData),
-      depthRangeMax: activeMode === 'md' ? props.totalMd : Math.max(props.minYData, props.maxYData),
-      topField: activeMode === 'md' ? 'directionalTopDepthMd' : 'directionalTopDepthTvd',
-      bottomField: activeMode === 'md' ? 'directionalBottomDepthMd' : 'directionalBottomDepthTvd',
-      xField: 'directionalCenterlineOffsetPx',
-      yField: activeMode === 'md' ? 'directionalManualLabelDepth' : 'directionalManualLabelTvd',
-      tvdField: activeMode === 'md' ? 'directionalManualLabelTvd' : null,
-      boxX: resolvedBandX,
-      boxY: resolvedBandY,
-      boxWidth: sideMetrics.bandWidth,
-      boxHeight: bandHeight,
-      fillColor,
-      textColor,
-      boxOpacity,
-      textAnchor,
-      centerlineOffsetPx,
-      side: sideSign > 0 ? 'right' : 'left',
-      fontSize,
-      textLines,
-      isPositionPinned: hasManualVerticalPosition || Number.isFinite(centerlineOffsetPx)
-    };
-  }).filter(Boolean);
-});
+const annotationBandOverlays = computed(() => []);
 
 const horizontalLineOverlays = computed(() => {
   const bounds = plotBounds.value;
@@ -2956,6 +2735,7 @@ const directionalOverlayState = computed(() => {
   if (smartLabelsEnabled.value !== true || !bounds) {
     return {
       ...base,
+      annotationBandOverlays: applyAnnotationBandDepthShiftPreview(base.annotationBandOverlays),
       fluidLabelOverlays: applyDirectionalArrowPreview(base.fluidLabelOverlays),
       depthAnnotations: applyDirectionalArrowPreview(base.depthAnnotations),
       casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
@@ -2968,6 +2748,7 @@ const directionalOverlayState = computed(() => {
   if (!candidateMap) {
     return {
       ...base,
+      annotationBandOverlays: applyAnnotationBandDepthShiftPreview(base.annotationBandOverlays),
       fluidLabelOverlays: applyDirectionalArrowPreview(base.fluidLabelOverlays),
       depthAnnotations: applyDirectionalArrowPreview(base.depthAnnotations),
       casingLabelOverlays: applyDirectionalArrowPreview(base.casingLabelOverlays),
@@ -2990,6 +2771,7 @@ const directionalOverlayState = computed(() => {
 
   return {
     ...laidOut,
+    annotationBandOverlays: applyAnnotationBandDepthShiftPreview(laidOut.annotationBandOverlays),
     fluidLabelOverlays: applyDirectionalArrowPreview(laidOut.fluidLabelOverlays),
     depthAnnotations: applyDirectionalArrowPreview(laidOut.depthAnnotations),
     casingLabelOverlays: applyDirectionalArrowPreview(laidOut.casingLabelOverlays),
@@ -3002,52 +2784,16 @@ const directionalOverlayState = computed(() => {
 
 <template>
   <g class="directional-overlay-layer">
-    <g
-      v-for="annotation in directionalOverlayState.annotationBandOverlays"
-      :key="annotation.id"
-      class="directional-overlay-layer__annotation-group"
-      :data-box-index="annotation.boxIndex"
-      :transform="resolveDepthShiftPreviewTransform(annotation.id)"
-      @mousemove="handleBoxHover(annotation, $event)"
-      @mouseleave="handleBoxLeave(annotation)"
-      @click="handleBoxSelect(annotation)"
-      @pointerdown.stop.prevent="emitDragStartPayload('box', annotation, $event, {
-        dragKind: 'depth-shift',
-        resolveDepthMode: annotation.resolveDepthMode,
-        entries: [
-          { field: annotation.topField, value: annotation.topDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax },
-          { field: annotation.bottomField, value: annotation.bottomDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax },
-          ...(Number.isFinite(annotation.manualLabelDepth)
-            ? [{ field: annotation.yField, value: annotation.manualLabelDepth, min: annotation.depthRangeMin, max: annotation.depthRangeMax }]
-            : [])
-        ]
-      })"
-    >
-      <rect
-        class="directional-overlay-layer__annotation-fill"
-        :x="annotation.boxX"
-        :y="annotation.boxY"
-        :width="annotation.boxWidth"
-        :height="annotation.boxHeight"
-        :fill="annotation.fillColor"
-        :opacity="annotation.boxOpacity"
-        :stroke="annotation.textColor"
-      />
-      <text
-        v-for="line in annotation.textLines"
-        :key="line.id"
-        class="directional-overlay-layer__annotation-text"
-        :x="line.x"
-        :y="line.y"
-        :fill="annotation.textColor"
-        :text-anchor="annotation.textAnchor"
-        dominant-baseline="middle"
-        :style="{ fontSize: `${annotation.fontSize}px`, fontWeight: line.fontWeight }"
-      >
-        {{ line.text }}
-      </text>
-    </g>
-
+    <defs v-if="plotBounds">
+      <clipPath :id="annotationClipId">
+        <rect
+          :x="plotBounds.left"
+          :y="plotBounds.top"
+          :width="plotBounds.width"
+          :height="plotBounds.height"
+        />
+      </clipPath>
+    </defs>
     <text
       v-for="plug in directionalOverlayState.plugLabelOverlays"
       :key="plug.id"
@@ -3444,19 +3190,9 @@ const directionalOverlayState = computed(() => {
 .directional-overlay-layer__line-group,
 .directional-overlay-layer__casing-group,
 .directional-overlay-layer__equipment-group,
-.directional-overlay-layer__fluid-group,
-.directional-overlay-layer__annotation-group {
+.directional-overlay-layer__fluid-group {
   pointer-events: auto;
   cursor: pointer;
-}
-
-.directional-overlay-layer__annotation-fill {
-  stroke-width: 1.3;
-  stroke-dasharray: 4,4;
-}
-
-.directional-overlay-layer__annotation-text {
-  fill: var(--color-ink-strong);
 }
 
 .directional-overlay-layer__plug-label {

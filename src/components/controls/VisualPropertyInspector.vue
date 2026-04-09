@@ -18,8 +18,7 @@ const ELEMENT_LABEL_KEYS = Object.freeze({
   line: 'ui.visual_inspector.element.line',
   plug: 'ui.visual_inspector.element.plug',
   fluid: 'ui.visual_inspector.element.fluid',
-  marker: 'ui.visual_inspector.element.marker',
-  box: 'ui.visual_inspector.element.box'
+  marker: 'ui.visual_inspector.element.marker'
 });
 const ELEMENT_LABEL_FALLBACKS = Object.freeze({
   equipment: 'Equipment'

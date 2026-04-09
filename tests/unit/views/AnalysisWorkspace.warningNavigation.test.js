@@ -37,7 +37,6 @@ const mockState = vi.hoisted(() => ({
       }
     ],
     horizontalLines: [],
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

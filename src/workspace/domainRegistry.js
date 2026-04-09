@@ -255,21 +255,6 @@ const DOMAIN_REGISTRY = Object.freeze({
     canHighlight: false,
     table: null
   }),
-  boxes: createDomainEntry({
-    key: 'boxes',
-    storeKey: 'annotationBoxes',
-    canonicalEntityType: 'box',
-    entityAliases: ['box', 'boxes'],
-    interactionType: 'box',
-    canHighlight: true,
-    table: {
-      tabKey: 'boxes',
-      tableType: 'box',
-      labelKey: 'ui.tabs.boxes',
-      fallbackLabel: 'Boxes',
-      tabId: 'boxes-tab'
-    }
-  }),
   trajectory: createDomainEntry({
     key: 'trajectory',
     storeKey: 'trajectory',
@@ -303,7 +288,6 @@ export const DOMAIN_REGISTRY_ORDER = Object.freeze([
   'surfaceOutlets',
   'topologySources',
   'topologyBreakouts',
-  'boxes',
   'trajectory'
 ]);
 

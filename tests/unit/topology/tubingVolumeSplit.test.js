@@ -31,7 +31,6 @@ function buildBaseState() {
     drillStringData: [],
     equipmentData: [],
     horizontalLines: [],
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

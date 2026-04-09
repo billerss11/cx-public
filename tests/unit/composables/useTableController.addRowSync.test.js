@@ -90,4 +90,3 @@ describe('useTableController add row synchronization', () => {
     expect(hotInstance.loadData.mock.calls[0][0]).toHaveLength(1);
   });
 });
-

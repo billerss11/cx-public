@@ -101,7 +101,7 @@ describe('visualInspectorSchema equipment extension merge', () => {
     expect(casingFields.length).toBeGreaterThan(0);
   });
 
-  it('exposes draggable label position controls for supported label families', () => {
+  it('hides draggable label position controls from the visual inspector', () => {
     const casingFields = getVisualInspectorFields('casing', {
       rowData: {
         label: 'Surface',
@@ -111,7 +111,12 @@ describe('visualInspectorSchema equipment extension merge', () => {
         showBottom: true
       }
     }).map((fieldDefinition) => fieldDefinition.field);
-    expect(casingFields).toEqual(expect.arrayContaining([
+    [
+      'labelXPos',
+      'manualLabelDepth',
+      'directionalLabelXPos',
+      'directionalManualLabelDepth',
+      'directionalManualLabelTvd',
       'topLabelXPos',
       'topManualLabelDepth',
       'bottomLabelXPos',
@@ -120,7 +125,7 @@ describe('visualInspectorSchema equipment extension merge', () => {
       'directionalTopManualLabelDepth',
       'directionalBottomLabelXPos',
       'directionalBottomManualLabelDepth'
-    ]));
+    ].forEach((field) => expect(casingFields).not.toContain(field));
 
     const equipmentFields = getVisualInspectorFields('equipment', {
       rowData: {
@@ -130,13 +135,13 @@ describe('visualInspectorSchema equipment extension merge', () => {
         showLabel: true
       }
     }).map((fieldDefinition) => fieldDefinition.field);
-    expect(equipmentFields).toEqual(expect.arrayContaining([
+    [
       'labelXPos',
       'manualLabelDepth',
       'directionalLabelXPos',
       'directionalManualLabelDepth',
       'directionalManualLabelTvd'
-    ]));
+    ].forEach((field) => expect(equipmentFields).not.toContain(field));
 
     const lineFields = getVisualInspectorFields('line', {
       rowData: {
@@ -145,12 +150,12 @@ describe('visualInspectorSchema equipment extension merge', () => {
         show: true
       }
     }).map((fieldDefinition) => fieldDefinition.field);
-    expect(lineFields).toEqual(expect.arrayContaining([
+    [
       'labelXPos',
       'manualLabelDepth',
       'directionalCenterlineOffsetPx',
       'directionalManualLabelDepth'
-    ]));
+    ].forEach((field) => expect(lineFields).not.toContain(field));
 
     const plugFields = getVisualInspectorFields('plug', {
       rowData: {
@@ -162,13 +167,13 @@ describe('visualInspectorSchema equipment extension merge', () => {
         show: true
       }
     }).map((fieldDefinition) => fieldDefinition.field);
-    expect(plugFields).toEqual(expect.arrayContaining([
+    [
       'labelXPos',
       'manualLabelDepth',
       'directionalLabelXPos',
       'directionalManualLabelDepth',
       'directionalManualLabelTvd'
-    ]));
+    ].forEach((field) => expect(plugFields).not.toContain(field));
 
     const boxFields = getVisualInspectorFields('box', {
       rowData: {
@@ -179,12 +184,12 @@ describe('visualInspectorSchema equipment extension merge', () => {
         show: true
       }
     }).map((fieldDefinition) => fieldDefinition.field);
-    expect(boxFields).toEqual(expect.arrayContaining([
+    [
       'labelXPos',
       'manualLabelDepth',
       'directionalCenterlineOffsetPx',
       'directionalManualLabelDepth',
       'directionalManualLabelTvd'
-    ]));
+    ].forEach((field) => expect(boxFields).not.toContain(field));
   });
 });

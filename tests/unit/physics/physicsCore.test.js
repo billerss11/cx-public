@@ -46,7 +46,6 @@ describe('physicsCore', () => {
       drillStringData: [],
       equipmentData: [],
       horizontalLines: [],
-      annotationBoxes: [],
       cementPlugs: [],
       annulusFluids: [],
       markers: [],
@@ -76,6 +75,46 @@ describe('physicsCore', () => {
     expect(intervals[intervals.length - 1].bottom).toBe(1500);
   });
 
+  it('starts manual-hole open-hole boundary at the casing top even before parent shoe depth', () => {
+    const input = {
+      casingData: [
+        { label: 'Parent casing', od: 13.375, weight: 54.5, idOverride: 12, top: 0, bottom: 9000 },
+        { label: 'Child casing', od: 7, weight: 29, manualHoleSize: 10, top: 8000, bottom: 12000 }
+      ],
+      config: { operationPhase: 'production' }
+    };
+
+    const stackAboveParentShoe = getStackAtDepth(8500, input);
+    const openHoleBoundary = stackAboveParentShoe.find((layer) => (
+      layer?.isOpenHoleBoundary === true &&
+      layer?.source?.type === 'pipe' &&
+      layer?.source?.index === 1
+    ));
+
+    expect(openHoleBoundary).toBeDefined();
+    expect(openHoleBoundary?.innerRadius).toBe(3.5);
+    expect(openHoleBoundary?.outerRadius).toBe(5);
+  });
+
+  it('still creates a manual-hole open-hole boundary when casing weight is temporarily blank', () => {
+    const input = {
+      casingData: [
+        { label: 'Surface casing', od: 9.625, weight: null, manualHoleSize: 12.25, top: 0, bottom: 3000 }
+      ],
+      config: { operationPhase: 'production' }
+    };
+
+    const stack = getStackAtDepth(1500, input);
+    const openHoleBoundary = stack.find((layer) => (
+      layer?.isOpenHoleBoundary === true &&
+      layer?.source?.type === 'pipe' &&
+      layer?.source?.index === 0
+    ));
+
+    expect(openHoleBoundary).toBeDefined();
+    expect(openHoleBoundary?.outerRadius).toBe(6.125);
+  });
+
   it('does not infer packer host when explicit attach target is missing', () => {
     const equipment = [{ rowId: 'eq-1', type: 'Packer', depth: 1200, od: 4.5, show: true }];
     const tubing = [];
@@ -102,7 +141,6 @@ describe('physicsCore', () => {
       drillStringData: [],
       equipmentData: [],
       horizontalLines: [],
-      annotationBoxes: [],
       cementPlugs: [],
       annulusFluids: [
         {

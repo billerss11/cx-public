@@ -21,7 +21,6 @@ const projectStoreMock = {
       drillStringData: [],
       equipmentData: [],
       horizontalLines: [],
-      annotationBoxes: [],
       userAnnotations: [],
       cementPlugs: [],
       annulusFluids: [],
@@ -66,7 +65,6 @@ function createViewConfigStoreMock() {
     config: {
       viewMode: 'vertical',
       xExaggeration: 1,
-      intervalCalloutStandoffPx: 8,
       showDepthCursor: false,
       depthCursorDirectionalMode: 'md',
       magnifierZoomLevel: 2,
@@ -75,7 +73,6 @@ function createViewConfigStoreMock() {
     },
     setViewMode: vi.fn(),
     setXExaggeration: vi.fn(),
-    setIntervalCalloutStandoffPx: vi.fn(),
     setShowDepthCursor: vi.fn(),
     setDepthCursorDirectionalMode: vi.fn(),
     setMagnifierZoomLevel: vi.fn(),
@@ -101,7 +98,6 @@ describe('bootstrapApplication deferred sample loading', () => {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],
@@ -130,6 +126,15 @@ describe('bootstrapApplication deferred sample loading', () => {
     expect(loadSampleDataMock).not.toHaveBeenCalled();
   });
 
+  it('does not restore the removed interval callout standoff setting during bootstrap', async () => {
+    const { bootstrapApplication } = await import('@/app/bootstrap.js');
+    const viewConfigStore = createViewConfigStoreMock();
+    const interactionStore = { setAutoGenerate: vi.fn() };
+
+    bootstrapApplication(viewConfigStore, interactionStore);
+
+  });
+
   it('loads sample data asynchronously when active well is empty', async () => {
     const { bootstrapApplication } = await import('@/app/bootstrap.js');
     const viewConfigStore = createViewConfigStoreMock();
@@ -149,7 +154,6 @@ describe('bootstrapApplication deferred sample loading', () => {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],
@@ -181,7 +185,6 @@ describe('bootstrapApplication deferred sample loading', () => {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],
@@ -213,7 +216,6 @@ describe('bootstrapApplication deferred sample loading', () => {
         drillStringData: [],
         equipmentData: [],
         horizontalLines: [],
-        annotationBoxes: [],
         userAnnotations: [],
         cementPlugs: [],
         annulusFluids: [],

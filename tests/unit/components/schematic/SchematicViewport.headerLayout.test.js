@@ -10,7 +10,6 @@ const mockState = vi.hoisted(() => ({
     drillStringData: [],
     equipmentData: [],
     horizontalLines: [],
-    annotationBoxes: [],
     userAnnotations: [],
     cementPlugs: [],
     annulusFluids: [],

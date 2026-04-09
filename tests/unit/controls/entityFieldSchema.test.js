@@ -269,7 +269,6 @@ describe('entityFieldSchema', () => {
         horizontalLines: [
           { rowId: 'line-1', depth: 2500, label: 'Landing', show: true }
         ],
-        annotationBoxes: [
           { rowId: 'box-1', topDepth: 400, bottomDepth: 900, label: 'Zone', detail: 'Notes', show: true }
         ],
         cementPlugs: [
@@ -325,7 +324,6 @@ describe('entityFieldSchema', () => {
         markers: [
           { rowId: 'marker-1', top: 3600, bottom: 3650 }
         ],
-        annotationBoxes: [
           { rowId: 'box-1', topDepth: 400, bottomDepth: 900, label: 'Zone', detail: 'Notes', show: true }
         ],
         cementPlugs: [
@@ -393,7 +391,6 @@ describe('entityFieldSchema', () => {
         show: true
       },
       context: {
-        annotationBoxes: [
           { rowId: 'box-1', topDepth: 400, bottomDepth: 900, label: 'Zone', detail: 'Notes', show: true }
         ],
         trajectory: [

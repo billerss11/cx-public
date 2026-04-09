@@ -36,4 +36,31 @@ describe('DirectionalAxisLayer layout', () => {
     expect(Number(yAxis.attributes('x1'))).toBeLessThan(140);
     expect(Number(datum.attributes('x1'))).toBeCloseTo(120, 6);
   });
+
+  it('anchors the x axis to the plot frame bottom instead of the geometry envelope bottom', () => {
+    const xScale = createLinearScale(0, 100, 200, 800);
+    const yScale = createLinearScale(0, 1000, 100, 900);
+    const wrapper = mount(DirectionalAxisLayer, {
+      props: {
+        xScale,
+        yScale,
+        minXData: 0,
+        maxXData: 100,
+        minYData: 0,
+        maxYData: 1000,
+        svgHeight: 1200,
+        plotBottomY: 980,
+        datumDepth: 0,
+        unitsLabel: 'ft',
+        leftVisualInsetPx: 80,
+        rightVisualInsetPx: 32
+      }
+    });
+
+    const yAxis = wrapper.get('.directional-axis-layer__y-axis');
+    const xAxis = wrapper.get('.directional-axis-layer__x-axis');
+
+    expect(Number(xAxis.attributes('y1'))).toBe(980);
+    expect(Number(yAxis.attributes('y2'))).toBe(980);
+  });
 });

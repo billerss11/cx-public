@@ -80,12 +80,12 @@ describe('useTableController label position fields', () => {
     controllerApi = null;
   });
 
-  it('exposes draggable label position columns for scoped engineering domains', async () => {
+  it('hides draggable label position columns from user-facing tables while keeping domain columns intact', async () => {
     const cases = [
       {
         type: 'casing',
         tabKey: 'casing',
-        expectedFields: [
+        hiddenFields: [
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
@@ -104,7 +104,7 @@ describe('useTableController label position fields', () => {
       {
         type: 'equipment',
         tabKey: 'equipment',
-        expectedFields: [
+        hiddenFields: [
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
@@ -115,11 +115,7 @@ describe('useTableController label position fields', () => {
       {
         type: 'line',
         tabKey: 'lines',
-        expectedFields: [
-          'depth',
-          'directionalDepthMode',
-          'directionalDepthMd',
-          'directionalDepthTvd',
+        hiddenFields: [
           'labelXPos',
           'manualLabelDepth',
           'directionalCenterlineOffsetPx',
@@ -129,7 +125,7 @@ describe('useTableController label position fields', () => {
       {
         type: 'plug',
         tabKey: 'plugs',
-        expectedFields: [
+        hiddenFields: [
           'labelXPos',
           'manualLabelDepth',
           'directionalLabelXPos',
@@ -140,7 +136,7 @@ describe('useTableController label position fields', () => {
       {
         type: 'fluid',
         tabKey: 'fluids',
-        expectedFields: [
+        hiddenFields: [
           'labelXPos',
           'manualDepth',
           'directionalLabelXPos',
@@ -151,7 +147,7 @@ describe('useTableController label position fields', () => {
       {
         type: 'box',
         tabKey: 'boxes',
-        expectedFields: [
+        hiddenFields: [
           'labelXPos',
           'manualLabelDepth',
           'directionalCenterlineOffsetPx',
@@ -164,7 +160,9 @@ describe('useTableController label position fields', () => {
     for (const testCase of cases) {
       await mountHarness(testCase.type, testCase.tabKey);
       const columnFields = resolveColumnFields();
-      expect(columnFields).toEqual(expect.arrayContaining(testCase.expectedFields));
+      testCase.hiddenFields.forEach((field) => {
+        expect(columnFields).not.toContain(field);
+      });
       wrapper.unmount();
       wrapper = null;
       controllerApi = null;

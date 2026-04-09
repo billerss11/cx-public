@@ -24,4 +24,3 @@ describe('SchematicCanvas scroll container style', () => {
     expect(styleBlock).not.toContain('height: v-bind(figHeightCss);');
   });
 });
-

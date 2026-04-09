@@ -142,4 +142,14 @@ describe('directionalSizing visual sizing', () => {
     expect(insetPadding.left).toBeGreaterThan(insetPadding.right);
     expect(insetRange.left - 120).toBeCloseTo(insetPadding.left, 6);
   });
+
+  it('reserves the full visual radius vertically so directional geometry stays off the x axis', () => {
+    const insetPadding = resolveDirectionalVisualInsetPadding({
+      visualMaxRadiusPx: 40,
+      formationThicknessPx: 18
+    });
+
+    expect(insetPadding.bottom).toBeGreaterThanOrEqual(46);
+    expect(insetPadding.top).toBeGreaterThanOrEqual(46);
+  });
 });

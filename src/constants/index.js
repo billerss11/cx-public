@@ -156,12 +156,9 @@ export const LINE_NUMERIC_FIELDS = new Set([
 export const BOX_NUMERIC_FIELDS = new Set([
     'topDepth',
     'bottomDepth',
+    'directionalTopDepthMd',
+    'directionalBottomDepthMd',
     'fontSize',
-    'labelXPos',
-    'manualLabelDepth',
-    'directionalCenterlineOffsetPx',
-    'directionalManualLabelDepth',
-    'directionalManualLabelTvd',
     'bandWidth',
     'opacity'
 ]);
@@ -239,7 +236,6 @@ export const SCALABILITY_CONSTANTS = Object.freeze({
         tubingData: 5,
         drillStringData: 5,
         horizontalLines: 2,
-        annotationBoxes: 2,
         userAnnotations: 1,
         cementPlugs: 3,
         annulusFluids: 3,
@@ -277,7 +273,6 @@ const SCALABILITY_STATE_KEYS = Object.freeze([
     'tubingData',
     'drillStringData',
     'horizontalLines',
-    'annotationBoxes',
     'userAnnotations',
     'cementPlugs',
     'annulusFluids',

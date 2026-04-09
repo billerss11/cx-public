@@ -301,7 +301,7 @@ export function getHoleOptionsForCasingOd(odNumber) {
   const casingMatch = matchCatalogCasingFromOd(odNumber);
   return {
     casingMatch,
-    options: casingMatch ? getHoleOptionsForCasingLabel(casingMatch.label) : []
+    options: casingMatch ? getAcceptedHoleOptionsForCasingLabel(casingMatch.label) : []
   };
 }
 
